@@ -387,6 +387,25 @@ describe("agent invocation", () => {
     expect(prompts[1]).toContain("invalid JSON");
   });
 
+  it("parses JSON wrapped in a fenced markdown block", async () => {
+    mocks.setSendAndWaitImpl(async () => "```json\n\"hello\"\n```");
+
+    const reviewer = agent({ name: "reviewer" });
+
+    await expect(reviewer("go")).resolves.toBe("hello");
+  });
+
+  it("parses a JSON object embedded in surrounding text", async () => {
+    mocks.setSendAndWaitImpl(async () => 'Here you go:\n{"text":"hello"}\nThanks!');
+
+    const reviewer = agent({
+      name: "reviewer",
+      output: s.object({ text: s.string }),
+    });
+
+    await expect(reviewer("go")).resolves.toEqual({ text: "hello" });
+  });
+
   it("retries validation failures with addon-customized repair prompts", async () => {
     const prompts: string[] = [];
     let calls = 0;

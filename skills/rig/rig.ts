@@ -1095,25 +1095,98 @@ function parseJson(text: string): { ok: true; value: unknown } | { ok: false; er
     return { ok: true, value: JSON.parse(text) };
   } catch {}
 
-  const fenced = text.match(/```(?:json)?\s*([\s\S]*?)```/i);
-  if (fenced) {
+  const fenced = extractFencedJson(text);
+  if (fenced !== undefined) {
     try {
-      return { ok: true, value: JSON.parse(fenced[1]) };
+      return { ok: true, value: JSON.parse(fenced) };
     } catch (error) {
       return { ok: false, error: error instanceof Error ? error.message : String(error) };
     }
   }
 
-  const objectMatch = text.match(/\{[\s\S]*\}/);
-  if (!objectMatch) {
+  const objectText = extractBalancedJsonObject(text);
+  if (objectText === undefined) {
     return { ok: false, error: "No JSON value found." };
   }
 
   try {
-    return { ok: true, value: JSON.parse(objectMatch[0]) };
+    return { ok: true, value: JSON.parse(objectText) };
   } catch (error) {
     return { ok: false, error: error instanceof Error ? error.message : String(error) };
   }
+}
+
+function extractFencedJson(text: string): string | undefined {
+  const fenceStart = text.indexOf("```");
+  if (fenceStart === -1) {
+    return undefined;
+  }
+
+  let cursor = fenceStart + 3;
+  while (cursor < text.length && /\s/.test(text[cursor]!)) {
+    cursor += 1;
+  }
+
+  const labelStart = cursor;
+  while (cursor < text.length && /[a-z0-9_-]/i.test(text[cursor]!)) {
+    cursor += 1;
+  }
+
+  const label = text.slice(labelStart, cursor);
+  if (label && label.toLowerCase() !== "json") {
+    return undefined;
+  }
+
+  while (cursor < text.length && /\s/.test(text[cursor]!)) {
+    cursor += 1;
+  }
+
+  const fenceEnd = text.indexOf("```", cursor);
+  if (fenceEnd === -1) {
+    return undefined;
+  }
+
+  return text.slice(cursor, fenceEnd);
+}
+
+function extractBalancedJsonObject(text: string): string | undefined {
+  const objectStart = text.indexOf("{");
+  if (objectStart === -1) {
+    return undefined;
+  }
+
+  let depth = 0;
+  let inString = false;
+  let escaping = false;
+  for (let index = objectStart; index < text.length; index += 1) {
+    const char = text[index]!;
+    if (inString) {
+      if (escaping) {
+        escaping = false;
+      } else if (char === "\\") {
+        escaping = true;
+      } else if (char === "\"") {
+        inString = false;
+      }
+      continue;
+    }
+
+    if (char === "\"") {
+      inString = true;
+      continue;
+    }
+
+    if (char === "{") {
+      depth += 1;
+    } else if (char === "}") {
+      depth -= 1;
+      if (depth === 0) {
+        return text.slice(objectStart, index + 1);
+      }
+    }
+  }
+
+  return undefined;
 }
 
 function validateSchema(value: unknown, schema: Schema, path: string, optional: boolean): ValidationResult {
