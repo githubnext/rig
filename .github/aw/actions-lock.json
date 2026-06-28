@@ -1,0 +1,11 @@
+{
+  "entries": {
+  },
+  "containers": {
+    "ghcr.io/github/gh-aw-firewall/cli-proxy:0.27.10": {
+      "image": "ghcr.io/github/gh-aw-firewall/cli-proxy:0.27.10",
+      "digest": "sha256:cd67fc7979edc4a5f0aa28474e64ca7287cb913bb09c69079eba03266a2f144b",
+      "pinned_image": "ghcr.io/github/gh-aw-firewall/cli-proxy:0.27.10@sha256:cd67fc7979edc4a5f0aa28474e64ca7287cb913bb09c69079eba03266a2f144b"
+    }
+  }
+}
