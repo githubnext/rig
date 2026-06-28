@@ -30,6 +30,7 @@ safe-outputs:
     labels: [automation, ai-agent]
     draft: true
     reviewers: [copilot]
+    max-patch-size: 1024
     allowed-files:
       - "skills/rig/rig.ts"
 ---
