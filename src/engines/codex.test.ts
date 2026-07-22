@@ -53,8 +53,11 @@ it("creates a Codex thread and preserves its conversation", async () => {
     workingDirectory: "/workspace",
     approvalPolicy: "never",
   });
-  expect(mocks.run).toHaveBeenNthCalledWith(1, "first", { signal });
-  expect(mocks.run).toHaveBeenNthCalledWith(2, "second", undefined);
+  const firstSignal = mocks.run.mock.calls[0]![1].signal as AbortSignal;
+  const secondSignal = mocks.run.mock.calls[1]![1].signal as AbortSignal;
+  expect(firstSignal).not.toBe(signal);
+  expect(firstSignal.aborted).toBe(false);
+  expect(secondSignal.aborted).toBe(false);
 });
 
 it("uses Codex defaults when optional configuration is absent", async () => {
@@ -79,4 +82,33 @@ it("rejects Rig tools because the Codex SDK does not support custom tools", () =
 
   expect(() => factory({ model: "gpt-5-codex", tools: [tool] }))
     .toThrow("codexEngine does not support Rig tools");
+});
+
+it("forwards caller cancellation to an active Codex turn", async () => {
+  mocks.run.mockImplementationOnce((_prompt, options) => new Promise((_resolve, reject) => {
+    options.signal.addEventListener("abort", () => reject(options.signal.reason), { once: true });
+  }));
+  const runtimeAgent = await codexEngine()({ model: "gpt-5-codex" });
+  const controller = new AbortController();
+  const result = runtimeAgent.ask("hello", { signal: controller.signal });
+
+  controller.abort(new Error("cancelled"));
+
+  await expect(result).rejects.toThrow("cancelled");
+});
+
+it("aborts and waits for active Codex turns when closed", async () => {
+  let turnSignal: AbortSignal | undefined;
+  mocks.run.mockImplementationOnce((_prompt, options) => new Promise((_resolve, reject) => {
+    turnSignal = options.signal;
+    options.signal.addEventListener("abort", () => reject(options.signal.reason), { once: true });
+  }));
+  const runtimeAgent = await codexEngine()({ model: "gpt-5-codex" });
+  const result = runtimeAgent.ask("hello");
+
+  await runtimeAgent.close();
+
+  await expect(result).rejects.toThrow("Agent closed");
+  expect(turnSignal?.aborted).toBe(true);
+  await expect(runtimeAgent.ask("after close")).rejects.toThrow("Agent closed");
 });

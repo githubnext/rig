@@ -26,13 +26,28 @@ export function codexEngine(options: CodexEngineOptions = {}): AgentFactory {
       ...threadOptions,
       model: agentOptions.model,
     });
+    const closeController = new AbortController();
+    const activeTurns = new Set<Promise<unknown>>();
 
     return {
       async ask(prompt, askOptions = {}) {
-        const turn = await thread.run(prompt, askOptions.signal ? { signal: askOptions.signal } : undefined);
-        return turn.finalResponse;
+        throwIfAborted(closeController.signal);
+        const signal = askOptions.signal
+          ? AbortSignal.any([askOptions.signal, closeController.signal])
+          : closeController.signal;
+        const activeTurn = thread.run(prompt, { signal });
+        activeTurns.add(activeTurn);
+        try {
+          const turn = await activeTurn;
+          return turn.finalResponse;
+        } finally {
+          activeTurns.delete(activeTurn);
+        }
       },
-      async close() {},
+      async close() {
+        closeController.abort(new DOMException("Agent closed", "AbortError"));
+        await Promise.allSettled(activeTurns);
+      },
     };
   };
 }
@@ -45,4 +60,10 @@ function stringSystemMessage(systemMessage: unknown): string | undefined {
     throw new TypeError("codexEngine requires systemMessage to be a string");
   }
   return systemMessage;
+}
+
+function throwIfAborted(signal: AbortSignal): void {
+  if (signal.aborted) {
+    throw signal.reason ?? new DOMException("Aborted", "AbortError");
+  }
 }
