@@ -230,7 +230,19 @@ configureAgent(async ({ model, systemMessage, tools }) => {
 });
 ```
 
-The default `copilotEngine()` factory adapts the Copilot SDK to this interface. Pi, Anthropic, Codex, and other SDK adapters implement the same interface; Rig does not branch on the selected SDK.
+Rig includes factories for Copilot, pi-agent, and Anthropic:
+
+```ts
+import { configureAgent } from "rig";
+import { anthropicEngine } from "rig/engines/anthropic";
+import { piEngine } from "rig/engines/pi";
+
+configureAgent(piEngine({ provider: "anthropic" }));
+// or, using ANTHROPIC_API_KEY:
+configureAgent(anthropicEngine());
+```
+
+`piEngine()` uses the maintained `@earendil-works/pi-agent-core` package and requires the provider for model lookup. `anthropicEngine()` uses `@anthropic-ai/sdk`. Both adapters preserve conversation state across repair turns and map Rig tools to their SDK tool runners.
 
 ## Copilot SDK adapter
 
