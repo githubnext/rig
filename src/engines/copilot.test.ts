@@ -23,6 +23,10 @@ import { copilotEngine } from "rig";
 
 beforeEach(() => {
   mocks.createSession.mockReset();
+  mocks.createSession.mockResolvedValue({
+    sendAndWait: vi.fn(),
+    disconnect: vi.fn(),
+  });
   mocks.forUri.mockClear();
   mocks.forUri.mockImplementation(() => ({ kind: "uri", url: "localhost:7777" }));
   mocks.forStdio.mockClear();
@@ -33,7 +37,7 @@ beforeEach(() => {
 });
 
 it("uses a URI (HTTP) connection by default", async () => {
-  copilotEngine().createSession({ model: "gpt-5", streaming: false } as any);
+  await copilotEngine()({ model: "gpt-5" });
 
   expect(mocks.forUri).toHaveBeenCalledWith("localhost:7777");
   expect(mocks.copilotClientCtor).toHaveBeenCalledWith({ connection: { kind: "uri", url: "localhost:7777" } });
@@ -44,7 +48,7 @@ it("uses COPILOT_SDK_URI when set", async () => {
   process.env["COPILOT_SDK_URI"] = "http://127.0.0.1:4141";
   mocks.forUri.mockImplementation(((url: string) => ({ kind: "uri", url })) as any);
 
-  copilotEngine().createSession({ model: "gpt-5", streaming: false } as any);
+  await copilotEngine()({ model: "gpt-5" });
 
   expect(mocks.forUri).toHaveBeenCalledWith("http://127.0.0.1:4141");
   expect(mocks.copilotClientCtor).toHaveBeenCalledWith({ connection: { kind: "uri", url: "http://127.0.0.1:4141" } });
@@ -53,7 +57,7 @@ it("uses COPILOT_SDK_URI when set", async () => {
 it("preserves explicit client options", async () => {
   const connection = { kind: "uri", url: "127.0.0.1:8765" } as const;
 
-  copilotEngine({ connection, workingDirectory: "/tmp/rig" });
+  await copilotEngine({ connection, workingDirectory: "/tmp/rig" })({ model: "gpt-5" });
 
   expect(mocks.forUri).not.toHaveBeenCalled();
   expect(mocks.copilotClientCtor).toHaveBeenCalledWith({
@@ -69,22 +73,22 @@ it("subscribes to all Copilot SDK events and logs JSONL to stderr", async () => 
   });
   mocks.createSession.mockResolvedValue({ on, sendAndWait: vi.fn() });
 
-  await copilotEngine().createSession({ model: "gpt-4.1", streaming: false } as any);
+  await copilotEngine()({ model: "gpt-4.1" });
 
   expect(mocks.copilotClientCtor).toHaveBeenCalledTimes(1);
   expect(mocks.createSession).toHaveBeenCalledTimes(1);
 });
 
-it("creates and subscribes only once per engine session", async () => {
-  const client = copilotEngine();
-  await client.createSession({ model: "gpt-4.1", streaming: false } as any);
-  await client.createSession({ model: "gpt-4.1", streaming: false } as any);
+it("creates one Copilot session per agent implementation", async () => {
+  const createAgent = copilotEngine();
+  await createAgent({ model: "gpt-4.1" });
+  await createAgent({ model: "gpt-4.1" });
 
   expect(mocks.createSession).toHaveBeenCalledTimes(2);
 });
 
 it("uses a stdio connection when server option is true", async () => {
-  copilotEngine({ server: true }).createSession({ model: "gpt-4.1", streaming: false } as any);
+  await copilotEngine({ server: true })({ model: "gpt-4.1" });
   expect(mocks.forStdio).toHaveBeenCalledOnce();
   expect(mocks.forUri).not.toHaveBeenCalled();
   expect(mocks.copilotClientCtor).toHaveBeenCalledWith({ connection: { kind: "stdio" } });

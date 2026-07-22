@@ -2,16 +2,9 @@ import { basename, dirname, isAbsolute, resolve } from "node:path";
 import { fileURLToPath, pathToFileURL } from "node:url";
 import { access, mkdir, mkdtemp, rm, writeFile } from "node:fs/promises";
 import { execFile } from "node:child_process";
-import { AsyncLocalStorage } from "node:async_hooks";
 import { promisify } from "node:util";
-import { CopilotClient, RuntimeConnection, approveAll, defineTool as sdkDefineTool } from "@github/copilot-sdk";
-import type {
-  CopilotClientOptions,
-  SystemMessageConfig,
-  Tool as CopilotTool,
-  ToolHandler,
-  ZodSchema,
-} from "@github/copilot-sdk";
+import { CopilotClient, RuntimeConnection, approveAll } from "@github/copilot-sdk";
+import type { CopilotClientOptions } from "@github/copilot-sdk";
 
 export type Json = null | boolean | number | string | Json[] | { [key: string]: Json };
 export type ValidationResult = { ok: true } | { ok: false; error: string };
@@ -204,16 +197,71 @@ export type CopilotEngineOptions = Omit<CopilotClientOptions, "connection"> & {
   server?: boolean;
 };
 
+export type AgentOptions = {
+  model: string;
+  systemMessage?: unknown;
+  tools?: Tool<any>[];
+};
+
+export type AgentAskOptions = {
+  signal?: AbortSignal;
+};
+
+export interface Agent {
+  ask(prompt: string, options?: AgentAskOptions): Promise<string>;
+  close(): Promise<void>;
+}
+
+export type AgentFactory = (options: AgentOptions) => Agent | Promise<Agent>;
+
 function resolveDefaultCopilotUri(): string {
   return process.env["COPILOT_SDK_URI"] ?? "localhost:7777";
 }
 
-export function copilotEngine(options: CopilotEngineOptions = {}): CopilotClient {
+export function copilotEngine(options: CopilotEngineOptions = {}): AgentFactory {
   const { server, connection, ...clientOptions } = options;
-  return new CopilotClient({
-    ...clientOptions,
-    connection: connection ?? (server ? RuntimeConnection.forStdio() : RuntimeConnection.forUri(resolveDefaultCopilotUri())),
-  });
+  return async (agentOptions) => {
+    const client = new CopilotClient({
+      ...clientOptions,
+      connection: connection ?? (server ? RuntimeConnection.forStdio() : RuntimeConnection.forUri(resolveDefaultCopilotUri())),
+    });
+    const session = await client.createSession({
+      model: agentOptions.model,
+      streaming: false,
+      onPermissionRequest: approveAll,
+      ...(agentOptions.systemMessage !== undefined && { systemMessage: agentOptions.systemMessage as any }),
+      ...(agentOptions.tools !== undefined && { tools: agentOptions.tools as any }),
+    });
+    session.on?.((event: unknown) => {
+      writeEvent(event);
+    });
+
+    return {
+      async ask(prompt, askOptions = {}) {
+        writeEvent(rigEvent("agent.ask", { prompt }));
+        const response = await session.sendAndWait(
+          askOptions.signal ? { prompt, signal: askOptions.signal } : { prompt },
+        );
+        return responseText(response);
+      },
+      async close() {
+        const errors: Error[] = [];
+        if (session.disconnect) {
+          try {
+            await session.disconnect();
+          } catch (error) {
+            errors.push(asError(error));
+          }
+        }
+        try {
+          await stopCopilotClient(client);
+        } catch (error) {
+          errors.push(asError(error));
+        }
+        throwCleanupErrors(errors, "Failed to close Copilot agent");
+      },
+    };
+  };
 }
 
 function jsonl(value: unknown): string {
@@ -241,10 +289,9 @@ function writeEvent(event: unknown): void {
   process.stderr.write(`${jsonl(event)}\n`);
 }
 
-export type CopilotSession = Awaited<ReturnType<CopilotClient["createSession"]>>;
 export type AgentAddonContext = {
   spec: NormalizedAgentSpec<any, any>;
-  session: CopilotSession;
+  agent: Agent;
   input: unknown;
   outputSchema: Schema;
   signal: AbortSignal | undefined;
@@ -261,8 +308,9 @@ export type AgentAddon = (
   context: AgentAddonContext,
   next: () => Promise<void>,
 ) => void | Promise<void>;
-export type Tool<TArgs = unknown> = CopilotTool<TArgs>;
-export type ToolParameters<TArgs = unknown> = Schema | ZodSchema<TArgs> | Record<string, unknown>;
+export type ToolHandler<TArgs = unknown> = (args: TArgs) => unknown | Promise<unknown>;
+export type ToolParameters<TArgs = unknown> = Schema | Record<string, unknown>;
+export type Tool<TArgs = unknown> = ToolConfig<TArgs> & { name: string };
 export type ToolConfig<TArgs = unknown> = {
   description?: string;
   parameters?: ToolParameters<TArgs>;
@@ -272,10 +320,11 @@ export type ToolConfig<TArgs = unknown> = {
 };
 
 export function defineTool<T = unknown>(name: string, config: ToolConfig<T>): Tool<T> {
-  return sdkDefineTool(name, {
+  return {
+    name,
     ...normalizeToolConfig(config),
     parameters: normalizeToolParameters(config.parameters),
-  });
+  };
 }
 
 export type AgentSpec<Input extends Schema = StringSchema, Output extends Schema = StringSchema> = {
@@ -287,7 +336,7 @@ export type AgentSpec<Input extends Schema = StringSchema, Output extends Schema
   maxTurns?: number;
   addons?: AgentAddon | AgentAddon[];
   agents?: Record<string, AgentFn<any, any>>;
-  systemMessage?: SystemMessageConfig;
+  systemMessage?: unknown;
   tools?: Tool<any>[];
 };
 /** Internal normalized variant with a guaranteed resolved name. */
@@ -547,15 +596,7 @@ export class AgentError extends Error {
   }
 }
 
-let currentCopilotOptions: CopilotEngineOptions | undefined;
-type CopilotRunContext = {
-  client: CopilotClient;
-};
-type CopilotSessionHandle = {
-  session: CopilotSession;
-  close(): Promise<void>;
-};
-const copilotRunStorage = new AsyncLocalStorage<CopilotRunContext>();
+let currentAgentFactory: AgentFactory = copilotEngine();
 
 /**
  * Mounts an engine and executes a rig program file.
@@ -565,7 +606,7 @@ export async function launchRigProgram(programPath: string, options: LaunchOptio
   const cwd = options.cwd ?? process.cwd();
   const resolvedPath = isAbsolute(programPath) ? programPath : resolve(cwd, programPath);
 
-  configureCopilot(resolveCopilotOptions(cwd, options));
+  configureAgent(copilotEngine(resolveCopilotOptions(cwd, options)));
   await import(pathToFileURL(resolvedPath).href);
 }
 
@@ -749,7 +790,7 @@ async function runRootAgentFromStdin(
     await typecheckProgram(resolvedPath, cwd);
   }
 
-  configureCopilot(resolveCopilotOptions(cwd, options));
+  configureAgent(copilotEngine(resolveCopilotOptions(cwd, options)));
   const mod = await import(pathToFileURL(resolvedPath).href);
   const rootAgent = asRootProgram(mod.default, "launcher-root");
   if (!rootAgent) {
@@ -781,7 +822,7 @@ async function runProgramCodeFromStdin(
     if (options.typecheck) {
       await typecheckProgram(tempProgramPath, cwd);
     }
-    configureCopilot(resolveCopilotOptions(cwd, options));
+    configureAgent(copilotEngine(resolveCopilotOptions(cwd, options)));
     const mod = await import(pathToFileURL(tempProgramPath).href);
     const rootAgent = asRootProgram(mod.default, "launcher-inline-root");
     if (!rootAgent) {
@@ -866,7 +907,11 @@ export function agent(spec: AgentSpec<any, any>): AgentFn<any, any> {
     const normalizedInput = normalizeInput(input, inputSchema);
     let prompt = renderPrompt(normalizedSpec, normalizedInput);
     let lastResponse = "";
-    const copilot = await createCopilotSession(runtime.model, runtime.systemMessage, runtime.tools);
+    const runtimeAgent = await currentAgentFactory({
+      model: runtime.model,
+      ...(runtime.systemMessage !== undefined && { systemMessage: runtime.systemMessage }),
+      ...(runtime.tools !== undefined && { tools: runtime.tools }),
+    });
     let failure: unknown;
 
     try {
@@ -874,7 +919,7 @@ export function agent(spec: AgentSpec<any, any>): AgentFn<any, any> {
         throwIfAborted(runtime.signal);
         const context: AgentAddonContext = {
           spec: normalizedSpec,
-          session: copilot.session,
+          agent: runtimeAgent,
           input: normalizedInput,
           outputSchema,
           signal: runtime.signal,
@@ -885,7 +930,10 @@ export function agent(spec: AgentSpec<any, any>): AgentFn<any, any> {
         };
 
         await runAgentAddons(runtime.addons, context, async () => {
-          lastResponse = await sendCopilotPrompt(copilot.session, context.prompt, context.signal);
+          lastResponse = await runtimeAgent.ask(
+            context.prompt,
+            context.signal ? { signal: context.signal } : undefined,
+          );
           context.response = lastResponse;
         });
 
@@ -915,7 +963,7 @@ export function agent(spec: AgentSpec<any, any>): AgentFn<any, any> {
       throw error;
     } finally {
       try {
-        await copilot.close();
+        await runtimeAgent.close();
       } catch (cleanupError) {
         if (failure === undefined) {
           throw cleanupError;
@@ -926,31 +974,7 @@ export function agent(spec: AgentSpec<any, any>): AgentFn<any, any> {
     throw new Error(`Agent ${normalizedSpec.name} failed after ${runtime.maxTurns} turns. Last response:\n${lastResponse}`);
   };
 
-  const fn = (async (input: unknown, options: CallOptions = {}) => {
-    const existingContext = copilotRunStorage.getStore();
-    if (existingContext) {
-      return invoke(input, options);
-    }
-
-    const client = copilotEngine(currentCopilotOptions);
-    return copilotRunStorage.run({ client }, async () => {
-      let failure: unknown;
-      try {
-        return await invoke(input, options);
-      } catch (error) {
-        failure = error;
-        throw error;
-      } finally {
-        try {
-          await stopCopilotClient(client);
-        } catch (cleanupError) {
-          if (failure === undefined) {
-            throw cleanupError;
-          }
-        }
-      }
-    });
-  }) as AgentFn<any, any>;
+  const fn = (async (input: unknown, options: CallOptions = {}) => invoke(input, options)) as AgentFn<any, any>;
 
   fn.agentName = normalizedSpec.name;
   fn.inputSchema = inputSchema;
@@ -969,7 +993,7 @@ export function agent(spec: AgentSpec<any, any>): AgentFn<any, any> {
   return fn;
 }
 
-export type AgentFactory = typeof agent;
+export type AgentDefinitionFactory = typeof agent;
 
 function validate(value: unknown, schema: Schema): ValidationResult {
   return validateSchema(value, schema, "$", false);
@@ -1361,8 +1385,8 @@ function withOptions<T extends Omit<Partial<PromptIntent>, "__rig" | "id" | "mod
   return options ? { ...value, options: stripSignal(options) } : value;
 }
 
-function configureCopilot(options: CopilotEngineOptions): void {
-  currentCopilotOptions = options;
+export function configureAgent(factory: AgentFactory): void {
+  currentAgentFactory = factory;
 }
 
 function asError(error: unknown): Error {
@@ -1393,50 +1417,7 @@ async function stopCopilotClient(client: CopilotClient): Promise<void> {
   throwCleanupErrors(errors, "Failed to stop Copilot client");
 }
 
-async function createCopilotSession(
-  model: string,
-  systemMessage?: SystemMessageConfig,
-  tools?: Tool<any>[],
-): Promise<CopilotSessionHandle> {
-  const runContext = copilotRunStorage.getStore();
-  const client = runContext?.client;
-  if (!client) {
-    throw new Error("No Copilot client found in execution context. Invoke agents through the exported agent function.");
-  }
-  const config = {
-    model,
-    streaming: false,
-    onPermissionRequest: approveAll,
-    ...(systemMessage !== undefined && { systemMessage }),
-    ...(tools !== undefined && { tools }),
-  };
-  const session = await client.createSession(config);
-  session.on?.((event: unknown) => {
-    writeEvent(event);
-  });
-
-  return {
-    session,
-    async close() {
-      const errors: Error[] = [];
-
-      if (session.disconnect) {
-        try {
-          await session.disconnect();
-        } catch (error) {
-          errors.push(asError(error));
-        }
-      }
-
-      throwCleanupErrors(errors, "Failed to close Copilot session");
-    },
-  };
-}
-
-async function sendCopilotPrompt(session: CopilotSession, prompt: string, signal?: AbortSignal): Promise<string> {
-  const request = signal ? { prompt, signal } : { prompt };
-  writeEvent(rigEvent("copilot-ask", { prompt }));
-  const response = await session.sendAndWait(request);
+function responseText(response: unknown): string {
   if (!response) {
     return "";
   }
@@ -1452,7 +1433,7 @@ function resolveCallRuntime(spec: NormalizedAgentSpec<any, any>, options: CallOp
   maxTurns: number;
   signal: AbortSignal | undefined;
   addons: AgentAddon[];
-  systemMessage: SystemMessageConfig | undefined;
+  systemMessage: unknown;
   tools: Tool<any>[] | undefined;
 } {
   return {

@@ -20,7 +20,6 @@ const mocks = vi.hoisted(() => {
   }));
   const forUri = vi.fn(() => ({ kind: "uri", url: "localhost:7777" }));
   const forStdio = vi.fn(() => ({ kind: "stdio" }));
-  const sdkDefineTool = vi.fn((name: string, config: Record<string, unknown>) => ({ name, ...config }));
   const copilotClientCtor = vi.fn();
   const CopilotClient = function (this: unknown, options: unknown) {
     copilotClientCtor(options);
@@ -39,7 +38,6 @@ const mocks = vi.hoisted(() => {
     stopClient,
     forUri,
     forStdio,
-    sdkDefineTool,
     copilotClientCtor,
     CopilotClient,
     setSendAndWaitImpl,
@@ -51,23 +49,22 @@ vi.mock("@github/copilot-sdk", () => ({
   approveAll: mocks.approveAll,
   CopilotClient: mocks.CopilotClient,
   RuntimeConnection: { forUri: mocks.forUri, forStdio: mocks.forStdio },
-  defineTool: mocks.sdkDefineTool,
 }));
 
-import { AgentError, PromptBuilder, agent, defineTool, p, s, toJsonSchema } from "rig";
-import { oncePerSession, repair, steering, timeout } from "rig/addons";
+import { AgentError, PromptBuilder, agent, configureAgent, copilotEngine, defineTool, p, s, toJsonSchema } from "rig";
+import { oncePerAgent, repair, steering, timeout } from "rig/addons";
 
 beforeEach(() => {
   mocks.createSession.mockClear();
   mocks.approveAll.mockClear();
   mocks.forUri.mockClear();
   mocks.forStdio.mockClear();
-  mocks.sdkDefineTool.mockClear();
   mocks.copilotClientCtor.mockClear();
   mocks.disconnectSession.mockClear();
   mocks.stopClient.mockClear();
   mocks.setOnImpl(undefined);
   mocks.setSendAndWaitImpl(async () => JSON.stringify("default"));
+  configureAgent(copilotEngine());
   vi.restoreAllMocks();
 });
 
@@ -178,6 +175,25 @@ describe("agent", () => {
 });
 
 describe("agent invocation", () => {
+  it("runs against a configured SDK-neutral agent implementation", async () => {
+    const ask = vi.fn(async () => JSON.stringify({ text: "custom" }));
+    const close = vi.fn(async () => {});
+    const factory = vi.fn(() => ({ ask, close }));
+    configureAgent(factory);
+    const greet = agent({
+      name: "greeter",
+      model: "custom-model",
+      input: s.object({ text: s.string }),
+      output: s.object({ text: s.string }),
+    });
+
+    await expect(greet({ text: "Hi" })).resolves.toEqual({ text: "custom" });
+    expect(factory).toHaveBeenCalledWith({ model: "custom-model" });
+    expect(ask).toHaveBeenCalledWith(expect.stringContaining("Hi"), undefined);
+    expect(close).toHaveBeenCalledOnce();
+    expect(mocks.copilotClientCtor).not.toHaveBeenCalled();
+  });
+
   it("calls the copilot sdk and returns validated data", async () => {
     mocks.setSendAndWaitImpl(async () => ({ text: "hello world" }));
     const greet = agent({
@@ -206,7 +222,7 @@ describe("agent invocation", () => {
     expect(mocks.stopClient).toHaveBeenCalledTimes(1);
   });
 
-  it("reuses one client for nested agent invocations while creating model-specific sessions", async () => {
+  it("creates one SDK agent implementation for each nested agent invocation", async () => {
     const child = agent({
       name: "child",
       model: "o3-mini",
@@ -229,14 +245,14 @@ describe("agent invocation", () => {
     });
 
     await expect(parent({ text: "parent" })).resolves.toEqual({ text: "parent-ok" });
-    expect(mocks.copilotClientCtor).toHaveBeenCalledTimes(1);
+    expect(mocks.copilotClientCtor).toHaveBeenCalledTimes(2);
     expect(mocks.createSession).toHaveBeenCalledTimes(2);
     expect(mocks.createSession.mock.calls).toEqual([
       [{ model: "gpt-4.1", streaming: false, onPermissionRequest: mocks.approveAll }],
       [{ model: "o3-mini", streaming: false, onPermissionRequest: mocks.approveAll }],
     ]);
     expect(mocks.disconnectSession).toHaveBeenCalledTimes(2);
-    expect(mocks.stopClient).toHaveBeenCalledTimes(1);
+    expect(mocks.stopClient).toHaveBeenCalledTimes(2);
   });
 
   it("logs raw Copilot SDK events and rig ask events as JSONL", async () => {
@@ -258,17 +274,17 @@ describe("agent invocation", () => {
     expect(logs).toHaveLength(2);
     expect(logs[0]).toEqual({ type: "session.idle", data: { done: true } });
     expect(logs[1]).toMatchObject({
-      type: "rig.copilot-ask",
+      type: "rig.agent.ask",
       data: { prompt: expect.stringContaining("Hi") },
     });
   });
 
-  it("exposes the Copilot session through an addon", async () => {
+  it("exposes the SDK-neutral agent through an addon", async () => {
     const addon = vi.fn(async (context, next) => {
       await next();
-      expect(context.session).toMatchObject({
-        sendAndWait: expect.any(Function),
-        disconnect: expect.any(Function),
+      expect(context.agent).toMatchObject({
+        ask: expect.any(Function),
+        close: expect.any(Function),
       });
     });
     mocks.setSendAndWaitImpl(async () => ({ text: "hello world" }));
@@ -487,13 +503,7 @@ describe("agent invocation", () => {
       handler,
     });
 
-    expect(mocks.sdkDefineTool).toHaveBeenCalledWith("lookup_issue", {
-      description: "Look up an issue by id.",
-      parameters: toJsonSchema(s.object({ issue: s.string })),
-      handler,
-      skipPermission: true,
-    });
-    expect(lookupIssue).toMatchObject({
+    expect(lookupIssue).toEqual({
       name: "lookup_issue",
       description: "Look up an issue by id.",
       parameters: toJsonSchema(s.object({ issue: s.string })),
@@ -503,12 +513,14 @@ describe("agent invocation", () => {
   });
 
   it("preserves explicit tool permission overrides", () => {
-    defineTool("lookup_issue", {
+    const lookupIssue = defineTool("lookup_issue", {
       skipPermission: false,
     });
 
-    expect(mocks.sdkDefineTool).toHaveBeenCalledWith("lookup_issue", {
+    expect(lookupIssue).toEqual({
+      name: "lookup_issue",
       skipPermission: false,
+      parameters: undefined,
     });
   });
 
@@ -720,7 +732,7 @@ describe("agent invocation", () => {
     );
   });
 
-  it("registers with the Copilot session once per call", async () => {
+  it("registers with the runtime agent once per call", async () => {
     let turns = 0;
     const register = vi.fn();
     mocks.setSendAndWaitImpl(async () => {
@@ -732,8 +744,8 @@ describe("agent invocation", () => {
       name: "review",
       maxTurns: 2,
       addons: [
-        oncePerSession(async (session, context) => {
-          register(session, context.turn);
+        oncePerAgent(async (runtimeAgent, context) => {
+          register(runtimeAgent, context.turn);
         }),
         repair,
       ],
@@ -743,8 +755,8 @@ describe("agent invocation", () => {
     expect(register).toHaveBeenCalledTimes(1);
     expect(register).toHaveBeenCalledWith(
       expect.objectContaining({
-        sendAndWait: expect.any(Function),
-        disconnect: expect.any(Function),
+        ask: expect.any(Function),
+        close: expect.any(Function),
       }),
       1,
     );

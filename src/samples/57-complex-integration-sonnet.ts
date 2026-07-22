@@ -1,5 +1,5 @@
 import { agent, defineTool, p, s } from "rig";
-import { oncePerSession, steering, timeout } from "rig/addons";
+import { oncePerAgent, steering, timeout } from "rig/addons";
 
 const summarizeText = defineTool<{ text: string }>("summarize_text", {
   description: "Create a concise summary from text.",
@@ -50,7 +50,7 @@ const complexIntegration = agent({
   tools: [summarizeText],
   agents: { planner },
   addons: [
-    oncePerSession(async () => {}),
+    oncePerAgent(async () => {}),
     timeout({ timeout: 45_000 }),
     steering(),
   ],

@@ -149,7 +149,7 @@ s.record(s.string)
 
 ## Tools
 
-Register custom tools with `defineTool` using the same shape as `@github/copilot-sdk`. Use `s.*` schemas for `parameters`. Rig defaults tools to `skipPermission: true`.
+Register custom tools with `defineTool` using an SDK-neutral tool shape. Use `s.*` schemas for `parameters`. Rig defaults tools to `skipPermission: true`.
 
 ```ts
 import { agent, defineTool, s } from "rig";
@@ -279,9 +279,9 @@ const summarize = agent({
 ```
 
 Use addons to steer retry prompts when needed (for example `steering()` from `rig/addons`).
-Use `oncePerSession()` from `rig/addons` when you need to register with the Copilot session once per call instead of checking `context.turn === 1`.
+Use `oncePerAgent()` from `rig/addons` when you need to register with the runtime agent once per call instead of checking `context.turn === 1`.
 
-The addon `context` object contains: `prompt`, `response`, `turn`, `maxTurns`, `signal`, `output`, `nextPrompt`, `error`, `completed`, and `session` (direct Copilot SDK session access).
+The addon `context` object contains: `prompt`, `response`, `turn`, `maxTurns`, `signal`, `output`, `nextPrompt`, `error`, `completed`, and `agent`.
 
 ## Running programs
 
@@ -332,9 +332,11 @@ For program-file mode stdin coercion:
 - if root input schema is an object containing `text`, stdin is passed as `{ text: "<stdin>" }`
 - otherwise stdin must be valid JSON for the declared input schema
 
-## Copilot SDK runtime
+## Agent implementations
 
-`rig` is specialized for Copilot SDK sessions and no longer exposes a custom engine mount API.
+An SDK adapter implements the minimal `Agent` interface with `ask()` and `close()` methods. Register its factory with `configureAgent()`. Rig creates one adapter instance per invocation and does not branch on the underlying SDK.
+
+The default `copilotEngine()` factory implements this interface with the Copilot SDK.
 By default it connects over HTTP using `COPILOT_SDK_URI`, then `localhost:7777`.
 Use `--server` at launch time when you want the harness to start the Copilot server via stdio.
 
@@ -371,6 +373,6 @@ Use only the current API:
 - `agent({ name, ... })`
 - `p.*` and `p\`...\`` from `rig`
 - `s.*` for explicit schema helpers
-- `oncePerSession` / `repair` / `steering` / `timeout` from `rig/addons` for optional addons
+- `oncePerAgent` / `repair` / `steering` / `timeout` from `rig/addons` for optional addons
 
 Do not add deprecated hooks or compatibility layers.

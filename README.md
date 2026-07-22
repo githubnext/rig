@@ -19,11 +19,12 @@ gh skills clone pelikhan/rig
 ```ts
 import {
   agent,
+  configureAgent,
   defineTool,
   p,
   s,
 } from "rig";
-import { addons, oncePerSession, repair, steering, timeout } from "rig/addons";
+import { addons, oncePerAgent, repair, steering, timeout } from "rig/addons";
 ```
 
 - `agent(spec)` creates a typed agent function.
@@ -31,10 +32,11 @@ import { addons, oncePerSession, repair, steering, timeout } from "rig/addons";
 - `p.*` creates declarative prompt intents for prompt templates or inputs.
 - `p()` and ``p`...` `` create a prompt builder with `var`, `write`, and `region` primitives for assembling prompts.
 - ``p`...` `` also works in `instructions` to embed prompt intents directly: `` instructions: p`Review ${p.bash("git status")}` ``.
-- `defineTool(name, config)` matches the Copilot SDK helper and accepts rig `s.*` schemas for `parameters`.
-- `addons` accepts express-like `(context, next)` turn addons for steering, inline validation, and Copilot session access.
+- `configureAgent(factory)` selects the SDK adapter used to instantiate runtime agents.
+- `defineTool(name, config)` creates an SDK-neutral tool definition and accepts rig `s.*` schemas for `parameters`.
+- `addons` accepts express-like `(context, next)` turn addons for steering, inline validation, and runtime agent access.
 - `rig` starts with no default addons.
-- `rig/addons` provides optional addon helpers: `oncePerSession`, `repair`, `steering`, `timeout`, and `addons.{oncePerSession,repair,steering,timeout}`.
+- `rig/addons` provides optional addon helpers: `oncePerAgent`, `repair`, `steering`, `timeout`, and `addons.{oncePerAgent,repair,steering,timeout}`.
 - `p\`...\`` returns a prompt builder and renders intent values when coerced to string; prefer `${p.read(...)}` / `${p.bash(...)}` when the context source is already known.
 
 ## Embedding in markdown
@@ -188,19 +190,17 @@ const review = agent({
 });
 ```
 
-For direct SDK access, use `oncePerSession(...)` to register with the session once:
+Use `oncePerAgent(...)` to register with the runtime agent once:
 
 ```ts
 const review = agent({
-  addons: oncePerSession((session) => {
-    session.on?.((event) => {
-      // custom event handling
-    });
+  addons: oncePerAgent((runtimeAgent) => {
+    // Register adapter-specific behavior here.
   }),
 });
 ```
 
-Per-turn addons still receive `context.session` directly, and you can also register addons after creating the agent:
+Per-turn addons receive `context.agent`, and you can also register addons after creating the agent:
 
 ```ts
 const timingAddon = async (context, next) => {
@@ -211,9 +211,28 @@ const review = agent({});
 review.use(timingAddon);
 ```
 
-## Copilot SDK runtime
+## Agent implementations
 
-`rig` is specialized for Copilot SDK sessions inside sandboxed agentic workflows.
+Rig runs only against a minimal interface:
+
+```ts
+interface Agent {
+  ask(prompt: string, options?: { signal?: AbortSignal }): Promise<string>;
+  close(): Promise<void>;
+}
+```
+
+Configure any SDK adapter by passing a factory that creates one `Agent` per invocation:
+
+```ts
+configureAgent(async ({ model, systemMessage, tools }) => {
+  return new MySdkAgent({ model, systemMessage, tools });
+});
+```
+
+The default `copilotEngine()` factory adapts the Copilot SDK to this interface. Pi, Anthropic, Codex, and other SDK adapters implement the same interface; Rig does not branch on the selected SDK.
+
+## Copilot SDK adapter
 
 By default it connects to an already-running Copilot server via HTTP (`COPILOT_SDK_URI`, then `localhost:7777`).
 Pass `--server` to spawn the server over stdio when launching a program.
