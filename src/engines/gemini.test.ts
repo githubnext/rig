@@ -16,12 +16,14 @@ import { geminiEngine } from "rig/engines/gemini";
 type MockChild = EventEmitter & {
   stdout: PassThrough;
   stderr: PassThrough;
+  kill: ReturnType<typeof vi.fn>;
 };
 
 function childProcess(): MockChild {
   const child = new EventEmitter() as MockChild;
   child.stdout = new PassThrough();
   child.stderr = new PassThrough();
+  child.kill = vi.fn();
   return child;
 }
 
@@ -155,6 +157,7 @@ it("aborts an active Gemini CLI process when closed", async () => {
     processSignal = options.signal;
     options.signal.addEventListener("abort", () => {
       child.emit("error", options.signal.reason);
+      queueMicrotask(() => child.emit("close", null));
     }, { once: true });
     return child;
   });
@@ -166,4 +169,14 @@ it("aborts an active Gemini CLI process when closed", async () => {
   await expect(result).rejects.toThrow("Agent closed");
   expect(processSignal?.aborted).toBe(true);
   await expect(runtimeAgent.ask("after close")).rejects.toThrow("Agent closed");
+});
+
+it("does not spawn for a pre-aborted turn", async () => {
+  const runtimeAgent = await geminiEngine()({ model: "gemini-test" });
+  const controller = new AbortController();
+  controller.abort(new Error("cancelled"));
+
+  await expect(runtimeAgent.ask("hello", { signal: controller.signal }))
+    .rejects.toThrow("cancelled");
+  expect(mocks.spawn).not.toHaveBeenCalled();
 });

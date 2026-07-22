@@ -47,6 +47,7 @@ export function geminiEngine(options: GeminiEngineOptions = {}): AgentFactory {
         const signal = askOptions.signal
           ? AbortSignal.any([askOptions.signal, closeController.signal])
           : closeController.signal;
+        throwIfAborted(signal);
         const nextSessionId = sessionId ?? randomUUID();
         const fullPrompt = sessionId === undefined && systemMessage
           ? `${systemMessage}\n\n${prompt}`
@@ -110,6 +111,13 @@ function runGemini(
     options.onSpawn(child);
     let stdout = "";
     let stderr = "";
+    let processError: unknown;
+    let killTimer: NodeJS.Timeout | undefined;
+    const forceKill = () => {
+      killTimer = setTimeout(() => child.kill("SIGKILL"), 5_000);
+      killTimer.unref();
+    };
+    options.signal.addEventListener("abort", forceKill, { once: true });
     child.stdout.setEncoding("utf8");
     child.stderr.setEncoding("utf8");
     child.stdout.on("data", (chunk: string) => {
@@ -118,8 +126,18 @@ function runGemini(
     child.stderr.on("data", (chunk: string) => {
       stderr += chunk;
     });
-    child.once("error", reject);
+    child.once("error", (error) => {
+      processError = error;
+    });
     child.once("close", (code) => {
+      options.signal.removeEventListener("abort", forceKill);
+      if (killTimer) {
+        clearTimeout(killTimer);
+      }
+      if (processError) {
+        reject(processError);
+        return;
+      }
       if (code !== 0) {
         reject(new Error(stderr.trim() || `Gemini CLI exited with code ${code}`));
         return;
