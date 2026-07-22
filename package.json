@@ -7,6 +7,7 @@
     "./addons": "./skills/rig/addons.ts",
     "./engines/anthropic": "./skills/rig/engines/anthropic.ts",
     "./engines/codex": "./skills/rig/engines/codex.ts",
+    "./engines/gemini": "./skills/rig/engines/gemini.ts",
     "./engines/pi": "./skills/rig/engines/pi.ts"
   },
   "scripts": {

@@ -230,12 +230,13 @@ configureAgent(async ({ model, systemMessage, tools }) => {
 });
 ```
 
-Rig includes factories for Copilot, Codex, pi-agent, and Anthropic:
+Rig includes factories for Copilot, Codex, Gemini CLI, pi-agent, and Anthropic:
 
 ```ts
 import { configureAgent } from "rig";
 import { anthropicEngine } from "rig/engines/anthropic";
 import { codexEngine } from "rig/engines/codex";
+import { geminiEngine } from "rig/engines/gemini";
 import { piEngine } from "rig/engines/pi";
 
 configureAgent(piEngine({ provider: "anthropic" }));
@@ -243,11 +244,15 @@ configureAgent(piEngine({ provider: "anthropic" }));
 configureAgent(anthropicEngine());
 // or, using Codex authentication:
 configureAgent(codexEngine());
+// or, using an installed and authenticated Gemini CLI:
+configureAgent(geminiEngine());
 ```
 
 `piEngine()` uses the maintained `@earendil-works/pi-agent-core` package and requires the provider for model lookup. `anthropicEngine()` uses `@anthropic-ai/sdk`. Both adapters preserve conversation state across repair turns and map Rig tools to their SDK tool runners.
 
 `codexEngine()` uses `@openai/codex-sdk`, preserves its thread across repair turns, and accepts Codex client options plus thread options under `thread`. Rig system messages become Codex developer instructions. The Codex SDK does not expose custom tool registration, so the adapter rejects agents with Rig tools.
+
+`geminiEngine()` runs the installed `gemini` executable in headless JSON mode and resumes its session across repair turns. It accepts `command`, `cwd`, additional CLI `args`, environment variables, and an optional `approvalMode`. Rig system messages are prepended to the first prompt. The Gemini CLI does not expose custom tool registration through its command line, so the adapter rejects agents with Rig tools.
 
 ## Copilot SDK adapter
 

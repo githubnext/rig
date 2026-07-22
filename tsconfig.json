@@ -22,6 +22,7 @@
       "rig": ["./skills/rig/rig.ts"],
       "rig/engines/anthropic": ["./skills/rig/engines/anthropic.ts"],
       "rig/engines/codex": ["./skills/rig/engines/codex.ts"],
+      "rig/engines/gemini": ["./skills/rig/engines/gemini.ts"],
       "rig/engines/pi": ["./skills/rig/engines/pi.ts"],
       "rig/*": ["./src/*.ts"]
     }
