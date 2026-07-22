@@ -239,7 +239,7 @@ export function copilotEngine(options: CopilotEngineOptions = {}): AgentFactory 
     return {
       async ask(prompt, askOptions = {}) {
         writeEvent(rigEvent("agent.ask", { prompt }));
-        const response = await session.sendAndWait(
+        const response = await (session.sendAndWait as any)(
           askOptions.signal ? { prompt, signal: askOptions.signal } : { prompt },
         );
         return responseText(response);
@@ -309,11 +309,11 @@ export type AgentAddon = (
   next: () => Promise<void>,
 ) => void | Promise<void>;
 export type ToolHandler<TArgs = unknown> = (args: TArgs) => unknown | Promise<unknown>;
-export type ToolParameters<TArgs = unknown> = Schema | Record<string, unknown>;
+export type ToolParameters = Schema | Record<string, unknown>;
 export type Tool<TArgs = unknown> = ToolConfig<TArgs> & { name: string };
 export type ToolConfig<TArgs = unknown> = {
   description?: string;
-  parameters?: ToolParameters<TArgs>;
+  parameters?: ToolParameters;
   handler?: ToolHandler<TArgs>;
   overridesBuiltInTool?: boolean;
   skipPermission?: boolean;
@@ -1022,7 +1022,7 @@ function normalizeSpec(specOrName: AgentSpec<any, any>): NormalizedAgentSpec<any
   return spec;
 }
 
-function normalizeToolParameters<T>(parameters: ToolParameters<T> | undefined): ToolParameters<T> | undefined {
+function normalizeToolParameters(parameters: ToolParameters | undefined): ToolParameters | undefined {
   return parameters !== undefined && isSchema(parameters) ? toJsonSchema(parameters) : parameters;
 }
 

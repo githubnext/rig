@@ -41,7 +41,11 @@ it("uses a URI (HTTP) connection by default", async () => {
 
   expect(mocks.forUri).toHaveBeenCalledWith("localhost:7777");
   expect(mocks.copilotClientCtor).toHaveBeenCalledWith({ connection: { kind: "uri", url: "localhost:7777" } });
-  expect(mocks.createSession).toHaveBeenCalledWith({ model: "gpt-5", streaming: false });
+  expect(mocks.createSession).toHaveBeenCalledWith({
+    model: "gpt-5",
+    streaming: false,
+    onPermissionRequest: mocks.approveAll,
+  });
 });
 
 it("uses COPILOT_SDK_URI when set", async () => {
