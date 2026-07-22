@@ -21,15 +21,21 @@ const mocks = vi.hoisted(() => {
   const stop = vi.fn(async () => {});
   const RpcClient = function () {
     let lastResponse = "";
+    const eventHandlers = new Set<(event: unknown) => void>();
     return {
       start,
       stop,
       abort: vi.fn(async () => {}),
-      onEvent: vi.fn(() => () => {}),
-      promptAndWait: async (prompt: string) => {
-        const response = await sendAndWaitImpl({ prompt });
+      onEvent: (handler: (event: unknown) => void) => {
+        eventHandlers.add(handler);
+        return () => eventHandlers.delete(handler);
+      },
+      prompt: async (promptText: string) => {
+        const response = await sendAndWaitImpl({ prompt: promptText });
         lastResponse = JSON.stringify(response);
-        return [];
+        for (const handler of eventHandlers) {
+          handler({ type: "agent_settled" });
+        }
       },
       getLastAssistantText: async () => lastResponse,
     };

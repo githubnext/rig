@@ -1312,27 +1312,29 @@ async function sendPiPrompt(session: PiSession, prompt: string, signal?: AbortSi
   writeEvent(rigEvent("pi-ask", { prompt }));
   throwIfAborted(signal);
 
-  const run = async () => {
-    await session.promptAndWait(prompt, undefined, 2_147_483_647);
-    return await session.getLastAssistantText() ?? "";
-  };
-  if (!signal) {
-    return run();
-  }
-
-  let rejectAbort: ((reason?: unknown) => void) | undefined;
-  const aborted = new Promise<never>((_, reject) => {
-    rejectAbort = reject;
+  let resolveSettled: (() => void) | undefined;
+  let rejectSettled: ((reason?: unknown) => void) | undefined;
+  const settled = new Promise<void>((resolve, reject) => {
+    resolveSettled = resolve;
+    rejectSettled = reject;
+  });
+  const unsubscribe = session.onEvent((event) => {
+    if (event.type === "agent_settled") {
+      resolveSettled?.();
+    }
   });
   const onAbort = () => {
     void session.abort().catch(() => {});
-    rejectAbort?.(signal.reason ?? new Error("Agent call aborted."));
+    rejectSettled?.(signal?.reason ?? new Error("Agent call aborted."));
   };
-  signal.addEventListener("abort", onAbort, { once: true });
+  signal?.addEventListener("abort", onAbort, { once: true });
   try {
-    return await Promise.race([run(), aborted]);
+    await Promise.race([session.prompt(prompt), settled]);
+    await settled;
+    return await session.getLastAssistantText() ?? "";
   } finally {
-    signal.removeEventListener("abort", onAbort);
+    signal?.removeEventListener("abort", onAbort);
+    unsubscribe();
   }
 }
 

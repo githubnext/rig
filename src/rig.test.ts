@@ -7,35 +7,29 @@ const mocks = vi.hoisted(() => {
   const stop = vi.fn(async () => {});
   const abort = vi.fn(async () => {});
   const rpcClientCtor = vi.fn();
-  const promptAndWait = vi.fn();
+  const prompt = vi.fn();
   const RpcClient = function (this: unknown, options: unknown) {
     rpcClientCtor(options);
     let lastResponse = "";
-    let eventHandler: ((event: unknown) => void) | undefined;
-    let rejectPrompt: ((reason?: unknown) => void) | undefined;
+    const eventHandlers = new Set<(event: unknown) => void>();
     return {
       start,
       stop,
       abort: async () => {
         abort();
-        rejectPrompt?.(new Error("Timed out"));
       },
       onEvent: (handler: (event: unknown) => void) => {
-        eventHandler = handler;
+        eventHandlers.add(handler);
         onImpl?.(handler);
-        return () => {};
+        return () => eventHandlers.delete(handler);
       },
-      promptAndWait: async (prompt: string) => {
-        promptAndWait(prompt);
-        const response = await Promise.race([
-          sendAndWaitImpl({ prompt }),
-          new Promise<never>((_, reject) => {
-            rejectPrompt = reject;
-          }),
-        ]);
+      prompt: async (promptText: string) => {
+        prompt(promptText);
+        const response = await sendAndWaitImpl({ prompt: promptText });
         lastResponse = typeof response === "string" ? response : JSON.stringify(response);
-        eventHandler?.({ type: "agent_settled" });
-        return [];
+        for (const handler of eventHandlers) {
+          handler({ type: "agent_settled" });
+        }
       },
       getLastAssistantText: async () => lastResponse,
     };
@@ -50,7 +44,7 @@ const mocks = vi.hoisted(() => {
     start,
     stop,
     abort,
-    promptAndWait,
+    prompt,
     rpcClientCtor,
     RpcClient,
     setSendAndWaitImpl,
@@ -69,7 +63,7 @@ beforeEach(() => {
   mocks.start.mockClear();
   mocks.stop.mockClear();
   mocks.abort.mockClear();
-  mocks.promptAndWait.mockClear();
+  mocks.prompt.mockClear();
   mocks.rpcClientCtor.mockClear();
   mocks.setOnImpl(undefined);
   mocks.setSendAndWaitImpl(async () => JSON.stringify("default"));
@@ -267,7 +261,7 @@ describe("agent invocation", () => {
     const addon = vi.fn(async (context, next) => {
       await next();
       expect(context.session).toMatchObject({
-        promptAndWait: expect.any(Function),
+        prompt: expect.any(Function),
         stop: expect.any(Function),
       });
     });
@@ -669,7 +663,7 @@ describe("agent invocation", () => {
     expect(register).toHaveBeenCalledTimes(1);
     expect(register).toHaveBeenCalledWith(
       expect.objectContaining({
-        promptAndWait: expect.any(Function),
+        prompt: expect.any(Function),
         stop: expect.any(Function),
       }),
       1,
