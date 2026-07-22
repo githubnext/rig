@@ -2,7 +2,7 @@ import { agent, p, s } from "rig";
 
 // Agent role: diagnose the root cause of test failures and decide if all tests pass.
 const diagnose = agent({
-  model: "mini",
+  model: "github-copilot/gpt-5.4-mini",
   input: s.object({
     test: s.string,
   }),
@@ -15,7 +15,7 @@ const diagnose = agent({
 
 // Agent role: apply the smallest safe fix to address the diagnosed root cause.
 const fix = agent({
-  model: "mini",
+  model: "github-copilot/gpt-5.4-mini",
   input: s.object({
     rootCause: s.string,
   }),
@@ -35,7 +35,7 @@ for (let i = 0; i < MAX_ITERATIONS; i++) {
 
 // Agent role: orchestrate diagnose/fix iterations as the runnable root for this loop.
 const ralfLoop = agent({
-  model: "mini",
+  model: "github-copilot/gpt-5.4-mini",
   instructions: "Use the provided subagents to iterate diagnose/fix until done.",
   output: s.object({
     done: s.boolean,

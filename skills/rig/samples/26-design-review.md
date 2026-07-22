@@ -4,7 +4,7 @@
 import { agent, s } from "rig";
 // Agent role: write a concise migration guide.
 const migration = agent({
-    model: "mini",
+    model: "github-copilot/gpt-5.4-mini",
     output: s.object({
         title: s.string,
         steps: s.array(s.string),

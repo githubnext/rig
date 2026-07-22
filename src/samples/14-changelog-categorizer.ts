@@ -1,7 +1,7 @@
 import { agent, p, s } from "rig";
 // Agent role: create a focused validation plan for the current changes.
 const planner = agent({
-    model: "mini",
+    model: "github-copilot/gpt-5.4-mini",
     input: s.object({
         diff: s.string,
         packageJson: s.string

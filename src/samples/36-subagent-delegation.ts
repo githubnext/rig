@@ -3,7 +3,7 @@ import { agent, s } from "rig";
 // Agent role: extract the most important implementation details from the topic.
 
 const researcher = agent({
-  model: "mini",
+  model: "github-copilot/gpt-5.4-mini",
   instructions: "Extract the most important implementation details from the topic.",
   input: s.object({
     topic: s.string,
@@ -17,7 +17,7 @@ const researcher = agent({
 // Agent role: turn the research summary into concrete next steps for the caller.
 
 const planner = agent({
-  model: "mini",
+  model: "github-copilot/gpt-5.4-mini",
   instructions: "Turn the research summary into concrete next steps for the caller.",
   input: s.object({
     summary: s.string,
@@ -37,7 +37,7 @@ await planner(research);
 
 // Agent role: orchestrate research and planning as the runnable root for delegation.
 const delegateTask = agent({
-  model: "mini",
+  model: "github-copilot/gpt-5.4-mini",
   instructions: "Use the provided subagents to research a topic and produce practical next steps.",
   output: s.object({
     decision: s.string,

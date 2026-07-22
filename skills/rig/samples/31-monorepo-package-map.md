@@ -4,7 +4,7 @@
 import { agent, p, s } from "rig";
 // Agent role: review the workflow for reliability, caching, and least privilege.
 const actionReview = agent({
-    model: "mini",
+    model: "github-copilot/gpt-5.4-mini",
     output: s.object({
         summary: s.string,
         problems: s.array(s.string),

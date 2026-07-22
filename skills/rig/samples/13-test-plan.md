@@ -4,7 +4,7 @@
 import { agent, p, s } from "rig";
 // Agent role: review dependency security posture from the provided outputs.
 const securityReview = agent({
-    model: "mini",
+    model: "github-copilot/gpt-5.4-mini",
     output: s.object({
         status: s.enum("clean", "needs-action", "unknown"),
         findings: s.array(s.object({

@@ -4,7 +4,7 @@
 import { agent, s } from "rig";
 // Agent role: repair input.text into a JSON-compatible value.
 const repair = agent({
-    model: "mini",
+    model: "github-copilot/gpt-5.4-mini",
     output: s.object({
         repaired: s.unknown,
         changes: s.array(s.string)

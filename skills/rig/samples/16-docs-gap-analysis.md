@@ -4,7 +4,7 @@
 import { agent, p, s } from "rig";
 // Agent role: compare public API declarations and identify breaking changes.
 const apiDiff = agent({
-    model: "mini",
+    model: "github-copilot/gpt-5.4-mini",
     output: s.object({
         breaking: s.boolean,
         summary: s.string,

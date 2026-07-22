@@ -1,7 +1,7 @@
 import { agent, s } from "rig";
 // Agent role: summarize the diff.
 const summarizeDiff = agent({
-    model: "mini",
+    model: "github-copilot/gpt-5.4-mini",
     output: s.object({
         summary: s.string,
         files: s.array(s.string)
@@ -10,7 +10,7 @@ const summarizeDiff = agent({
 });
 // Agent role: review the diff. You may use the provided subagent conceptually.
 const reviewer = agent({
-    model: "mini",
+    model: "github-copilot/gpt-5.4-mini",
     output: s.object({
         summary: s.string,
         issues: s.array(s.string)

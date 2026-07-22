@@ -4,7 +4,7 @@
 import { agent, p, s } from "rig";
 // Agent role: review input.diff for correctness and regression risks. Return only the declared output shape.
 const reviewer = agent({
-    model: "mini",
+    model: "github-copilot/gpt-5.4-mini",
     output: s.object({
         summary: s.string,
         risk: s.enum("low", "medium", "high"),

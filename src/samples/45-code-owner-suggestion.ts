@@ -1,7 +1,7 @@
 import { agent, p, s } from "rig";
 // Agent role: analyze whether the test failure appears flaky.
 const flaky = agent({
-    model: "mini",
+    model: "github-copilot/gpt-5.4-mini",
     output: s.object({
         likelyFlaky: s.boolean,
         signals: s.array(s.string),

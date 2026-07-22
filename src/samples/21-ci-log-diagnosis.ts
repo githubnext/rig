@@ -1,7 +1,7 @@
 import { agent, s } from "rig";
 // Agent role: extract a clear reproduction from the issue.
 const reproducer = agent({
-    model: "mini",
+    model: "github-copilot/gpt-5.4-mini",
     input: s.object({
         issueTitle: s.string,
         issueBody: s.string

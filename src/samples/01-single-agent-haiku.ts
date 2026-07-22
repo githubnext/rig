@@ -3,7 +3,7 @@ import { agent, s } from "rig";
 // Agent role: write a single haiku about the user's topic.
 const haiku = agent({
   name: "single-agent-haiku",
-  model: "claude-haiku-4.5",
+  model: "github-copilot/claude-haiku-4.5",
   output: s.object({
     haiku: s.string,
   }),

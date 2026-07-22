@@ -1,8 +1,8 @@
 import { agent, p, s } from "rig";
 
-const LARGE = "large";
-const MINI = "mini";
-const NANO = "nano";
+const LARGE = "github-copilot/gpt-5.4";
+const MINI = "github-copilot/gpt-5.4-mini";
+const NANO = "github-copilot/gpt-5.4-nano";
 
 // Agent role: summarize a bounded evidence shard using a small, low-cost model.
 const summarizeShard = agent({

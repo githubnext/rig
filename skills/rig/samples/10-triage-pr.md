@@ -4,7 +4,7 @@
 import { agent, s } from "rig";
 // Agent role: classify the GitHub issue and suggest labels.
 const classifyIssue = agent({
-    model: "mini",
+    model: "github-copilot/gpt-5.4-mini",
     output: s.object({
         kind: s.enum("bug", "feature", "question", "chore"),
         priority: s.enum("p0", "p1", "p2", "p3"),

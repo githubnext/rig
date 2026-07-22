@@ -1,7 +1,7 @@
 import { agent, p, s } from "rig";
 // Agent role: diagnose the failing test result. Do not edit files.
 const diagnose = agent({
-    model: "mini",
+    model: "github-copilot/gpt-5.4-mini",
     input: s.object({
         test: s.string
     }),

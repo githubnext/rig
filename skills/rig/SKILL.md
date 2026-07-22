@@ -31,7 +31,7 @@ import { agent, p, s } from "rig";
 
 // Agent role: review the diff and return only the declared output.
 const reviewDiff = agent({
-  model: "mini",
+  model: "github-copilot/gpt-5.4-mini",
   instructions: "Review the diff and return only the declared output.",
   output: s.object({
     summary: s.string,
@@ -56,7 +56,7 @@ Use this checklist before finalizing generated code:
 3. Define input/output with `s.object(...)` and explicit `s.*` helpers.
 4. Keep output schema strict (enums/literals for constrained values).
 5. Add a `// Agent role: ...` comment above each agent declaration.
-6. Set `model` explicitly to `"large"`, `"mini"`, or `"nano"`.
+6. Set `model` to an explicit Pi `provider/model` identifier.
 7. Prefer `${p.read(...)}` / `${p.bash(...)}` inside `p\`\`` templates when the context source is already known; add input fields only for true caller-provided data.
 8. Put stable defaults in spec; register addons in spec or with `agent.use(...)`.
 9. Add `agents` only when required by the scenario.
@@ -88,7 +88,7 @@ Declare a structured agent.
 | `instructions` | Prompt instructions as a plain string or a ``p`...` `` prompt builder |
 | `input` | Input schema |
 | `output` | Output schema |
-| `model` | Default model name; examples should use `"large"`, `"mini"`, or `"nano"` |
+| `model` | Default Pi model using a `provider/model` identifier |
 | `maxTurns` | Retry budget for invalid JSON or invalid output |
 | `addons` | Per-turn addons for steering, validation, and retry customization |
 | `agents` | Optional named subagents exposed to the harness |
@@ -198,7 +198,7 @@ Pass overrides when calling an agent:
 const controller = new AbortController();
 
 const result = await myAgent(input, {
-  model: "mini",
+  model: "github-copilot/gpt-5.4-mini",
   timeout: 30_000,
   maxTurns: 2,
   signal: controller.signal,
@@ -214,12 +214,12 @@ Expose subagents with `agents`:
 ```ts
 // Agent role: extract the most important changes from the diff.
 const summarizeDiff = agent({
-  model: "mini",
+  model: "github-copilot/gpt-5.4-mini",
 });
 
 // Agent role: review the diff using the provided subagent when helpful.
 const reviewer = agent({
-  model: "mini",
+  model: "github-copilot/gpt-5.4-mini",
   output: s.object({
     summary: s.string,
     issues: s.array(s.string),
@@ -249,7 +249,7 @@ import { repair } from "rig/addons";
 
 // Agent role: repair invalid output and return a stable summary.
 const summarize = agent({
-  model: "mini",
+  model: "github-copilot/gpt-5.4-mini",
   maxTurns: 3,
   addons: repair,
 });

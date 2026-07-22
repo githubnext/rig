@@ -4,7 +4,7 @@
 import { agent, p, s } from "rig";
 // Agent role: flag unknown or concerning dependency licenses.
 const licenseCheck = agent({
-    model: "mini",
+    model: "github-copilot/gpt-5.4-mini",
     output: s.object({
         compliant: s.boolean,
         unknown: s.array(s.string),

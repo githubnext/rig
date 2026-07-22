@@ -4,7 +4,7 @@
 import { agent, p, s } from "rig";
 // Agent role: confirm whether the write intent succeeded.
 const writer = agent({
-    model: "mini",
+    model: "github-copilot/gpt-5.4-mini",
     output: s.object({
         written: s.boolean,
         summary: s.string

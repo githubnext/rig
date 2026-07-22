@@ -3,7 +3,7 @@ import { agent, p, s } from "rig";
 // Agent role: review the repository diff and return a structured summary.
 
 const reviewDiff = agent({
-  model: "mini",
+  model: "github-copilot/gpt-5.4-mini",
   instructions: "Review the repository diff and return a structured summary.",
   input: s.object({
     diff: s.string,

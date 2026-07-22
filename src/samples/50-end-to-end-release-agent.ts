@@ -3,7 +3,7 @@ import { agent, p, s } from "rig";
 // Agent role: summarize the release candidate changes from the diff and recent commits.
 
 const analyzeChanges = agent({
-  model: "mini",
+  model: "github-copilot/gpt-5.4-mini",
   instructions: "Summarize the release candidate changes from the diff and recent commits.",
   input: s.object({
     diff: s.string,
@@ -18,7 +18,7 @@ const analyzeChanges = agent({
 // Agent role: choose the safest semantic version bump for the summarized changes.
 
 const chooseVersion = agent({
-  model: "mini",
+  model: "github-copilot/gpt-5.4-mini",
   instructions: "Choose the safest semantic version bump for the summarized changes.",
   input: s.object({
     summary: s.string,
@@ -33,7 +33,7 @@ const chooseVersion = agent({
 // Agent role: draft the release title, checklist, and risks for the chosen version bump.
 
 const draftRelease = agent({
-  model: "mini",
+  model: "github-copilot/gpt-5.4-mini",
   instructions: "Draft the release title, checklist, and risks for the chosen version bump.",
   input: s.object({
     bump: s.enum("patch", "minor", "major"),
@@ -62,7 +62,7 @@ await draftRelease({
 
 // Agent role: orchestrate release analysis, versioning, and release draft planning.
 const releaseCoordinator = agent({
-  model: "mini",
+  model: "github-copilot/gpt-5.4-mini",
   instructions: "Use the provided subagents to produce a complete release draft from repo signals.",
   output: s.object({
     title: s.string,

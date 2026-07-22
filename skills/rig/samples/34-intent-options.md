@@ -4,7 +4,7 @@
 import { agent, p, s } from "rig";
 // Agent role: investigate the project using only readonly evidence.
 const investigator = agent({
-    model: "mini",
+    model: "github-copilot/gpt-5.4-mini",
     output: s.object({
         observations: s.array(s.string),
         likelyEntryPoints: s.array(s.string)

@@ -10,7 +10,7 @@ const ShResult = s.object({
 });
 // Agent role: diagnose the failing test result. Do not edit files.
 const diagnose = agent({
-    model: "mini",
+    model: "github-copilot/gpt-5.4-mini",
     output: s.object({
         rootCause: s.string,
         confidence: s.number,

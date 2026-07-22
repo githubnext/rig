@@ -4,7 +4,7 @@
 import { agent, p, s } from "rig";
 // Agent role: infer a practical runtime-visible schema from the samples.
 const inferShape = agent({
-    model: "mini",
+    model: "github-copilot/gpt-5.4-mini",
     output: s.object({
         fields: s.array(s.object({
             name: s.string,

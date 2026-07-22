@@ -4,7 +4,7 @@ import { timeout } from "rig/addons";
 // Agent role: return a short response in output.text.
 
 const worker = agent({
-  model: "mini",
+  model: "github-copilot/gpt-5.4-mini",
   instructions: `Return a short response in output.text.`,
   addons: timeout({ timeout: 5_000 }),
 });

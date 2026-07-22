@@ -6,7 +6,7 @@ import { agent, s } from "rig";
 // Agent role: classify the issue.
 
 const classifyIssue = agent({
-  model: "mini",
+  model: "github-copilot/gpt-5.4-mini",
   instructions: "Classify the issue.",
   output: s.object({
     label: s.enum("bug", "feature", "question", "docs"),

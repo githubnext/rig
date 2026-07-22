@@ -3,7 +3,7 @@ import { agent, p, s } from "rig";
 // Agent role: summarize the current git workspace changes.
 
 const promptIntents = agent({
-  model: "mini",
+  model: "github-copilot/gpt-5.4-mini",
   instructions: "Summarize the current git workspace changes.",
   input: s.object({
     diff: s.string,

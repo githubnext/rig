@@ -5,7 +5,7 @@ const Diagnosis = s.object({
 });
 // Agent role: diagnose the test failure.
 const diagnose = agent({
-    model: "mini",
+    model: "github-copilot/gpt-5.4-mini",
     input: s.object({
         test: s.string
     }),
@@ -14,7 +14,7 @@ const diagnose = agent({
 });
 // Agent role: make the smallest safe patch using engine capabilities.
 const fix = agent({
-    model: "mini",
+    model: "github-copilot/gpt-5.4-mini",
     input: s.object({
         diagnosis: Diagnosis
     }),
@@ -26,7 +26,7 @@ const fix = agent({
 });
 // Agent role: review the patch against the diagnosis.
 const review = agent({
-    model: "mini",
+    model: "github-copilot/gpt-5.4-mini",
     input: s.object({
         diff: s.string,
         diagnosis: Diagnosis
@@ -43,7 +43,7 @@ await review({ diff: p.bash("git diff -- ."), diagnosis: d });
 
 // Agent role: orchestrate diagnose/fix/review as the runnable root for this workflow.
 const issueReproducer = agent({
-    model: "mini",
+    model: "github-copilot/gpt-5.4-mini",
     instructions: "Use the provided subagents to diagnose, patch, and review a failing test case.",
     output: s.object({
         approved: s.boolean,

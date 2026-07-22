@@ -4,7 +4,7 @@
 import { agent, p, s } from "rig";
 // Agent role: return a complete replacement for the target file.
 const patcher = agent({
-    model: "mini",
+    model: "github-copilot/gpt-5.4-mini",
     output: s.object({
         path: s.string,
         contents: s.string,

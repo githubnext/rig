@@ -1,7 +1,7 @@
 import { agent, s } from "rig";
 // Agent role: review the design proposal for simplicity and maintainability.
 const designReview = agent({
-    model: "mini",
+    model: "github-copilot/gpt-5.4-mini",
     output: s.object({
         decision: s.enum("approve", "revise", "reject"),
         strengths: s.array(s.string),

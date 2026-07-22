@@ -17,7 +17,7 @@ const lintOnFileChange = (runLint: () => Promise<unknown>): AgentAddon => async 
 
 // Agent role: update files and run linting after file changes.
 const fileChangeMiddleware = agent({
-  model: "mini",
+  model: "github-copilot/gpt-5.4-mini",
   instructions: "Update files when needed, then summarize the change.",
   output: s.object({ changed: s.boolean, summary: s.string }),
   addons: lintOnFileChange(() => $`npm run typecheck`),

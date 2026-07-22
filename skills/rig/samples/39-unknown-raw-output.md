@@ -4,7 +4,7 @@
 import { agent, s } from "rig";
 // Agent role: convert the finding into a typed review record.
 const reviewRecord = agent({
-    model: "mini",
+    model: "github-copilot/gpt-5.4-mini",
     output: s.object({
         kind: s.enum("review-finding"),
         finding: s.string,

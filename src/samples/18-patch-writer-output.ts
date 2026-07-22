@@ -1,7 +1,7 @@
 import { agent, p, s } from "rig";
 // Agent role: plan a minimal, low-risk refactor. Do not edit files.
 const refactorPlan = agent({
-    model: "mini",
+    model: "github-copilot/gpt-5.4-mini",
     input: s.object({
         files: s.string,
         target: s.string

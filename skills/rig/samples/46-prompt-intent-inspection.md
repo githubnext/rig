@@ -4,7 +4,7 @@
 import { agent, p, s } from "rig";
 // Agent role: suggest owners for changed files.
 const owners = agent({
-    model: "mini",
+    model: "github-copilot/gpt-5.4-mini",
     output: s.object({
         owners: s.array(s.string),
         unmatchedFiles: s.array(s.string)

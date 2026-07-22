@@ -4,7 +4,7 @@
 import { agent, p, s } from "rig";
 // Agent role: draft a runnable rig markdown snippet for the requested task.
 const draftRigMarkdown = agent({
-  model: "mini",
+  model: "github-copilot/gpt-5.4-mini",
   output: s.object({ markdown: s.string }),
   instructions: "Return exactly one markdown response with one ```rig fenced block.",
 });
@@ -16,7 +16,7 @@ const typecheckRigProgram = agent({
 });
 // Agent role: solve the task by delegating to subagents and returning markdown.
 const solveTask = agent({
-  model: "large",
+  model: "github-copilot/gpt-5.4",
   output: s.object({ markdown: s.string }),
   agents: { draftRigMarkdown, typecheckRigProgram },
   instructions: "Use the drafting subagent, validate with typecheck, then return one runnable rig markdown snippet.",

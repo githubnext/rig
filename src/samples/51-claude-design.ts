@@ -2,14 +2,14 @@ import { agent, s } from "rig";
 
 // Agent role: write an initial response to the user request.
 const writer = agent({
-    model: "mini",
+    model: "github-copilot/gpt-5.4-mini",
     output: s.object({ draft: s.string }),
     instructions: "Write a helpful, clear response to the request.",
 });
 
 // Agent role: critique the draft against helpfulness, harmlessness, and honesty principles.
 const critic = agent({
-    model: "mini",
+    model: "github-copilot/gpt-5.4-mini",
     input: s.object({ request: s.string, draft: s.string }),
     output: s.object({
         issues: s.array(s.string),
@@ -21,7 +21,7 @@ const critic = agent({
 
 // Agent role: revise the draft to address all issues identified by the critic.
 const reviser = agent({
-    model: "mini",
+    model: "github-copilot/gpt-5.4-mini",
     input: s.object({
         request: s.string,
         draft: s.string,
@@ -38,7 +38,7 @@ await reviser({ request, draft, issues: critique.issues });
 
 // Agent role: orchestrate writer/critic/reviser as the runnable root for this loop.
 const claudeDesignLoop = agent({
-    model: "mini",
+    model: "github-copilot/gpt-5.4-mini",
     instructions: "Use the provided subagents to draft, critique, and revise one final response.",
     output: s.object({ response: s.string }),
     agents: { writer, critic, reviser },

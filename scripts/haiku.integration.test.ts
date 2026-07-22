@@ -3,11 +3,7 @@ import { dirname, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import { describe, expect, it } from "vitest";
 
-const hasCredentials = Boolean(
-  process.env["ANTHROPIC_API_KEY"]
-  ?? process.env["OPENAI_API_KEY"]
-  ?? process.env["COPILOT_GITHUB_TOKEN"],
-);
+const hasCredentials = Boolean(process.env["COPILOT_GITHUB_TOKEN"]);
 const itWithCredentials = hasCredentials ? it : it.skip;
 const repoRoot = resolve(dirname(fileURLToPath(import.meta.url)), "..");
 const haikuSamplePath = resolve(repoRoot, "src/samples/01-single-agent-haiku.ts");

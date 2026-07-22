@@ -1,7 +1,7 @@
 import { agent, p, s } from "rig";
 // Agent role: parse coverage by file path.
 const coverage = agent({
-    model: "mini",
+    model: "github-copilot/gpt-5.4-mini",
     output: s.object({
         files: s.record(s.object({
             lines: s.number,

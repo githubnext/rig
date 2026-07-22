@@ -1,7 +1,7 @@
 import { agent, s } from "rig";
 // Agent role: rewrite the error to be actionable and precise.
 const improve = agent({
-    model: "mini",
+    model: "github-copilot/gpt-5.4-mini",
     input: s.object({
         message: s.string,
         context: s.optional(s.string)

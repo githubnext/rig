@@ -3,7 +3,7 @@ import { oncePerSession, steering, timeout } from "rig/addons";
 
 const planner = agent({
   name: "complex-integration-planner",
-  model: "claude-haiku-4.5",
+  model: "github-copilot/claude-haiku-4.5",
   instructions: "Return 2-3 short plan steps for the provided topic.",
   input: s.object({
     topic: s.string,
@@ -15,7 +15,7 @@ const planner = agent({
 
 const complexIntegration = agent({
   name: "complex-integration-sonnet",
-  model: "claude-sonnet-4.5",
+  model: "github-copilot/claude-sonnet-4.5",
   maxTurns: 4,
   input: s.object({
     topic: s.string,

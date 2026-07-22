@@ -1,7 +1,7 @@
 import { agent, s } from "rig";
 // Agent role: classify the GitHub issue and suggest labels.
 const classifyIssue = agent({
-    model: "mini",
+    model: "github-copilot/gpt-5.4-mini",
     input: s.object({
         title: s.string,
         body: s.string

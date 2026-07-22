@@ -4,7 +4,7 @@
 import { agent, p, s } from "rig";
 // Agent role: decide whether snapshot updates are legitimate.
 const snapshotReview = agent({
-    model: "mini",
+    model: "github-copilot/gpt-5.4-mini",
     output: s.object({
         safeToUpdate: s.boolean,
         reason: s.string,

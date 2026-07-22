@@ -1,7 +1,7 @@
 import { agent, p, s } from "rig";
 // Agent role: generate a concise README for the package. Include install, usage, and API sections.
 const readmeWriter = agent({
-    model: "mini",
+    model: "github-copilot/gpt-5.4-mini",
     input: s.object({
         packageJson: s.string,
         files: s.string

@@ -4,7 +4,7 @@
 import { agent, s } from "rig";
 // Agent role: invent five city records that match a strict schema.
 const schemaCitiesPort = agent({
-  model: "mini",
+  model: "github-copilot/gpt-5.4-mini",
   instructions: "Give 5 cities with their populations and Wikipedia URLs. Return only valid output.",
   output: s.array(s.object({ name: s.string, population: s.number, url: s.string })),
 });

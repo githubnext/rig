@@ -4,7 +4,7 @@
 import { agent, p, s } from "rig";
 // Agent role: triage the pull request and recommend reviewers.
 const triage = agent({
-    model: "mini",
+    model: "github-copilot/gpt-5.4-mini",
     output: s.object({
         area: s.enum("runtime", "docs", "tests", "ci", "unknown"),
         risk: s.enum("low", "medium", "high"),

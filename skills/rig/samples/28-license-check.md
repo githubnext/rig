@@ -4,7 +4,7 @@
 import { agent, p, s } from "rig";
 // Agent role: plan safe dependency upgrades.
 const upgradePlan = agent({
-    model: "mini",
+    model: "github-copilot/gpt-5.4-mini",
     output: s.object({
         upgrades: s.array(s.object({
             package: s.string,
