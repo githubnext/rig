@@ -336,16 +336,21 @@ For program-file mode stdin coercion:
 
 An SDK adapter implements the minimal `Agent` interface with `ask()` and `close()` methods. Register its factory with `configureAgent()`. Rig creates one adapter instance per invocation and does not branch on the underlying SDK.
 
-Rig provides `copilotEngine()`, `piEngine({ provider })`, and `anthropicEngine()` factories. The pi-agent factory uses `@earendil-works/pi-agent-core`; the Anthropic factory reads `ANTHROPIC_API_KEY` through `@anthropic-ai/sdk`.
+Rig provides `copilotEngine()`, `codexEngine()`, `piEngine({ provider })`, and `anthropicEngine()` factories. The Codex factory uses `@openai/codex-sdk`; the pi-agent factory uses `@earendil-works/pi-agent-core`; the Anthropic factory reads `ANTHROPIC_API_KEY` through `@anthropic-ai/sdk`.
 
 ```ts
 import { anthropicEngine } from "rig/engines/anthropic";
+import { codexEngine } from "rig/engines/codex";
 import { piEngine } from "rig/engines/pi";
 
 configureAgent(piEngine({ provider: "anthropic" }));
 // or
 configureAgent(anthropicEngine());
+// or
+configureAgent(codexEngine());
 ```
+
+`codexEngine()` accepts Codex client options and a `thread` object for Codex thread options. It preserves the Codex thread across repair turns and maps Rig system messages to Codex developer instructions. The Codex SDK does not expose custom tool registration, so agents configured with Rig tools are rejected.
 
 By default `copilotEngine()` connects over HTTP using `COPILOT_SDK_URI`, then `localhost:7777`.
 Use `--server` at launch time when you want the harness to start the Copilot server via stdio.
