@@ -20,6 +20,8 @@
     "noEmit": true,
     "paths": {
       "rig": ["./skills/rig/rig.ts"],
+      "rig/engines/anthropic": ["./skills/rig/engines/anthropic.ts"],
+      "rig/engines/pi": ["./skills/rig/engines/pi.ts"],
       "rig/*": ["./src/*.ts"]
     }
   },
