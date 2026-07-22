@@ -3,8 +3,12 @@ import { dirname, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import { describe, expect, it } from "vitest";
 
-const token = process.env["COPILOT_GITHUB_TOKEN"];
-const itWithToken = token ? it : it.skip;
+const hasCredentials = Boolean(
+  process.env["ANTHROPIC_API_KEY"]
+  ?? process.env["OPENAI_API_KEY"]
+  ?? process.env["COPILOT_GITHUB_TOKEN"],
+);
+const itWithCredentials = hasCredentials ? it : it.skip;
 const repoRoot = resolve(dirname(fileURLToPath(import.meta.url)), "..");
 const haikuSamplePath = resolve(repoRoot, "src/samples/01-single-agent-haiku.ts");
 const sonnetSamplePath = resolve(repoRoot, "src/samples/56-single-agent-sonnet.ts");
@@ -16,10 +20,10 @@ async function runIntegrationSample(samplePath: string, input: string): Promise<
   return new Promise((resolve, reject) => {
     const child = spawn(
       process.execPath,
-      [launcherPath, samplePath, "--server"],
+      [launcherPath, samplePath],
       {
         cwd: repoRoot,
-        env: { ...process.env, COPILOT_GITHUB_TOKEN: token },
+        env: process.env,
       },
     );
 
@@ -27,7 +31,7 @@ async function runIntegrationSample(samplePath: string, input: string): Promise<
     let stderr = "";
     const timer = setTimeout(() => {
       child.kill("SIGTERM");
-      reject(new Error("Timed out waiting for haiku integration run."));
+      reject(new Error("Timed out waiting for Pi integration run."));
     }, INTEGRATION_TIMEOUT_MS);
 
     child.stdout.on("data", (chunk) => {
@@ -46,7 +50,7 @@ async function runIntegrationSample(samplePath: string, input: string): Promise<
     child.on("close", (code) => {
       clearTimeout(timer);
       if (code !== 0) {
-        reject(new Error(`Haiku integration run failed with exit code ${code}.\n${stderr}`));
+        reject(new Error(`Pi integration run failed with exit code ${code}.\n${stderr}`));
         return;
       }
       resolve(stdout);
@@ -57,7 +61,7 @@ async function runIntegrationSample(samplePath: string, input: string): Promise<
 }
 
 describe("rig runtime integration", () => {
-  itWithToken(
+  itWithCredentials(
     "runs a single-agent haiku sample with the real runtime",
     async () => {
       const stdout = await runIntegrationSample(haikuSamplePath, "autumn rain on city windows");
@@ -72,7 +76,7 @@ describe("rig runtime integration", () => {
     INTEGRATION_TIMEOUT_MS,
   );
 
-  itWithToken(
+  itWithCredentials(
     "runs a single-agent sonnet sample with the real runtime",
     async () => {
       const stdout = await runIntegrationSample(sonnetSamplePath, "midnight train through fog");
@@ -87,7 +91,7 @@ describe("rig runtime integration", () => {
     INTEGRATION_TIMEOUT_MS,
   );
 
-  itWithToken(
+  itWithCredentials(
     "runs a complex sonnet sample with tools, addons, intents, and subagent wiring",
     async () => {
       const stdout = await runIntegrationSample(

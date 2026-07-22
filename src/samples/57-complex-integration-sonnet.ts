@@ -1,17 +1,5 @@
-import { agent, defineTool, p, s } from "rig";
+import { agent, p, s } from "rig";
 import { oncePerSession, steering, timeout } from "rig/addons";
-
-const summarizeText = defineTool<{ text: string }>("summarize_text", {
-  description: "Create a concise summary from text.",
-  parameters: s.object({
-    text: s.string,
-  }),
-  handler: async ({ text }) => {
-    const trimmed = text.trim();
-    if (!trimmed) return "No content provided.";
-    return trimmed.split(/\s+/g).slice(0, 20).join(" ");
-  },
-});
 
 const planner = agent({
   name: "complex-integration-planner",
@@ -47,7 +35,6 @@ const complexIntegration = agent({
       toolHint: s.string,
     }),
   }),
-  tools: [summarizeText],
   agents: { planner },
   addons: [
     oncePerSession(async () => {}),
@@ -57,7 +44,7 @@ const complexIntegration = agent({
   instructions: p`
     Build a compact execution brief for the user topic.
     Use repository context from ${p.read("README.md")} and workspace state from ${p.bash("git status --short")}.
-    You may call planner for concise planning and summarize_text for text condensation.
+    You may use the planner definition for concise planning and Pi's built-in tools for repository inspection.
     Mention at least five rig features in contextDigest.usedFeatures.
   `,
 });

@@ -6,46 +6,43 @@ import { mkdtemp, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 
 const mocks = vi.hoisted(() => {
-  const approveAll = vi.fn();
   let sendAndWaitImpl: () => unknown | Promise<unknown> = async () => JSON.stringify("done");
-  const disconnectSession = vi.fn(async () => {});
-  const stopClient = vi.fn(async () => []);
-  const createSession = vi.fn(async () => ({
-    sendAndWait: async () => {
-      const response = await sendAndWaitImpl();
-      return typeof response === "string" ? response : JSON.stringify(response);
-    },
-    disconnect: disconnectSession,
-  }));
-  const forUri = vi.fn(() => ({ kind: "uri", url: "localhost:7777" }));
-  const forStdio = vi.fn(() => ({ kind: "stdio" }));
-  const copilotClientCtor = vi.fn();
-  const CopilotClient = function (this: unknown, options: unknown) {
-    copilotClientCtor(options);
-    return { createSession, stop: stopClient };
+  const start = vi.fn(async () => {});
+  const stop = vi.fn(async () => {});
+  const rpcClientCtor = vi.fn();
+  const RpcClient = function (this: unknown, options: unknown) {
+    rpcClientCtor(options);
+    let lastResponse = "";
+    return {
+      start,
+      stop,
+      abort: vi.fn(async () => {}),
+      onEvent: vi.fn(() => () => {}),
+      promptAndWait: async () => {
+        const response = await sendAndWaitImpl();
+        lastResponse = typeof response === "string" ? response : JSON.stringify(response);
+        return [];
+      },
+      getLastAssistantText: async () => lastResponse,
+    };
   };
   const setSendAndWaitImpl = (impl: () => unknown | Promise<unknown>) => {
     sendAndWaitImpl = impl;
   };
-  return { approveAll, createSession, disconnectSession, stopClient, forUri, forStdio, copilotClientCtor, CopilotClient, setSendAndWaitImpl };
+  return { start, stop, rpcClientCtor, RpcClient, setSendAndWaitImpl };
 });
 
-vi.mock("@github/copilot-sdk", () => ({
-  approveAll: mocks.approveAll,
-  CopilotClient: mocks.CopilotClient,
-  RuntimeConnection: { forUri: mocks.forUri, forStdio: mocks.forStdio },
+vi.mock("@earendil-works/pi-coding-agent", () => ({
+  RpcClient: mocks.RpcClient,
 }));
 
 import { agent, s } from "rig";
 import { launchRigProgram, runLauncherCli } from "rig";
 
 beforeEach(() => {
-  mocks.createSession.mockClear();
-  mocks.forUri.mockClear();
-  mocks.forStdio.mockClear();
-  mocks.copilotClientCtor.mockClear();
-  mocks.disconnectSession.mockClear();
-  mocks.stopClient.mockClear();
+  mocks.start.mockClear();
+  mocks.stop.mockClear();
+  mocks.rpcClientCtor.mockClear();
   mocks.setSendAndWaitImpl(async () => JSON.stringify("done"));
 });
 
@@ -62,7 +59,7 @@ async function runCliAndCaptureStdout(argv: string[], stdinChunks: string[] = ["
   return output.join("");
 }
 
-it("loads a rig program and mounts a copilot client", async () => {
+it("loads a rig program and mounts the Pi runtime", async () => {
   const __dirname = dirname(fileURLToPath(import.meta.url));
   const globalState = globalThis as { __launcherLoaded?: number };
   const before = globalState.__launcherLoaded ?? 0;
@@ -220,24 +217,7 @@ it("prints launcher help for common help invocations", async () => {
     expect(output).toContain("Usage:");
     expect(output).toContain("[<program-file>]");
   }
-  expect(mocks.createSession).not.toHaveBeenCalled();
-});
-
-it("accepts --server flag without rejecting", async () => {
-  const fixturePath = resolve(dirname(fileURLToPath(import.meta.url)), "./launcher.stdin.fixture.ts");
-  const stdin = Readable.from(["Review this patch"]);
-  const output: string[] = [];
-  const stdout = new Writable({
-    write(chunk, _encoding, callback) {
-      output.push(chunk.toString());
-      callback();
-    },
-  });
-
-  await runLauncherCli([fixturePath, "--server"], {}, { stdin, stdout });
-
-  expect(output.join("")).toBe("done");
-  expect(mocks.forStdio).toHaveBeenCalled();
+  expect(mocks.rpcClientCtor).not.toHaveBeenCalled();
 });
 
 it("accepts --typecheck flag without rejecting", async () => {
@@ -319,7 +299,7 @@ export default root;
     await expect(runLauncherCli([fixturePath, "--typecheck"], {}, { stdin, stdout })).rejects.toThrow(
       /Typecheck failed/,
     );
-    expect(mocks.createSession).not.toHaveBeenCalled();
+    expect(mocks.rpcClientCtor).not.toHaveBeenCalled();
   } finally {
     await rm(tempDir, { recursive: true, force: true });
   }

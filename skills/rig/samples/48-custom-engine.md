@@ -1,14 +1,14 @@
-# 48 - Copilot Runtime
+# 48 - Pi Runtime
 
-Launch this sample with `node skills/rig/rig.ts --server` when you want stdio mode.
+The harness starts Pi in RPC mode automatically.
 
 ```rig
 import { agent, s } from "rig";
-// Agent role: explain when to launch rig with --server.
+// Agent role: explain how rig uses the Pi runtime.
 const review = agent({
   model: "mini",
-  instructions: "Explain when to launch rig with --server instead of connecting to an HTTP Copilot server.",
-  output: s.object({ summary: s.string, recommendedMode: s.enum("http", "server") }),
+  instructions: "Explain how rig runs agents through Pi RPC sessions.",
+  output: s.object({ summary: s.string, transport: s.enum("rpc") }),
 });
 export default review;
 ```

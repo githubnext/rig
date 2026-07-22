@@ -1,5 +1,5 @@
 /**
- * Run a rig sample with a stub Copilot SDK client that returns shape-conforming output.
+ * Run a rig sample with a stub Pi RPC client that returns shape-conforming output.
  * Usage: npx vitest run scripts/run-sample.test.ts -- --sample 02
  *    or: npm run sample -- 02
  */
@@ -16,32 +16,32 @@ import { runLauncherCli } from "rig";
 const execFileAsync = promisify(execFile);
 
 const mocks = vi.hoisted(() => {
-  const approveAll = vi.fn();
   let sendAndWaitImpl: (request: { prompt: string }) => unknown | Promise<unknown> = async () => ({ text: "stub response" });
-  const disconnectSession = vi.fn(async () => {});
-  const stopClient = vi.fn(async () => []);
-  const createSession = vi.fn(async () => ({
-    sendAndWait: async (request: { prompt: string }) => {
-      const response = await sendAndWaitImpl(request);
-      return JSON.stringify(response);
-    },
-    disconnect: disconnectSession,
-  }));
-  const forUri = vi.fn(() => ({ kind: "uri", url: "localhost:7777" }));
-  const forStdio = vi.fn(() => ({ kind: "stdio" }));
-  const CopilotClient = function () {
-    return { createSession, stop: stopClient };
+  const start = vi.fn(async () => {});
+  const stop = vi.fn(async () => {});
+  const RpcClient = function () {
+    let lastResponse = "";
+    return {
+      start,
+      stop,
+      abort: vi.fn(async () => {}),
+      onEvent: vi.fn(() => () => {}),
+      promptAndWait: async (prompt: string) => {
+        const response = await sendAndWaitImpl({ prompt });
+        lastResponse = JSON.stringify(response);
+        return [];
+      },
+      getLastAssistantText: async () => lastResponse,
+    };
   };
   const setSendAndWaitImpl = (impl: (request: { prompt: string }) => unknown | Promise<unknown>) => {
     sendAndWaitImpl = impl;
   };
-  return { approveAll, createSession, disconnectSession, stopClient, forUri, forStdio, CopilotClient, setSendAndWaitImpl };
+  return { start, stop, RpcClient, setSendAndWaitImpl };
 });
 
-vi.mock("@github/copilot-sdk", () => ({
-  approveAll: mocks.approveAll,
-  CopilotClient: mocks.CopilotClient,
-  RuntimeConnection: { forUri: mocks.forUri, forStdio: mocks.forStdio },
+vi.mock("@earendil-works/pi-coding-agent", () => ({
+  RpcClient: mocks.RpcClient,
 }));
 
 function generateOutput(prompt: string): unknown {
@@ -224,7 +224,8 @@ function withTypecheckModel(code: string): string {
 }
 
 beforeEach(() => {
-  mocks.createSession.mockClear();
+  mocks.start.mockClear();
+  mocks.stop.mockClear();
   mocks.setSendAndWaitImpl(async ({ prompt }) => generateOutput(prompt));
 });
 

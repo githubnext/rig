@@ -19,7 +19,6 @@ gh skills clone pelikhan/rig
 ```ts
 import {
   agent,
-  defineTool,
   p,
   s,
 } from "rig";
@@ -31,8 +30,7 @@ import { addons, oncePerSession, repair, steering, timeout } from "rig/addons";
 - `p.*` creates declarative prompt intents for prompt templates or inputs.
 - `p()` and ``p`...` `` create a prompt builder with `var`, `write`, and `region` primitives for assembling prompts.
 - ``p`...` `` also works in `instructions` to embed prompt intents directly: `` instructions: p`Review ${p.bash("git status")}` ``.
-- `defineTool(name, config)` matches the Copilot SDK helper and accepts rig `s.*` schemas for `parameters`.
-- `addons` accepts express-like `(context, next)` turn addons for steering, inline validation, and Copilot session access.
+- `addons` accepts express-like `(context, next)` turn addons for steering, inline validation, and Pi RPC session access.
 - `rig` starts with no default addons.
 - `rig/addons` provides optional addon helpers: `oncePerSession`, `repair`, `steering`, `timeout`, and `addons.{oncePerSession,repair,steering,timeout}`.
 - `p\`...\`` returns a prompt builder and renders intent values when coerced to string; prefer `${p.read(...)}` / `${p.bash(...)}` when the context source is already known.
@@ -120,27 +118,6 @@ b.region("ts", "type Summary = { text: string };");
 const prompt = b.toString();
 ```
 
-## Tools
-
-Register custom tools directly on an agent using the same shape as `@github/copilot-sdk`:
-
-```ts
-const lookupIssue = defineTool("lookup_issue", {
-  description: "Look up an issue by id.",
-  parameters: s.object({
-    issue: s.string,
-  }),
-  handler: async ({ issue }) => `Issue ${issue}`,
-});
-
-const triage = agent({
-  instructions: "Use lookup_issue before answering.",
-  tools: [lookupIssue],
-});
-```
-
-Rig defaults agent tools to `skipPermission: true`, and you can also place plain tool objects in `tools`; rig will convert `s.*` parameter schemas into JSON Schema before creating the Copilot session.
-
 ## Evaluating agentic performance
 
 Use these samples to quickly gauge how well `rig` supports increasingly agentic workflows:
@@ -153,7 +130,7 @@ Use these samples to quickly gauge how well `rig` supports increasingly agentic 
 
 ## Agent behavior
 
-- Default model: `gpt-4.1`
+- Default model: the model selected in Pi
 - Default max turns: `4`
 - No addons are loaded by default (including repair/retry behavior)
 
@@ -211,15 +188,15 @@ const review = agent({});
 review.use(timingAddon);
 ```
 
-## Copilot SDK runtime
+## Pi runtime
 
-`rig` is specialized for Copilot SDK sessions inside sandboxed agentic workflows.
+`rig` starts the Pi agent CLI in RPC mode for each agent call. Pi provides its built-in `read`, `write`, `edit`, and `bash` tools.
 
-By default it connects to an already-running Copilot server via HTTP (`COPILOT_SDK_URI`, then `localhost:7777`).
-Pass `--server` to spawn the server over stdio when launching a program.
+Configure provider credentials and model selection through Pi. A rig agent's `model` field is forwarded to Pi's `--model` option; when omitted, Pi uses its configured model.
+Sessions are ephemeral and project resources are approved automatically for non-interactive execution.
 Run `node skills/rig/rig.ts --help` for CLI usage; the launcher also accepts common help aliases such as `-h`, `help`, `/help`, and `/?`.
 
-For runnable programs, you can pipe a rig program directly on stdin (assumes the Copilot server is already running):
+For runnable programs, pipe a rig program directly on stdin:
 
 ```bash
 cat <<'RIG' | node skills/rig/rig.ts
@@ -232,12 +209,6 @@ Inline stdin programs run a default-exported root program with no required exter
 `import { agent, p, s } from "rig"` is optional in inline mode because the harness injects it when missing.
 
 Inline mode accepts root agents that either omit `input`, use `input: s.object({})`, or rely on the default `input: s.string` (which is invoked with `""`).
-
-Pass `--server` to start the Copilot server automatically as part of the run:
-
-```bash
-cat ./program.ts | node skills/rig/rig.ts --server
-```
 
 Pass `--typecheck` to typecheck the rig program before execution:
 
@@ -262,7 +233,7 @@ For program-file mode stdin coercion:
 - if root input schema is an object containing `text`, stdin is passed as `{ text: "<stdin>" }`
 - otherwise stdin must be valid JSON for the declared input schema
 
-Copilot SDK lifecycle events and rig request events are logged to stderr as JSONL.
+Pi lifecycle events and rig request events are logged to stderr as JSONL.
 
 ## Local development
 

@@ -99,7 +99,7 @@ Use `agent({ name, ... })` as the only agent declaration form. `name` is optiona
 
 | Setting | Default |
 |---------|---------|
-| Model | `gpt-4.1` |
+| Model | Pi's configured model |
 | Max turns | `4` |
 | Addons | none |
 
@@ -145,29 +145,6 @@ Common examples:
 s.enum("bug", "feature", "question")
 s.optional(s.number)
 s.record(s.string)
-```
-
-## Tools
-
-Register custom tools with `defineTool` using the same shape as `@github/copilot-sdk`. Use `s.*` schemas for `parameters`. Rig defaults tools to `skipPermission: true`.
-
-```ts
-import { agent, defineTool, s } from "rig";
-
-const lookupIssue = defineTool("lookup_issue", {
-  description: "Look up an issue by id.",
-  parameters: s.object({
-    issue: s.string,
-  }),
-  handler: async ({ issue }) => `Issue ${issue}`,
-});
-
-// Agent role: triage an issue using the lookup tool.
-const triage = agent({
-  model: "mini",
-  instructions: "Use lookup_issue before answering.",
-  tools: [lookupIssue],
-});
 ```
 
 ## Prompt helpers
@@ -279,9 +256,9 @@ const summarize = agent({
 ```
 
 Use addons to steer retry prompts when needed (for example `steering()` from `rig/addons`).
-Use `oncePerSession()` from `rig/addons` when you need to register with the Copilot session once per call instead of checking `context.turn === 1`.
+Use `oncePerSession()` from `rig/addons` when you need to register with the Pi RPC session once per call instead of checking `context.turn === 1`.
 
-The addon `context` object contains: `prompt`, `response`, `turn`, `maxTurns`, `signal`, `output`, `nextPrompt`, `error`, `completed`, and `session` (direct Copilot SDK session access).
+The addon `context` object contains: `prompt`, `response`, `turn`, `maxTurns`, `signal`, `output`, `nextPrompt`, `error`, `completed`, and `session` (direct Pi `RpcClient` access).
 
 ## Running programs
 
@@ -306,12 +283,6 @@ The harness also supports program-file mode. Export the root program as the defa
 echo "Review this diff" | node skills/rig/rig.ts src/program.ts
 ```
 
-Pass `--server` to have the harness start the Copilot server automatically before running:
-
-```bash
-echo "Review this diff" | node skills/rig/rig.ts src/program.ts --server
-```
-
 Pass `--typecheck` to typecheck the rig program before execution:
 
 ```bash
@@ -332,11 +303,11 @@ For program-file mode stdin coercion:
 - if root input schema is an object containing `text`, stdin is passed as `{ text: "<stdin>" }`
 - otherwise stdin must be valid JSON for the declared input schema
 
-## Copilot SDK runtime
+## Pi runtime
 
-`rig` is specialized for Copilot SDK sessions and no longer exposes a custom engine mount API.
-By default it connects over HTTP using `COPILOT_SDK_URI`, then `localhost:7777`.
-Use `--server` at launch time when you want the harness to start the Copilot server via stdio.
+`rig` starts the Pi agent CLI in RPC mode for each agent call. Pi's built-in `read`, `write`, `edit`, and `bash` tools are available.
+The agent `model` is passed to Pi; omit it to use Pi's configured model.
+Sessions are ephemeral and project resources are approved automatically for non-interactive execution.
 
 ## Patterns to prefer
 

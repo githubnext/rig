@@ -2,16 +2,9 @@ import { basename, dirname, isAbsolute, resolve } from "node:path";
 import { fileURLToPath, pathToFileURL } from "node:url";
 import { access, mkdir, mkdtemp, rm, writeFile } from "node:fs/promises";
 import { execFile } from "node:child_process";
-import { AsyncLocalStorage } from "node:async_hooks";
 import { promisify } from "node:util";
-import { CopilotClient, RuntimeConnection, approveAll, defineTool as sdkDefineTool } from "@github/copilot-sdk";
-import type {
-  CopilotClientOptions,
-  SystemMessageConfig,
-  Tool as CopilotTool,
-  ToolHandler,
-  ZodSchema,
-} from "@github/copilot-sdk";
+import { RpcClient } from "@earendil-works/pi-coding-agent";
+import type { RpcClientOptions } from "@earendil-works/pi-coding-agent";
 
 export type Json = null | boolean | number | string | Json[] | { [key: string]: Json };
 export type ValidationResult = { ok: true } | { ok: false; error: string };
@@ -199,20 +192,18 @@ function serializeSchema(schema: Schema): JsonSchemaObject {
 const defaultStringSchema = s.string;
 const defaultName = "agent";
 
-export type CopilotEngineOptions = Omit<CopilotClientOptions, "connection"> & {
-  connection?: CopilotClientOptions["connection"];
-  server?: boolean;
-};
+export type PiEngineOptions = RpcClientOptions;
 
-function resolveDefaultCopilotUri(): string {
-  return process.env["COPILOT_SDK_URI"] ?? "localhost:7777";
+function resolvePiCliPath(): string {
+  const packageEntry = fileURLToPath(import.meta.resolve("@earendil-works/pi-coding-agent"));
+  return resolve(dirname(packageEntry), "cli.js");
 }
 
-export function copilotEngine(options: CopilotEngineOptions = {}): CopilotClient {
-  const { server, connection, ...clientOptions } = options;
-  return new CopilotClient({
-    ...clientOptions,
-    connection: connection ?? (server ? RuntimeConnection.forStdio() : RuntimeConnection.forUri(resolveDefaultCopilotUri())),
+export function piEngine(options: PiEngineOptions = {}): RpcClient {
+  return new RpcClient({
+    ...options,
+    cliPath: options.cliPath ?? resolvePiCliPath(),
+    args: ["--no-session", "--approve", ...(options.args ?? [])],
   });
 }
 
@@ -241,10 +232,10 @@ function writeEvent(event: unknown): void {
   process.stderr.write(`${jsonl(event)}\n`);
 }
 
-export type CopilotSession = Awaited<ReturnType<CopilotClient["createSession"]>>;
+export type PiSession = RpcClient;
 export type AgentAddonContext = {
   spec: NormalizedAgentSpec<any, any>;
-  session: CopilotSession;
+  session: PiSession;
   input: unknown;
   outputSchema: Schema;
   signal: AbortSignal | undefined;
@@ -261,23 +252,6 @@ export type AgentAddon = (
   context: AgentAddonContext,
   next: () => Promise<void>,
 ) => void | Promise<void>;
-export type Tool<TArgs = unknown> = CopilotTool<TArgs>;
-export type ToolParameters<TArgs = unknown> = Schema | ZodSchema<TArgs> | Record<string, unknown>;
-export type ToolConfig<TArgs = unknown> = {
-  description?: string;
-  parameters?: ToolParameters<TArgs>;
-  handler?: ToolHandler<TArgs>;
-  overridesBuiltInTool?: boolean;
-  skipPermission?: boolean;
-};
-
-export function defineTool<T = unknown>(name: string, config: ToolConfig<T>): Tool<T> {
-  return sdkDefineTool(name, {
-    ...normalizeToolConfig(config),
-    parameters: normalizeToolParameters(config.parameters),
-  });
-}
-
 export type AgentSpec<Input extends Schema = StringSchema, Output extends Schema = StringSchema> = {
   name?: string;
   instructions?: string | PromptBuilder;
@@ -287,8 +261,7 @@ export type AgentSpec<Input extends Schema = StringSchema, Output extends Schema
   maxTurns?: number;
   addons?: AgentAddon | AgentAddon[];
   agents?: Record<string, AgentFn<any, any>>;
-  systemMessage?: SystemMessageConfig;
-  tools?: Tool<any>[];
+  systemPrompt?: string;
 };
 /** Internal normalized variant with a guaranteed resolved name. */
 type NormalizedAgentSpec<Input extends Schema = StringSchema, Output extends Schema = StringSchema> = AgentSpec<Input, Output> & { name: string };
@@ -302,7 +275,6 @@ export type CallOptions = {
 
 export type LaunchOptions = {
   cwd?: string;
-  startServer?: boolean;
   typecheck?: boolean;
 };
 
@@ -547,15 +519,11 @@ export class AgentError extends Error {
   }
 }
 
-let currentCopilotOptions: CopilotEngineOptions | undefined;
-type CopilotRunContext = {
-  client: CopilotClient;
-};
-type CopilotSessionHandle = {
-  session: CopilotSession;
+let currentPiOptions: PiEngineOptions | undefined;
+type PiSessionHandle = {
+  session: PiSession;
   close(): Promise<void>;
 };
-const copilotRunStorage = new AsyncLocalStorage<CopilotRunContext>();
 
 /**
  * Mounts an engine and executes a rig program file.
@@ -565,7 +533,7 @@ export async function launchRigProgram(programPath: string, options: LaunchOptio
   const cwd = options.cwd ?? process.cwd();
   const resolvedPath = isAbsolute(programPath) ? programPath : resolve(cwd, programPath);
 
-  configureCopilot(resolveCopilotOptions(cwd, options));
+  configurePi(resolvePiOptions(cwd));
   await import(pathToFileURL(resolvedPath).href);
 }
 
@@ -577,8 +545,8 @@ async function readStdin(stream: NodeJS.ReadableStream): Promise<string> {
   return chunks.join("");
 }
 
-function resolveCopilotOptions(cwd: string, options: LaunchOptions): { workingDirectory: string } | { workingDirectory: string; server: true } {
-  return options.startServer ? { workingDirectory: cwd, server: true } : { workingDirectory: cwd };
+function resolvePiOptions(cwd: string): PiEngineOptions {
+  return { cwd };
 }
 
 function asRootAgent(value: unknown): AgentFn | undefined {
@@ -749,7 +717,7 @@ async function runRootAgentFromStdin(
     await typecheckProgram(resolvedPath, cwd);
   }
 
-  configureCopilot(resolveCopilotOptions(cwd, options));
+  configurePi(resolvePiOptions(cwd));
   const mod = await import(pathToFileURL(resolvedPath).href);
   const rootAgent = asRootProgram(mod.default, "launcher-root");
   if (!rootAgent) {
@@ -767,7 +735,7 @@ async function runProgramCodeFromStdin(
 ): Promise<void> {
   const programCode = await readStdin(io.stdin);
   if (!programCode.trim()) {
-    throw new Error(`Usage: ${scriptName} <program-file> [--server] [--typecheck]`);
+    throw new Error(`Usage: ${scriptName} <program-file> [--typecheck]`);
   }
 
   const cwd = options.cwd ?? process.cwd();
@@ -781,7 +749,7 @@ async function runProgramCodeFromStdin(
     if (options.typecheck) {
       await typecheckProgram(tempProgramPath, cwd);
     }
-    configureCopilot(resolveCopilotOptions(cwd, options));
+    configurePi(resolvePiOptions(cwd));
     const mod = await import(pathToFileURL(tempProgramPath).href);
     const rootAgent = asRootProgram(mod.default, "launcher-inline-root");
     if (!rootAgent) {
@@ -806,7 +774,7 @@ function isLauncherHelpArg(arg: string): boolean {
 
 function renderLauncherUsage(scriptName: string): string {
   return [
-    `Usage: ${scriptName} [<program-file>] [--server] [--typecheck]`,
+    `Usage: ${scriptName} [<program-file>] [--typecheck]`,
     "",
     "Modes:",
     "  <no program-file>  Read a rig program from stdin and run its default root export.",
@@ -834,15 +802,13 @@ export async function runLauncherCli(
   }
   const positionalArgs = argv.filter((arg) => !arg.startsWith("--"));
   const flags = argv.filter((arg) => arg.startsWith("--"));
-  const serverFlag = flags.includes("--server");
   const typecheckFlag = flags.includes("--typecheck");
-  const unknownFlags = flags.filter((f) => f !== "--server" && f !== "--typecheck");
+  const unknownFlags = flags.filter((f) => f !== "--typecheck");
   if (positionalArgs.length > 1 || unknownFlags.length > 0) {
-    throw new Error(`Usage: ${scriptName} <program-file> [--server] [--typecheck]`);
+    throw new Error(`Usage: ${scriptName} <program-file> [--typecheck]`);
   }
   const mergedOptions: LaunchOptions = {
     ...options,
-    ...(serverFlag ? { startServer: true } : {}),
     ...(typecheckFlag ? { typecheck: true } : {}),
   };
   if (positionalArgs.length === 1) {
@@ -866,7 +832,7 @@ export function agent(spec: AgentSpec<any, any>): AgentFn<any, any> {
     const normalizedInput = normalizeInput(input, inputSchema);
     let prompt = renderPrompt(normalizedSpec, normalizedInput);
     let lastResponse = "";
-    const copilot = await createCopilotSession(runtime.model, runtime.systemMessage, runtime.tools);
+    const pi = await createPiSession(runtime.model, runtime.systemPrompt);
     let failure: unknown;
 
     try {
@@ -874,7 +840,7 @@ export function agent(spec: AgentSpec<any, any>): AgentFn<any, any> {
         throwIfAborted(runtime.signal);
         const context: AgentAddonContext = {
           spec: normalizedSpec,
-          session: copilot.session,
+          session: pi.session,
           input: normalizedInput,
           outputSchema,
           signal: runtime.signal,
@@ -885,7 +851,7 @@ export function agent(spec: AgentSpec<any, any>): AgentFn<any, any> {
         };
 
         await runAgentAddons(runtime.addons, context, async () => {
-          lastResponse = await sendCopilotPrompt(copilot.session, context.prompt, context.signal);
+          lastResponse = await sendPiPrompt(pi.session, context.prompt, context.signal);
           context.response = lastResponse;
         });
 
@@ -915,7 +881,7 @@ export function agent(spec: AgentSpec<any, any>): AgentFn<any, any> {
       throw error;
     } finally {
       try {
-        await copilot.close();
+        await pi.close();
       } catch (cleanupError) {
         if (failure === undefined) {
           throw cleanupError;
@@ -927,29 +893,7 @@ export function agent(spec: AgentSpec<any, any>): AgentFn<any, any> {
   };
 
   const fn = (async (input: unknown, options: CallOptions = {}) => {
-    const existingContext = copilotRunStorage.getStore();
-    if (existingContext) {
-      return invoke(input, options);
-    }
-
-    const client = copilotEngine(currentCopilotOptions);
-    return copilotRunStorage.run({ client }, async () => {
-      let failure: unknown;
-      try {
-        return await invoke(input, options);
-      } catch (error) {
-        failure = error;
-        throw error;
-      } finally {
-        try {
-          await stopCopilotClient(client);
-        } catch (cleanupError) {
-          if (failure === undefined) {
-            throw cleanupError;
-          }
-        }
-      }
-    });
+    return invoke(input, options);
   }) as AgentFn<any, any>;
 
   fn.agentName = normalizedSpec.name;
@@ -993,35 +937,8 @@ function normalizeSpec(specOrName: AgentSpec<any, any>): NormalizedAgentSpec<any
   if (specOrName.maxTurns !== undefined) spec.maxTurns = specOrName.maxTurns;
   if (specOrName.addons !== undefined) spec.addons = specOrName.addons;
   if (specOrName.agents !== undefined) spec.agents = specOrName.agents;
-  if (specOrName.systemMessage !== undefined) spec.systemMessage = specOrName.systemMessage;
-  if (specOrName.tools !== undefined) spec.tools = normalizeTools(specOrName.tools, agentName);
+  if (specOrName.systemPrompt !== undefined) spec.systemPrompt = specOrName.systemPrompt;
   return spec;
-}
-
-function normalizeToolParameters<T>(parameters: ToolParameters<T> | undefined): ToolParameters<T> | undefined {
-  return parameters !== undefined && isSchema(parameters) ? toJsonSchema(parameters) : parameters;
-}
-
-function normalizeToolConfig<T extends { skipPermission?: boolean }>(tool: T): T & { skipPermission: boolean } {
-  return {
-    ...tool,
-    skipPermission: tool.skipPermission ?? true,
-  };
-}
-
-function normalizeTools(tools: Tool<any>[], agentName: string): Tool<any>[] {
-  return tools.map((tool, index) => {
-    if (!tool || typeof tool !== "object") {
-      throw new Error(`Invalid tool for agent "${agentName}" at tools[${index}]. Expected a tool definition object.`);
-    }
-    if (typeof tool.name !== "string" || tool.name.length === 0) {
-      throw new Error(`Invalid tool for agent "${agentName}" at tools[${index}]. Expected a non-empty tool name.`);
-    }
-    return {
-      ...normalizeToolConfig(tool),
-      parameters: normalizeToolParameters(tool.parameters),
-    };
-  });
 }
 
 function normalizeInput(input: unknown, schema: Schema): unknown {
@@ -1361,107 +1278,77 @@ function withOptions<T extends Omit<Partial<PromptIntent>, "__rig" | "id" | "mod
   return options ? { ...value, options: stripSignal(options) } : value;
 }
 
-function configureCopilot(options: CopilotEngineOptions): void {
-  currentCopilotOptions = options;
+function configurePi(options: PiEngineOptions): void {
+  currentPiOptions = options;
 }
 
-function asError(error: unknown): Error {
-  return error instanceof Error ? error : new Error(String(error));
-}
-
-function throwCleanupErrors(errors: Error[], message: string): void {
-  if (errors.length === 1) {
-    throw errors[0]!;
-  }
-  if (errors.length > 1) {
-    throw new AggregateError(errors, message);
-  }
-}
-
-async function stopCopilotClient(client: CopilotClient): Promise<void> {
-  const errors: Error[] = [];
-
-  try {
-    const stopErrors = await client.stop();
-    if (Array.isArray(stopErrors)) {
-      errors.push(...stopErrors.map(asError));
-    }
-  } catch (error) {
-    errors.push(asError(error));
-  }
-
-  throwCleanupErrors(errors, "Failed to stop Copilot client");
-}
-
-async function createCopilotSession(
-  model: string,
-  systemMessage?: SystemMessageConfig,
-  tools?: Tool<any>[],
-): Promise<CopilotSessionHandle> {
-  const runContext = copilotRunStorage.getStore();
-  const client = runContext?.client;
-  if (!client) {
-    throw new Error("No Copilot client found in execution context. Invoke agents through the exported agent function.");
-  }
-  const config = {
-    model,
-    streaming: false,
-    onPermissionRequest: approveAll,
-    ...(systemMessage !== undefined && { systemMessage }),
-    ...(tools !== undefined && { tools }),
-  };
-  const session = await client.createSession(config);
-  session.on?.((event: unknown) => {
+async function createPiSession(
+  model: string | undefined,
+  systemPrompt?: string,
+): Promise<PiSessionHandle> {
+  const args = [
+    ...(currentPiOptions?.args ?? []),
+    ...(systemPrompt !== undefined ? ["--system-prompt", systemPrompt] : []),
+  ];
+  const session = piEngine({
+    ...currentPiOptions,
+    ...(model !== undefined ? { model } : {}),
+    args,
+  });
+  session.onEvent((event: unknown) => {
     writeEvent(event);
   });
+  await session.start();
 
   return {
     session,
     async close() {
-      const errors: Error[] = [];
-
-      if (session.disconnect) {
-        try {
-          await session.disconnect();
-        } catch (error) {
-          errors.push(asError(error));
-        }
-      }
-
-      throwCleanupErrors(errors, "Failed to close Copilot session");
+      await session.stop();
     },
   };
 }
 
-async function sendCopilotPrompt(session: CopilotSession, prompt: string, signal?: AbortSignal): Promise<string> {
-  const request = signal ? { prompt, signal } : { prompt };
-  writeEvent(rigEvent("copilot-ask", { prompt }));
-  const response = await session.sendAndWait(request);
-  if (!response) {
-    return "";
+async function sendPiPrompt(session: PiSession, prompt: string, signal?: AbortSignal): Promise<string> {
+  writeEvent(rigEvent("pi-ask", { prompt }));
+  throwIfAborted(signal);
+
+  const run = async () => {
+    await session.promptAndWait(prompt, undefined, 2_147_483_647);
+    return await session.getLastAssistantText() ?? "";
+  };
+  if (!signal) {
+    return run();
   }
-  if (typeof response === "string") {
-    return response;
+
+  let rejectAbort: ((reason?: unknown) => void) | undefined;
+  const aborted = new Promise<never>((_, reject) => {
+    rejectAbort = reject;
+  });
+  const onAbort = () => {
+    void session.abort().catch(() => {});
+    rejectAbort?.(signal.reason ?? new Error("Agent call aborted."));
+  };
+  signal.addEventListener("abort", onAbort, { once: true });
+  try {
+    return await Promise.race([run(), aborted]);
+  } finally {
+    signal.removeEventListener("abort", onAbort);
   }
-  const value = response as any;
-  return value?.data?.content ?? value?.data?.text ?? value?.text ?? value?.content ?? JSON.stringify(response);
 }
 
 function resolveCallRuntime(spec: NormalizedAgentSpec<any, any>, options: CallOptions): {
-  model: string;
+  model: string | undefined;
   maxTurns: number;
   signal: AbortSignal | undefined;
   addons: AgentAddon[];
-  systemMessage: SystemMessageConfig | undefined;
-  tools: Tool<any>[] | undefined;
+  systemPrompt: string | undefined;
 } {
   return {
-    model: options.model ?? spec.model ?? "gpt-4.1",
+    model: options.model ?? spec.model,
     maxTurns: options.maxTurns ?? spec.maxTurns ?? 4,
     signal: timeoutSignal(options.signal, options.timeout),
     addons: normalizeAddons(spec.addons),
-    systemMessage: spec.systemMessage,
-    tools: spec.tools,
+    systemPrompt: spec.systemPrompt,
   };
 }
 

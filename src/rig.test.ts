@@ -1,71 +1,76 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
 const mocks = vi.hoisted(() => {
-  let sendAndWaitImpl: (request: { prompt: string; signal?: AbortSignal }) => unknown | Promise<unknown> = async () => JSON.stringify("default");
+  let sendAndWaitImpl: (request: { prompt: string }) => unknown | Promise<unknown> = async () => JSON.stringify("default");
   let onImpl: ((handler: (event: unknown) => void) => void) | undefined;
-  const approveAll = vi.fn();
-  const disconnectSession = vi.fn(async () => {});
-  const stopClient = vi.fn(async () => []);
-
-  const createSession = vi.fn(async () => ({
-    on: onImpl ? ((handler: (event: unknown) => void) => {
-      onImpl?.(handler);
-      return () => {};
-    }) : undefined,
-    sendAndWait: async (request: { prompt: string; signal?: AbortSignal }) => {
-      const response = await sendAndWaitImpl(request);
-      return typeof response === "string" ? response : JSON.stringify(response);
-    },
-    disconnect: disconnectSession,
-  }));
-  const forUri = vi.fn(() => ({ kind: "uri", url: "localhost:7777" }));
-  const forStdio = vi.fn(() => ({ kind: "stdio" }));
-  const sdkDefineTool = vi.fn((name: string, config: Record<string, unknown>) => ({ name, ...config }));
-  const copilotClientCtor = vi.fn();
-  const CopilotClient = function (this: unknown, options: unknown) {
-    copilotClientCtor(options);
-    return { createSession, stop: stopClient };
+  const start = vi.fn(async () => {});
+  const stop = vi.fn(async () => {});
+  const abort = vi.fn(async () => {});
+  const rpcClientCtor = vi.fn();
+  const promptAndWait = vi.fn();
+  const RpcClient = function (this: unknown, options: unknown) {
+    rpcClientCtor(options);
+    let lastResponse = "";
+    let eventHandler: ((event: unknown) => void) | undefined;
+    let rejectPrompt: ((reason?: unknown) => void) | undefined;
+    return {
+      start,
+      stop,
+      abort: async () => {
+        abort();
+        rejectPrompt?.(new Error("Timed out"));
+      },
+      onEvent: (handler: (event: unknown) => void) => {
+        eventHandler = handler;
+        onImpl?.(handler);
+        return () => {};
+      },
+      promptAndWait: async (prompt: string) => {
+        promptAndWait(prompt);
+        const response = await Promise.race([
+          sendAndWaitImpl({ prompt }),
+          new Promise<never>((_, reject) => {
+            rejectPrompt = reject;
+          }),
+        ]);
+        lastResponse = typeof response === "string" ? response : JSON.stringify(response);
+        eventHandler?.({ type: "agent_settled" });
+        return [];
+      },
+      getLastAssistantText: async () => lastResponse,
+    };
   };
-  const setSendAndWaitImpl = (impl: (request: { prompt: string; signal?: AbortSignal }) => unknown | Promise<unknown>) => {
+  const setSendAndWaitImpl = (impl: (request: { prompt: string }) => unknown | Promise<unknown>) => {
     sendAndWaitImpl = impl;
   };
   const setOnImpl = (impl?: (handler: (event: unknown) => void) => void) => {
     onImpl = impl;
   };
   return {
-    approveAll,
-    createSession,
-    disconnectSession,
-    stopClient,
-    forUri,
-    forStdio,
-    sdkDefineTool,
-    copilotClientCtor,
-    CopilotClient,
+    start,
+    stop,
+    abort,
+    promptAndWait,
+    rpcClientCtor,
+    RpcClient,
     setSendAndWaitImpl,
     setOnImpl,
   };
 });
 
-vi.mock("@github/copilot-sdk", () => ({
-  approveAll: mocks.approveAll,
-  CopilotClient: mocks.CopilotClient,
-  RuntimeConnection: { forUri: mocks.forUri, forStdio: mocks.forStdio },
-  defineTool: mocks.sdkDefineTool,
+vi.mock("@earendil-works/pi-coding-agent", () => ({
+  RpcClient: mocks.RpcClient,
 }));
 
-import { AgentError, PromptBuilder, agent, defineTool, p, s, toJsonSchema } from "rig";
+import { AgentError, PromptBuilder, agent, p, s, toJsonSchema } from "rig";
 import { oncePerSession, repair, steering, timeout } from "rig/addons";
 
 beforeEach(() => {
-  mocks.createSession.mockClear();
-  mocks.approveAll.mockClear();
-  mocks.forUri.mockClear();
-  mocks.forStdio.mockClear();
-  mocks.sdkDefineTool.mockClear();
-  mocks.copilotClientCtor.mockClear();
-  mocks.disconnectSession.mockClear();
-  mocks.stopClient.mockClear();
+  mocks.start.mockClear();
+  mocks.stop.mockClear();
+  mocks.abort.mockClear();
+  mocks.promptAndWait.mockClear();
+  mocks.rpcClientCtor.mockClear();
   mocks.setOnImpl(undefined);
   mocks.setSendAndWaitImpl(async () => JSON.stringify("default"));
   vi.restoreAllMocks();
@@ -178,7 +183,7 @@ describe("agent", () => {
 });
 
 describe("agent invocation", () => {
-  it("calls the copilot sdk and returns validated data", async () => {
+  it("calls the Pi CLI and returns validated data", async () => {
     mocks.setSendAndWaitImpl(async () => ({ text: "hello world" }));
     const greet = agent({
       name: "greeter",
@@ -187,8 +192,8 @@ describe("agent invocation", () => {
     });
 
     await expect(greet({ text: "Hi" })).resolves.toEqual({ text: "hello world" });
-    expect(mocks.disconnectSession).toHaveBeenCalledTimes(1);
-    expect(mocks.stopClient).toHaveBeenCalledTimes(1);
+    expect(mocks.start).toHaveBeenCalledTimes(1);
+    expect(mocks.stop).toHaveBeenCalledTimes(1);
   });
 
   it("closes the session and client when a call fails", async () => {
@@ -202,11 +207,10 @@ describe("agent invocation", () => {
     });
 
     await expect(greet({ text: "Hi" })).rejects.toThrow("boom");
-    expect(mocks.disconnectSession).toHaveBeenCalledTimes(1);
-    expect(mocks.stopClient).toHaveBeenCalledTimes(1);
+    expect(mocks.stop).toHaveBeenCalledTimes(1);
   });
 
-  it("reuses one client for nested agent invocations while creating model-specific sessions", async () => {
+  it("creates model-specific Pi sessions for nested agent invocations", async () => {
     const child = agent({
       name: "child",
       model: "o3-mini",
@@ -229,17 +233,13 @@ describe("agent invocation", () => {
     });
 
     await expect(parent({ text: "parent" })).resolves.toEqual({ text: "parent-ok" });
-    expect(mocks.copilotClientCtor).toHaveBeenCalledTimes(1);
-    expect(mocks.createSession).toHaveBeenCalledTimes(2);
-    expect(mocks.createSession.mock.calls).toEqual([
-      [{ model: "gpt-4.1", streaming: false, onPermissionRequest: mocks.approveAll }],
-      [{ model: "o3-mini", streaming: false, onPermissionRequest: mocks.approveAll }],
-    ]);
-    expect(mocks.disconnectSession).toHaveBeenCalledTimes(2);
-    expect(mocks.stopClient).toHaveBeenCalledTimes(1);
+    expect(mocks.rpcClientCtor).toHaveBeenCalledTimes(2);
+    expect(mocks.rpcClientCtor.mock.calls[0]?.[0]).toMatchObject({ model: "gpt-4.1" });
+    expect(mocks.rpcClientCtor.mock.calls[1]?.[0]).toMatchObject({ model: "o3-mini" });
+    expect(mocks.stop).toHaveBeenCalledTimes(2);
   });
 
-  it("logs raw Copilot SDK events and rig ask events as JSONL", async () => {
+  it("logs raw Pi events and rig ask events as JSONL", async () => {
     const stderr = vi.spyOn(process.stderr, "write").mockImplementation(() => true as any);
     mocks.setOnImpl((handler) => {
       handler({ type: "session.idle", data: { done: true } });
@@ -255,20 +255,20 @@ describe("agent invocation", () => {
     await expect(greet({ text: "Hi" })).resolves.toEqual({ text: "hello world" });
 
     const logs = stderr.mock.calls.map(([chunk]) => JSON.parse(String(chunk).trim()));
-    expect(logs).toHaveLength(2);
+    expect(logs).toHaveLength(3);
     expect(logs[0]).toEqual({ type: "session.idle", data: { done: true } });
     expect(logs[1]).toMatchObject({
-      type: "rig.copilot-ask",
+      type: "rig.pi-ask",
       data: { prompt: expect.stringContaining("Hi") },
     });
   });
 
-  it("exposes the Copilot session through an addon", async () => {
+  it("exposes the Pi RPC session through an addon", async () => {
     const addon = vi.fn(async (context, next) => {
       await next();
       expect(context.session).toMatchObject({
-        sendAndWait: expect.any(Function),
-        disconnect: expect.any(Function),
+        promptAndWait: expect.any(Function),
+        stop: expect.any(Function),
       });
     });
     mocks.setSendAndWaitImpl(async () => ({ text: "hello world" }));
@@ -350,7 +350,7 @@ describe("agent invocation", () => {
     });
 
     await expect(greet({ text: "Hi" })).rejects.toThrow("hook failed");
-    expect(mocks.disconnectSession).toHaveBeenCalledTimes(1);
+    expect(mocks.stop).toHaveBeenCalledTimes(1);
   });
 
   it("starts with no repair addon by default", async () => {
@@ -452,115 +452,41 @@ describe("agent invocation", () => {
     const call = agent({ name: "model-test", model: "gpt-4.1" });
     await call("x", { model: "o3-mini" });
 
-    expect(mocks.createSession).toHaveBeenCalledWith({ model: "o3-mini", streaming: false, onPermissionRequest: mocks.approveAll });
+    expect(mocks.rpcClientCtor).toHaveBeenCalledWith(expect.objectContaining({ model: "o3-mini" }));
   });
 
-  it("passes systemMessage to the session when specified", async () => {
+  it("passes systemPrompt to the Pi CLI when specified", async () => {
     mocks.setSendAndWaitImpl(async () => JSON.stringify("ok"));
 
-    const systemMessage = { content: "You are a helpful assistant." };
-    const call = agent({ name: "sys-msg-test", systemMessage });
+    const systemPrompt = "You are a helpful assistant.";
+    const call = agent({ name: "sys-msg-test", systemPrompt });
     await call("x");
 
-    expect(mocks.createSession).toHaveBeenCalledWith({
-      model: "gpt-4.1",
-      streaming: false,
-      onPermissionRequest: mocks.approveAll,
-      systemMessage,
-    });
+    expect(mocks.rpcClientCtor).toHaveBeenCalledWith(expect.objectContaining({
+      args: expect.arrayContaining(["--system-prompt", systemPrompt]),
+    }));
   });
 
-  it("does not pass systemMessage when not specified", async () => {
+  it("does not pass a system prompt when not specified", async () => {
     mocks.setSendAndWaitImpl(async () => JSON.stringify("ok"));
 
     const call = agent({ name: "no-sys-msg-test" });
     await call("x");
 
-    expect(mocks.createSession).toHaveBeenCalledWith({ model: "gpt-4.1", streaming: false, onPermissionRequest: mocks.approveAll });
-  });
-
-  it("defines tools with rig schemas using the Copilot SDK helper shape", () => {
-    const handler = vi.fn(async ({ issue }: { issue: string }) => `Issue ${issue}`);
-    const lookupIssue = defineTool("lookup_issue", {
-      description: "Look up an issue by id.",
-      parameters: s.object({ issue: s.string }),
-      handler,
-    });
-
-    expect(mocks.sdkDefineTool).toHaveBeenCalledWith("lookup_issue", {
-      description: "Look up an issue by id.",
-      parameters: toJsonSchema(s.object({ issue: s.string })),
-      handler,
-      skipPermission: true,
-    });
-    expect(lookupIssue).toMatchObject({
-      name: "lookup_issue",
-      description: "Look up an issue by id.",
-      parameters: toJsonSchema(s.object({ issue: s.string })),
-      handler,
-      skipPermission: true,
-    });
-  });
-
-  it("preserves explicit tool permission overrides", () => {
-    defineTool("lookup_issue", {
-      skipPermission: false,
-    });
-
-    expect(mocks.sdkDefineTool).toHaveBeenCalledWith("lookup_issue", {
-      skipPermission: false,
-    });
-  });
-
-  it("passes tools to the session and normalizes rig schemas", async () => {
-    mocks.setSendAndWaitImpl(async () => JSON.stringify("ok"));
-
-    const call = agent({
-      name: "tool-test",
-      tools: [{
-        name: "lookup_issue",
-        description: "Look up an issue by id.",
-        parameters: s.object({ issue: s.string }),
-        handler: async ({ issue }: { issue: string }) => `Issue ${issue}`,
-      }],
-    });
-    await call("x");
-
-    expect(mocks.createSession).toHaveBeenCalledWith({
-      model: "gpt-4.1",
-      onPermissionRequest: mocks.approveAll,
-      streaming: false,
-      tools: [expect.objectContaining({
-        name: "lookup_issue",
-        description: "Look up an issue by id.",
-        parameters: toJsonSchema(s.object({ issue: s.string })),
-        handler: expect.any(Function),
-        skipPermission: true,
-      })],
-    });
+    expect(mocks.rpcClientCtor).toHaveBeenCalledWith(expect.objectContaining({
+      args: expect.not.arrayContaining(["--system-prompt"]),
+    }));
   });
 
   it("supports timeout and abort signals", async () => {
-    mocks.setSendAndWaitImpl(async ({ signal }) => {
-      await new Promise((_, reject) => {
-        signal?.addEventListener("abort", () => reject(signal.reason), { once: true });
-        setTimeout(() => reject(new Error("should have aborted")), 5000);
-      });
-      return "";
-    });
+    mocks.setSendAndWaitImpl(async () => new Promise(() => {}));
 
     const slow = agent({ name: "timeout-test" });
     await expect(slow("go", { timeout: 50 })).rejects.toThrow(/Timed out/);
   });
 
   it("supports timeout as an addon", async () => {
-    mocks.setSendAndWaitImpl(async ({ signal }) => {
-      await new Promise((_, reject) => {
-        signal?.addEventListener("abort", () => reject(signal.reason), { once: true });
-        setTimeout(() => reject(new Error("should have aborted")), 5000);
-      });
-      return "";
-    });
+    mocks.setSendAndWaitImpl(async () => new Promise(() => {}));
 
     const slow = agent({ name: "timeout-test", addons: timeout({ timeout: 50 }) });
     await expect(slow("go")).rejects.toThrow(/Timed out/);
@@ -720,7 +646,7 @@ describe("agent invocation", () => {
     );
   });
 
-  it("registers with the Copilot session once per call", async () => {
+  it("registers with the Pi session once per call", async () => {
     let turns = 0;
     const register = vi.fn();
     mocks.setSendAndWaitImpl(async () => {
@@ -743,8 +669,8 @@ describe("agent invocation", () => {
     expect(register).toHaveBeenCalledTimes(1);
     expect(register).toHaveBeenCalledWith(
       expect.objectContaining({
-        sendAndWait: expect.any(Function),
-        disconnect: expect.any(Function),
+        promptAndWait: expect.any(Function),
+        stop: expect.any(Function),
       }),
       1,
     );

@@ -1,5 +1,5 @@
 import { analyzeResponse, defaultRepairPrompt } from "./rig.ts";
-import type { AgentAddon, AgentAddonContext, CopilotSession } from "./rig.ts";
+import type { AgentAddon, AgentAddonContext, PiSession } from "./rig.ts";
 
 const DEFAULT_STEERING_WARNING = "You are running out of turns. This is your final attempt before reaching the turn limit. Please correct your output now.";
 
@@ -12,7 +12,7 @@ export type TimeoutOptions = {
 };
 
 export type SessionRegistration = (
-  session: CopilotSession,
+  session: PiSession,
   context: AgentAddonContext,
 ) => void | Promise<void>;
 
@@ -55,7 +55,7 @@ export function timeout(options: TimeoutOptions): AgentAddon {
 }
 
 export function oncePerSession(register: SessionRegistration): AgentAddon {
-  const seen = new WeakSet<CopilotSession>();
+  const seen = new WeakSet<PiSession>();
   return async (context, next) => {
     if (!seen.has(context.session)) {
       await register(context.session, context);

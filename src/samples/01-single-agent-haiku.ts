@@ -1,5 +1,5 @@
 import { agent, s } from "rig";
-// Minimal single-agent sample used by integration tests to verify real runtime execution with Copilot auth.
+// Minimal single-agent sample used by integration tests to verify real Pi runtime execution.
 // Agent role: write a single haiku about the user's topic.
 const haiku = agent({
   name: "single-agent-haiku",
