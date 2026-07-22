@@ -85,6 +85,24 @@ it("propagates pi-agent provider failures", async () => {
   await expect(runtimeAgent.ask("hello")).rejects.toThrow("provider failed");
 });
 
+it("aborts an in-flight pi-agent prompt", async () => {
+  const models = { getModel: vi.fn(() => ({ id: "test-model" })), streamSimple: vi.fn() };
+  const runtimeAgent = await piEngine({ provider: "test", models: models as any })({ model: "test-model" });
+  const controller = new AbortController();
+  mocks.prompt.mockImplementation(async () => controller.abort(new Error("cancelled")));
+
+  await expect(runtimeAgent.ask("hello", { signal: controller.signal })).rejects.toThrow("cancelled");
+  expect(mocks.abort).toHaveBeenCalledOnce();
+});
+
+it("rejects non-string pi-agent system messages", () => {
+  const models = { getModel: vi.fn(() => ({ id: "test-model" })), streamSimple: vi.fn() };
+  const factory = piEngine({ provider: "test", models: models as any });
+
+  expect(() => factory({ model: "test-model", systemMessage: [] as any }))
+    .toThrow("piEngine requires systemMessage to be a string");
+});
+
 it("rejects unknown pi-agent models", () => {
   const models = { getModel: vi.fn(() => undefined), streamSimple: vi.fn() };
   const factory = piEngine({ provider: "test", models: models as any });

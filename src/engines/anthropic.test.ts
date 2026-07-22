@@ -96,3 +96,27 @@ it("does not retain a failed Anthropic turn", async () => {
     { role: "user", content: "retry" },
   ]);
 });
+
+it("uses Anthropic request defaults and returns all text blocks", async () => {
+  mocks.toolRunner.mockImplementationOnce((params) => ({
+    async runUntilDone() {
+      return {
+        content: [
+          { type: "text", text: "first" },
+          { type: "tool_use", id: "tool-1" },
+          { type: "text", text: " second" },
+        ],
+      };
+    },
+    params,
+  }));
+  const runtimeAgent = await anthropicEngine()({ model: "claude-test" });
+
+  await expect(runtimeAgent.ask("hello")).resolves.toBe("first second");
+  expect(mocks.toolRunner).toHaveBeenCalledWith({
+    model: "claude-test",
+    max_tokens: 8192,
+    messages: [{ role: "user", content: "hello" }],
+    tools: [],
+  }, undefined);
+});
