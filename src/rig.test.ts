@@ -141,6 +141,11 @@ describe("agent", () => {
       name: "implicit-nested",
       input: s.object({ text: "go" as any }),
     })).toThrow(/input\.text/);
+
+    expect(() => agent({
+      name: "implicit-nullable-nested",
+      output: s.nullable(s.object({ score: "bad" as any })),
+    })).toThrow(/output\.score/);
   });
 
   it("does not expose deprecated hook APIs in core", () => {

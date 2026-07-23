@@ -1687,6 +1687,10 @@ function assertValidSchema(schema: Schema, agentName: string, slot: "input" | "o
     assertValidSchema(schema.additionalProperties, agentName, slot, `${path}.*`);
     return;
   }
+  if ("nullable" in schema && schema.nullable === true) {
+    assertValidSchema((schema as NullableSchema).inner, agentName, slot, path);
+    return;
+  }
   if ("properties" in schema) {
     for (const [key, value] of Object.entries(schema.properties) as [string, Schema][]) {
       assertValidSchema(value, agentName, slot, `${path}.${key}`);
