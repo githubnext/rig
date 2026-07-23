@@ -3,7 +3,7 @@
  * @purpose Minimal TypeScript multi-agent harness: typed input/output schemas, prompt intents, sub-agent delegation, Copilot SDK runtime
  * @deps @github/copilot-sdk (CopilotClient,RuntimeConnection,approveAll); node:path,url,fs/promises,child_process,util
  * T:Json type null|bool|num|str|Json[]|{[k]:Json}
- * T:Schema type StringSchema|NumberSchema|IntegerSchema|BooleanSchema|UnknownSchema|ArraySchema|ObjectSchema|RecordSchema|EnumSchema|OptionalSchema
+ * T:Schema type StringSchema|NumberSchema|IntegerSchema|BooleanSchema|NullSchema|UnknownSchema|ArraySchema|ObjectSchema|RecordSchema|EnumSchema|OptionalSchema
  * T:InferSchema<T> type TS inference from schema descriptor to runtime type
  * T:AgentInputValue<T> type input accepting raw values or PromptIntent/PromptBuilder at any nesting level
  * T:Simplify<T> type flattens intersection types for display
@@ -26,7 +26,7 @@
  * T:LaunchOptions type options for launchRigProgram (server,token,headers,cwd,args)
  * T:LauncherIo type {stdin,stdout,stderr} override for launcher subprocess
  * T:JsonSchemaObject type {[key:string]:unknown} plain JSON Schema object
- * s.string/number/integer/boolean SchemaHelperFactory primitives; call as value or fn(desc)
+ * s.string/number/integer/boolean/null SchemaHelperFactory primitives; call as value or fn(desc)
  * s.array(items,desc?) ArraySchema
  * s.object(props,desc?) ObjectSchema; s.optional(inner) marks field optional
  * s.record(valSchema,desc?) RecordSchema keyed by string
@@ -68,6 +68,7 @@ export type StringSchema = { type: "string"; description?: string };
 export type NumberSchema = { type: "number"; description?: string };
 export type IntegerSchema = { type: "integer"; description?: string };
 export type BooleanSchema = { type: "boolean"; description?: string };
+export type NullSchema = { type: "null"; description?: string };
 export type UnknownSchema = { description?: string };
 export type ArraySchema<Item extends Schema = Schema> = { type: "array"; items: Item; description?: string };
 export type ObjectSchema<Fields extends Record<string, Schema> = Record<string, Schema>> = {
@@ -87,6 +88,7 @@ export type Schema =
   | NumberSchema
   | IntegerSchema
   | BooleanSchema
+  | NullSchema
   | UnknownSchema
   | ArraySchema<any>
   | ObjectSchema<any>
@@ -126,7 +128,7 @@ function isOptionalSchema(schema: Schema): schema is OptionalSchema<Schema> {
   return OPTIONAL_SYMBOL in schema;
 }
 
-function createTypedPrimitiveSchema<T extends StringSchema | NumberSchema | IntegerSchema | BooleanSchema>(type: T["type"]): SchemaHelperFactory<T> {
+function createTypedPrimitiveSchema<T extends StringSchema | NumberSchema | IntegerSchema | BooleanSchema | NullSchema>(type: T["type"]): SchemaHelperFactory<T> {
   const base = markAsSchema({ type } as T);
   const factory = Object.assign(
     markAsSchema(((description?: string) => (description === undefined ? base : markAsSchema({ type, description } as T))) as SchemaHelperFactory<T>),
@@ -177,6 +179,7 @@ export type InferSchema<T> =
   T extends { type: "number" } ? number :
   T extends { type: "integer" } ? number :
   T extends { type: "boolean" } ? boolean :
+  T extends { type: "null" } ? null :
   T extends { enum: infer Values extends readonly unknown[] } ? Values[number] :
   T extends { type: "array"; items: infer Item } ? InferSchema<Item>[] :
   T extends { type: "object"; properties: infer Fields extends Record<string, unknown> } ? Simplify<
@@ -195,6 +198,8 @@ export const s = {
   integer: createTypedPrimitiveSchema<IntegerSchema>("integer"),
   /** Schema for a `boolean` value. Call as `s.boolean` or `s.boolean("description")`. */
   boolean: createTypedPrimitiveSchema<BooleanSchema>("boolean"),
+  /** Schema for the JSON `null` literal. Call as `s.null` or `s.null("description")`. */
+  null: createTypedPrimitiveSchema<NullSchema>("null"),
   /** Schema for an unconstrained JSON value. Serializes to an empty schema object. */
   unknown: createUnknownSchema(),
   /** Schema for a homogeneous array. `s.array(s.string)` → `string[]`. */
@@ -1392,6 +1397,7 @@ function validateSchema(value: unknown, schema: Schema, path: string, optional: 
     if (schema.type === "number") return typeof value === "number" ? ok() : bad(path, "number", value);
     if (schema.type === "integer") return (typeof value === "number" && Number.isInteger(value)) ? ok() : bad(path, "integer", value);
     if (schema.type === "boolean") return typeof value === "boolean" ? ok() : bad(path, "boolean", value);
+    if (schema.type === "null") return value === null ? ok() : bad(path, "null", value);
   }
   return ok();
 }
