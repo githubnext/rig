@@ -991,6 +991,7 @@ describe("toJsonSchema", () => {
     expect(toJsonSchema(s.number)).toEqual({ type: "number" });
     expect(toJsonSchema(s.integer)).toEqual({ type: "integer" });
     expect(toJsonSchema(s.boolean)).toEqual({ type: "boolean" });
+    expect(toJsonSchema(s.null)).toEqual({ type: "null" });
     expect(toJsonSchema(s.unknown)).toEqual({});
   });
 
@@ -1083,6 +1084,42 @@ describe("s.integer validation", () => {
 
   it("accepts integers in validation", () => {
     const result = analyzeResponse(JSON.stringify(3), s.integer, "test", 1);
+    expect(result.ok).toBe(true);
+  });
+});
+
+describe("s.null", () => {
+  it("serializes to {type:'null'}", () => {
+    expect(toJsonSchema(s.null)).toEqual({ type: "null" });
+    expect(toJsonSchema(s.null("cleared"))).toEqual({ type: "null", description: "cleared" });
+  });
+
+  it("accepts null in validation", () => {
+    const result = analyzeResponse("null", s.null, "test", 1);
+    expect(result.ok).toBe(true);
+  });
+
+  it("rejects non-null values", () => {
+    const result = analyzeResponse(JSON.stringify("oops"), s.null, "test", 1);
+    expect(result.ok).toBe(false);
+    if (!result.ok) {
+      expect(result.error.message).toContain("expected null");
+    }
+  });
+
+  it("infers null type in TypeScript via agent output", () => {
+    const a = agent({ output: s.null });
+    expect(a.outputSchema).toEqual(s.null);
+  });
+
+  it("works as an object field", () => {
+    const schema = s.object({ value: s.null });
+    expect(toJsonSchema(schema)).toEqual({
+      type: "object",
+      properties: { value: { type: "null" } },
+      required: ["value"],
+    });
+    const result = analyzeResponse(JSON.stringify({ value: null }), schema, "test", 1);
     expect(result.ok).toBe(true);
   });
 });
