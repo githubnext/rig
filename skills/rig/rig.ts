@@ -484,7 +484,7 @@ export type AgentSpec<Input extends Schema = StringSchema, Output extends Schema
   input?: Input;
   /** Schema describing the agent's expected output. The harness validates and retries until it matches. Defaults to `s.string`. */
   output?: Output;
-  /** Model identifier passed to the engine, e.g. `"mini"`, `"gpt-4.1"`, `"claude-sonnet"`. Defaults to `"gpt-4.1"`. */
+  /** Model identifier passed to the engine, e.g. `"mini"`, `"o3"`, `"claude-sonnet"`. Defaults to `"gpt-4.1"`. */
   model?: string;
   /** Maximum number of turns (initial + repair retries). Defaults to `4`. */
   maxTurns?: number;
