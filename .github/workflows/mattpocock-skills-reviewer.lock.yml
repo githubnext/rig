@@ -148,7 +148,7 @@ jobs:
           GH_AW_INFO_FIREWALL_TYPE: "squid"
           GH_AW_INFO_FRONTMATTER_EMOJI: "🔍"
           GH_AW_COMPILED_STRICT: "true"
-          GH_AW_INFO_SKILLS: '["mattpocock/skills/skills/engineering@ed37663cc5fbef691ddfecd080dff42f7e7e350d"]'
+          GH_AW_INFO_SKILLS: '["mattpocock/skills/skills/engineering/diagnosing-bugs@ed37663cc5fbef691ddfecd080dff42f7e7e350d","mattpocock/skills/skills/engineering/tdd@ed37663cc5fbef691ddfecd080dff42f7e7e350d","mattpocock/skills/skills/engineering/codebase-design@ed37663cc5fbef691ddfecd080dff42f7e7e350d","mattpocock/skills/skills/engineering/improve-codebase-architecture@ed37663cc5fbef691ddfecd080dff42f7e7e350d","mattpocock/skills/skills/engineering/grill-with-docs@ed37663cc5fbef691ddfecd080dff42f7e7e350d"]'
         uses: actions/github-script@3a2844b7e9c422d3c10d287c895573f7108da1b3 # v9.0.0
         with:
           script: |
@@ -295,7 +295,63 @@ jobs:
           GH_AW_INFO_ENGINE_ID: "copilot"
           GH_AW_GH_SKILL_AGENT_NAME: "github-copilot"
           GH_AW_SKILL_DIR: ".github/skills"
-          GH_AW_FRONTMATTER_SKILLS: "mattpocock/skills/skills/engineering@ed37663cc5fbef691ddfecd080dff42f7e7e350d"
+          GH_AW_FRONTMATTER_SKILLS: "mattpocock/skills/skills/engineering/diagnosing-bugs@ed37663cc5fbef691ddfecd080dff42f7e7e350d"
+        uses: actions/github-script@3a2844b7e9c422d3c10d287c895573f7108da1b3 # v9.0.0
+        with:
+          script: |
+            const { setupGlobals } = require('${{ runner.temp }}/gh-aw/actions/setup_globals.cjs');
+            setupGlobals(core, github, context, exec, io, getOctokit);
+            const { main } = require('${{ runner.temp }}/gh-aw/actions/install_frontmatter_skills.cjs');
+            await main();
+      - name: Install frontmatter skill 2
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GH_AW_INFO_ENGINE_ID: "copilot"
+          GH_AW_GH_SKILL_AGENT_NAME: "github-copilot"
+          GH_AW_SKILL_DIR: ".github/skills"
+          GH_AW_FRONTMATTER_SKILLS: "mattpocock/skills/skills/engineering/tdd@ed37663cc5fbef691ddfecd080dff42f7e7e350d"
+        uses: actions/github-script@3a2844b7e9c422d3c10d287c895573f7108da1b3 # v9.0.0
+        with:
+          script: |
+            const { setupGlobals } = require('${{ runner.temp }}/gh-aw/actions/setup_globals.cjs');
+            setupGlobals(core, github, context, exec, io, getOctokit);
+            const { main } = require('${{ runner.temp }}/gh-aw/actions/install_frontmatter_skills.cjs');
+            await main();
+      - name: Install frontmatter skill 3
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GH_AW_INFO_ENGINE_ID: "copilot"
+          GH_AW_GH_SKILL_AGENT_NAME: "github-copilot"
+          GH_AW_SKILL_DIR: ".github/skills"
+          GH_AW_FRONTMATTER_SKILLS: "mattpocock/skills/skills/engineering/codebase-design@ed37663cc5fbef691ddfecd080dff42f7e7e350d"
+        uses: actions/github-script@3a2844b7e9c422d3c10d287c895573f7108da1b3 # v9.0.0
+        with:
+          script: |
+            const { setupGlobals } = require('${{ runner.temp }}/gh-aw/actions/setup_globals.cjs');
+            setupGlobals(core, github, context, exec, io, getOctokit);
+            const { main } = require('${{ runner.temp }}/gh-aw/actions/install_frontmatter_skills.cjs');
+            await main();
+      - name: Install frontmatter skill 4
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GH_AW_INFO_ENGINE_ID: "copilot"
+          GH_AW_GH_SKILL_AGENT_NAME: "github-copilot"
+          GH_AW_SKILL_DIR: ".github/skills"
+          GH_AW_FRONTMATTER_SKILLS: "mattpocock/skills/skills/engineering/improve-codebase-architecture@ed37663cc5fbef691ddfecd080dff42f7e7e350d"
+        uses: actions/github-script@3a2844b7e9c422d3c10d287c895573f7108da1b3 # v9.0.0
+        with:
+          script: |
+            const { setupGlobals } = require('${{ runner.temp }}/gh-aw/actions/setup_globals.cjs');
+            setupGlobals(core, github, context, exec, io, getOctokit);
+            const { main } = require('${{ runner.temp }}/gh-aw/actions/install_frontmatter_skills.cjs');
+            await main();
+      - name: Install frontmatter skill 5
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GH_AW_INFO_ENGINE_ID: "copilot"
+          GH_AW_GH_SKILL_AGENT_NAME: "github-copilot"
+          GH_AW_SKILL_DIR: ".github/skills"
+          GH_AW_FRONTMATTER_SKILLS: "mattpocock/skills/skills/engineering/grill-with-docs@ed37663cc5fbef691ddfecd080dff42f7e7e350d"
         uses: actions/github-script@3a2844b7e9c422d3c10d287c895573f7108da1b3 # v9.0.0
         with:
           script: |

@@ -22,7 +22,11 @@ imports:
     with:
       min-integrity: approved
 skills:
-  - mattpocock/skills/skills/engineering@ed37663cc5fbef691ddfecd080dff42f7e7e350d
+  - mattpocock/skills/skills/engineering/diagnosing-bugs@ed37663cc5fbef691ddfecd080dff42f7e7e350d
+  - mattpocock/skills/skills/engineering/tdd@ed37663cc5fbef691ddfecd080dff42f7e7e350d
+  - mattpocock/skills/skills/engineering/codebase-design@ed37663cc5fbef691ddfecd080dff42f7e7e350d
+  - mattpocock/skills/skills/engineering/improve-codebase-architecture@ed37663cc5fbef691ddfecd080dff42f7e7e350d
+  - mattpocock/skills/skills/engineering/grill-with-docs@ed37663cc5fbef691ddfecd080dff42f7e7e350d
 pre-agent-steps:
   - name: Pre-fetch PR diff
     env:
