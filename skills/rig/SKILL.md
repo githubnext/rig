@@ -95,6 +95,18 @@ Declare a structured agent.
 
 Use `agent({ name, ... })` as the only agent declaration form. `name` is optional; when omitted rig normalizes it to `"agent"`.
 
+### Where each setting belongs
+
+| Setting | Spec (`agent({...})`) | Call-time (`myAgent(input, {...})`) | `.use(addon)` |
+|---------|-----------------------|------------------------------------|---------------|
+| `name`, `instructions`, `input`, `output` | yes | — | — |
+| `model` | default | per-call override | — |
+| `maxTurns` | default | per-call override | — |
+| `timeout`, `signal` | — | per-call only | — |
+| `addons` | stable/registered addons | — | additional addons |
+
+`agent.use(addon)` accepts **only** `AgentAddon | AgentAddon[]` — it does not accept spec fields or call-time overrides. Passing `maxTurns`, `model`, or any other spec field to `.use()` is a type error. Put stable defaults in the spec; pass per-run overrides at call time.
+
 ## Agent behavior defaults
 
 | Setting | Default |
@@ -206,7 +218,7 @@ p.bashRaw`grep -rn 'app\.get\|app\.post' src/`  // tagged template: no TypeScrip
 p.read("README.md")
 p.readOptional("Dockerfile")          // returns "" if file is absent
 p.readOptional(".eslintrc.json", "{}") // returns "{}" if file is absent
-p.write("README.md", "# Hello\n")
+p.write("README.md", "# Hello\n")    // write-file instruction; does NOT return the path
 p.glob("src/**/*.ts")
 p.env("GITHUB_TOKEN")                 // returns "" if variable is not set
 p.env("GITHUB_TOKEN", "unset")        // returns "unset" if variable is not set
@@ -241,8 +253,8 @@ const reviewAgent = agent({
 - Multiple `p.*` calls in the same template are resolved independently in order; each contributes its own instruction line.
 - Nested `PromptBuilder` values used as interpolations are inlined as plain text.
 - The rendered `PromptBuilder` replaces the instructions string when the agent prompt is assembled.
-- `p.write(path, contents)` contributes a write-file instruction to the prompt; it does **not** return the file path or contents as text. Use `p.read(path)` to read back the file in a subsequent expression.
-- `p.bash(cmd)` accepts a regular TypeScript string; backslashes and special characters must be escaped as in any TypeScript string literal. Use `p.bashRaw\`cmd\`` (tagged template) to avoid escaping — the command is taken verbatim from the template.
+- `p.write(path, contents)` contributes a write-file instruction to the prompt; it does **not** return the file path or contents as text. If the output schema needs to reference the written path, hard-code the path string in the agent's output — it cannot be read from the `p.write(...)` expression. Use `p.read(path)` in a **separate** expression to read back written content.
+- `p.bash(cmd)` accepts a regular TypeScript string; backslashes and special characters must be escaped as in any TypeScript string literal. Use `p.bashRaw\`cmd\`` (tagged template) to avoid escaping — the command is taken verbatim from the template. When a grep or regex pattern contains `\.`, `\|`, or other backslash sequences, prefer `p.bashRaw`.
 - `p.glob(pattern)` resolves to a list of matching paths at runtime; it is resolved by the Copilot runtime, not in-process. Brace expansion (`{ts,js}`) and negation patterns are resolved by the runtime and are not guaranteed to work identically across all environments; prefer simple glob wildcards when portability matters.
 - `p.readOptional(path, fallback?)` reads a file if it exists; returns the fallback string (default `""`) if the file is absent. Use this instead of `p.read` when the file may not exist.
 - `p.env(name, fallback?)` reads an environment variable; returns the fallback string (default `""`) if the variable is not set.

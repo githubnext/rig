@@ -649,8 +649,15 @@ type PromptHelpers = {
    * in-process by the rig harness; it is expanded into a natural-language
    * instruction that the Copilot runtime resolves when it processes the prompt.
    *
+   * Backslashes in the string must be escaped as in any TypeScript string literal
+   * (e.g. `"grep -E 'foo\\|bar'"` to match `foo|bar`).  When the command
+   * contains many backslashes or regex alternations, use `p.bashRaw\`...\`` to
+   * write the command verbatim without any TypeScript escaping.
+   *
    * @example
    * input: { diff: p.bash("git diff --stat") }
+   * // For commands with backslashes, prefer p.bashRaw:
+   * input: { matches: p.bashRaw`grep -rn 'app\.get\|app\.post' src/` }
    */
   bash(command: string, options?: PromptIntentOptions): PromptIntent;
   /**
@@ -701,8 +708,16 @@ type PromptHelpers = {
    * The write is **not** performed in-process; it is resolved by the Copilot
    * runtime when the prompt is processed.
    *
+   * **This helper does not return the file path or contents as a string.**
+   * When used in a template expression (e.g. `${p.write(...)}`) it contributes
+   * a write-file instruction to the prompt — it does not expand to the path.
+   * If the output schema needs to reference the written path, hard-code the
+   * path string in the agent's output instead of reading it from this call.
+   *
    * @example
-   * input: { readme: p.write("README.md", draft) }
+   * // Writes the file; agent must hard-code "README.md" in output, not read it from here:
+   * instructions: p`Write a summary: ${p.write("README.md", draft)}`
+   * output: s.object({ writtenTo: s.string })  // agent infers "README.md"
    */
   write(path: string, contents: string, options?: PromptIntentOptions): PromptIntent;
   /**

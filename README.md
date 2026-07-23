@@ -121,7 +121,7 @@ p.bashRaw`grep -rn 'app\.get\|app\.post' src/`  // tagged template: no TypeScrip
 p.read("README.md")
 p.readOptional("Dockerfile")           // returns "" if file is absent
 p.readOptional(".eslintrc.json", "{}") // returns "{}" if file is absent
-p.write("README.md", "# Updated\n")
+p.write("README.md", "# Updated\n")   // write-file instruction; does NOT return the path
 p.glob("src/**/*.ts")
 p.env("GITHUB_TOKEN")                  // returns "" if variable is not set
 p.env("GITHUB_TOKEN", "unset")         // returns "unset" if variable is not set
@@ -131,6 +131,10 @@ const reviewWorkspace = agent({
   instructions: p`Review ${p.read("README.md")} against ${p.bash("git status --short")}.`,
 });
 ```
+
+`p.bash(cmd)` requires backslashes to be escaped as in any TypeScript string literal. When a command contains regex patterns (e.g. `grep 'foo\|bar'`), use `p.bashRaw\`...\`` instead — it takes the command verbatim with no TypeScript escaping.
+
+`p.write(path, contents)` contributes a write-file instruction to the prompt; it does **not** return the file path or contents as a string. When used in a template expression the result is a prompt instruction, not the path. If the output schema includes the written file path, hard-code the path string in the agent's output.
 
 ```ts
 const b = p();
@@ -230,6 +234,8 @@ const timingAddon = async (context, next) => {
 const review = agent({});
 review.use(timingAddon);
 ```
+
+`agent.use()` accepts **only** `AgentAddon | AgentAddon[]`. It does not accept spec fields or call-time overrides — passing `maxTurns`, `model`, or similar is a type error. Put stable defaults in the agent spec; pass per-run overrides at call time.
 
 ## Agent implementations
 
