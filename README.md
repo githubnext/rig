@@ -87,10 +87,12 @@ s.url                               // string with format: "uri"
 s.url("description")
 s.number
 s.integer
-s.int                               // alias for s.integer
+s.int                               // alias for s.integer; prefer for counts, line numbers, integer-only fields
 s.boolean
 s.unknown
 s.array(item, "description")
+s.nonEmptyArray(item)               // array with minItems: 1
+s.nonEmptyArray(item, "description")
 s.object(fields, "description")
 s.record(value, "description")
 s.enum(...values)
@@ -115,6 +117,7 @@ Prompt intents for shell and file operations are optimized for sandboxed agentic
 ```ts
 p.bash("git status --short")
 p.bash("npm test")
+p.bashRaw`grep -rn 'app\.get\|app\.post' src/`  // tagged template: no TypeScript escape needed
 p.read("README.md")
 p.readOptional("Dockerfile")           // returns "" if file is absent
 p.readOptional(".eslintrc.json", "{}") // returns "{}" if file is absent

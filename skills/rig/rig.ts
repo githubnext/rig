@@ -29,6 +29,7 @@
  * s.string/number/integer/boolean/null SchemaHelperFactory primitives; call as value or fn(desc)
  * s.int alias for s.integer; s.nonEmptyString string with minLength:1; s.url string with format:"uri"
  * s.array(items,desc?) ArraySchema; use for homogeneous lists, e.g. s.array(s.string)
+ * s.nonEmptyArray(items,desc?) ArraySchema with minItems:1; validates array has at least one element
  * s.object(props,desc?) ObjectSchema; s.optional(inner) marks field optional; s.nullable(inner) accepts inner|null; use for fixed-key shapes
  * s.record(valSchema,desc?) RecordSchema keyed by string; use for open-ended key→value maps
  * s.enum(...values|values,desc) EnumSchema
@@ -36,6 +37,7 @@
  * s.unknown unconstrained JSON; call as value or s.unknown("description")
  * p`...` PromptBuilder template tag; interpolates PromptIntent|string|PromptBuilder
  * p.bash(cmd,opts?) PromptIntent bash execution declaration (not run in-process)
+ * p.bashRaw`cmd` PromptIntent bash execution using tagged template (no TypeScript string escape needed)
  * p.read(path,opts?) PromptIntent file read declaration
  * p.readOptional(path,fallback?,opts?) PromptIntent file read declaration; returns fallback (default "") if file absent
  * p.write(path,content,opts?) PromptIntent file write declaration
@@ -76,7 +78,7 @@ export type IntegerSchema = { type: "integer"; description?: string };
 export type BooleanSchema = { type: "boolean"; description?: string };
 export type NullSchema = { type: "null"; description?: string };
 export type UnknownSchema = { description?: string };
-export type ArraySchema<Item extends Schema = Schema> = { type: "array"; items: Item; description?: string };
+export type ArraySchema<Item extends Schema = Schema> = { type: "array"; items: Item; description?: string; minItems?: number };
 export type ObjectSchema<Fields extends Record<string, Schema> = Record<string, Schema>> = {
   type: "object";
   properties: Fields;
@@ -244,6 +246,18 @@ export const s = {
     return description === undefined ? markAsSchema({ type: "array", items }) : markAsSchema({ type: "array", items, description });
   },
   /**
+   * Schema for a non-empty homogeneous array (minItems: 1). Validates that the array has at least one element.
+   *
+   * @example
+   * s.nonEmptyArray(s.string)            // string[] with at least one element
+   * s.nonEmptyArray(s.number, "scores")  // number[] with at least one element and description
+   */
+  nonEmptyArray<Item extends Schema>(items: Item, description?: string): ArraySchema<Item> {
+    return description === undefined
+      ? markAsSchema({ type: "array", items, minItems: 1 })
+      : markAsSchema({ type: "array", items, minItems: 1, description });
+  },
+  /**
    * Schema for a fixed-shape object. Fields wrapped with `s.optional` are omitted from `required`.
    *
    * @example
@@ -331,7 +345,10 @@ function serializeSchema(schema: Schema): JsonSchemaObject {
     return withDescription(allStrings ? { type: "string", enum: schema.enum } : { enum: schema.enum });
   }
   if ("items" in schema) {
-    return withDescription({ type: "array", items: serializeSchema(schema.items) });
+    const arr = schema as ArraySchema;
+    const obj: JsonSchemaObject = { type: "array", items: serializeSchema(arr.items) };
+    if (arr.minItems !== undefined) obj["minItems"] = arr.minItems;
+    return withDescription(obj);
   }
   if ("additionalProperties" in schema) {
     return withDescription({ type: "object", additionalProperties: serializeSchema(schema.additionalProperties) });
@@ -631,6 +648,18 @@ type PromptHelpers = {
    */
   bash(command: string, options?: PromptIntentOptions): PromptIntent;
   /**
+   * Declarative intent that instructs the LLM to run a shell command, using a
+   * tagged template literal to avoid TypeScript string-escape issues with
+   * backslashes and special characters.  The command is **not** executed
+   * in-process; it is expanded into a natural-language instruction resolved by
+   * the Copilot runtime.
+   *
+   * @example
+   * // Avoids double-escaping backslashes in regex patterns:
+   * input: { matches: p.bashRaw`grep -rn 'app\.get\|app\.post' src/` }
+   */
+  bashRaw(strings: TemplateStringsArray, ...values: unknown[]): PromptIntent;
+  /**
    * Declarative intent that instructs the LLM to read the file at `path` and
    * substitute its contents into the prompt.  The file is **not** read
    * in-process; resolution happens inside the Copilot runtime.
@@ -799,6 +828,10 @@ export const p: PromptHelpers = Object.assign(
     bash(command: string, options?: PromptIntentOptions): PromptIntent {
       return createPromptIntent("prompt.text", withOptions({ command }, options));
     },
+    bashRaw(strings: TemplateStringsArray, ...values: unknown[]): PromptIntent {
+      const command = String.raw(strings, ...(values as string[]));
+      return createPromptIntent("prompt.text", { command });
+    },
     read(path: string, options?: PromptIntentOptions): PromptIntent {
       return createPromptIntent("prompt.read", withOptions({ path }, options));
     },
@@ -832,6 +865,10 @@ export class PromptBuilder {
 
   bash(command: string, options?: PromptIntentOptions): PromptIntent {
     return p.bash(command, options);
+  }
+
+  bashRaw(strings: TemplateStringsArray, ...values: unknown[]): PromptIntent {
+    return p.bashRaw(strings, ...values);
   }
 
   read(path: string, options?: PromptIntentOptions): PromptIntent {
@@ -1617,6 +1654,10 @@ function validateSchema(value: unknown, schema: Schema, path: string, optional: 
   if ("items" in schema) {
     if (!Array.isArray(value)) {
       return bad(path, "array", value);
+    }
+    const minItems = (schema as ArraySchema).minItems;
+    if (minItems !== undefined && value.length < minItems) {
+      return { ok: false, error: `${path}: expected array with at least ${minItems} item(s), got ${value.length}` };
     }
     for (let index = 0; index < value.length; index += 1) {
       const result = validateSchema(value[index], schema.items, `${path}[${index}]`, false);
