@@ -394,8 +394,33 @@ let nextPromptIntentId = 1;
 type PromptHelpers = {
   (): PromptBuilder;
   (strings: TemplateStringsArray, ...values: unknown[]): PromptBuilder;
+  /**
+   * Declarative intent that instructs the LLM to run `command` in a shell and
+   * substitute the stdout into the prompt.  The command is **not** executed
+   * in-process by the rig harness; it is expanded into a natural-language
+   * instruction that the Copilot runtime resolves when it processes the prompt.
+   *
+   * @example
+   * input: { diff: p.bash("git diff --stat") }
+   */
   bash(command: string, options?: PromptIntentOptions): PromptIntent;
+  /**
+   * Declarative intent that instructs the LLM to read the file at `path` and
+   * substitute its contents into the prompt.  The file is **not** read
+   * in-process; resolution happens inside the Copilot runtime.
+   *
+   * @example
+   * input: { source: p.read("src/index.ts") }
+   */
   read(path: string, options?: PromptIntentOptions): PromptIntent;
+  /**
+   * Declarative intent that instructs the LLM to write `contents` to `path`.
+   * The write is **not** performed in-process; it is resolved by the Copilot
+   * runtime when the prompt is processed.
+   *
+   * @example
+   * input: { readme: p.write("README.md", draft) }
+   */
   write(path: string, contents: string, options?: PromptIntentOptions): PromptIntent;
   var<T>(name: string, value: T): PromptVariable<T>;
   region(language: string, body: unknown): string;
