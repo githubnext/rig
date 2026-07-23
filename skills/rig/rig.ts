@@ -1,9 +1,10 @@
 /**
- * @file skills/rig/rig.ts @last-analyzed 7476c6d @edit-time 2026-07-23T07:07:59Z
+ * @file skills/rig/rig.ts @last-analyzed e0ba58a @edit-time 2026-07-23T20:31:00Z
  * @purpose Minimal TypeScript multi-agent harness: typed input/output schemas, prompt intents, sub-agent delegation, Copilot SDK runtime
  * @deps @github/copilot-sdk (CopilotClient,RuntimeConnection,approveAll); node:path,url,fs/promises,child_process,util
  * T:Json type null|bool|num|str|Json[]|{[k]:Json}
- * T:Schema type StringSchema|NumberSchema|IntegerSchema|BooleanSchema|NullSchema|UnknownSchema|ArraySchema|ObjectSchema|RecordSchema|EnumSchema|OptionalSchema
+ * T:Schema type StringSchema|NumberSchema|IntegerSchema|BooleanSchema|NullSchema|UnknownSchema|ArraySchema|ObjectSchema|RecordSchema|EnumSchema|OptionalSchema|NullableSchema [NEW]
+ * T:NullableSchema<Inner> type {nullable:true;inner:Inner;description?} accepts inner|null [NEW]
  * T:InferSchema<T> type TS inference from schema descriptor to runtime type
  * T:AgentInputValue<T> type input accepting raw values or PromptIntent/PromptBuilder at any nesting level
  * T:Simplify<T> type flattens intersection types for display
@@ -18,9 +19,10 @@
  * T:AgentError class error carrying turn,agentName,rawOutput,parseError fields
  * T:Tool<TArgs> type ToolConfig+name; created by defineTool
  * T:ToolConfig<TArgs> type {description,parameters,handler}
- * T:PromptIntent type declarative placeholder {kind:'bash'|'read'|'write'|'writeOutput'|'glob',…} resolved into prompt text
+ * T:PromptIntent type declarative placeholder {kind:'bash'|'read'|'write'|'writeOutput'|'glob'|'env',…} resolved into prompt text
  * T:PromptBuilder class template-tag result; composes intents+strings into a prompt fragment
  * T:PromptHelpers type shape of exported p object
+ * T:PromptVariable<T> type {__rig:'prompt.var';name:string;value:T} named prompt variable [NEW]
  * T:ResponseAnalysisResult type {ok:true;output}|{ok:false;error:AgentError}
  * T:CopilotEngineOptions type CopilotClientOptions minus connection, plus server/token/headers fields
  * T:LaunchOptions type options for launchRigProgram (server,token,headers,cwd,args)
@@ -37,15 +39,17 @@
  * s.literal(value,desc?) EnumSchema with a single value; clearer than s.enum for single-value constraints
  * s.unknown unconstrained JSON; call as value or s.unknown("description")
  * p`...` PromptBuilder template tag; interpolates PromptIntent|string|PromptBuilder
- * p.bash(cmd,opts?) PromptIntent bash execution declaration (not run in-process)
+ * p.bash(cmd,opts?) PromptIntent bash execution declaration (not run in-process); escape backslashes as in TS strings
  * p.bashRaw`cmd` PromptIntent bash execution using tagged template (no TypeScript string escape needed)
  * p.read(path,opts?) PromptIntent file read declaration
  * p.readOptional(path,fallback?,opts?) PromptIntent file read declaration; returns fallback (default "") if file absent
- * p.write(path,content,opts?) PromptIntent file write declaration
+ * p.write(path,content,opts?) PromptIntent file write declaration; does NOT expand to path in template — hard-code path in output schema
  * p.writeOutput(field,path,opts?) PromptIntent post-generation write declaration; writes output field value to path
  * p.glob(pattern,opts?) PromptIntent glob file-list declaration (not run in-process)
  * p.env(name,fallback?,opts?) PromptIntent env var read declaration; returns fallback (default "") if not set
  * p.json(value) string JSON.stringify helper for inlining structured values in prompt templates
+ * p.var(name,value) PromptVariable<T> named variable binding for prompt templates [NEW]
+ * p.region(language,body) string wraps body in a fenced code block for the given language [NEW]
  * F:agent(spec) AgentFn<I,O>; spec={name,description,input,output,prompt,addons,maxTurns}
  * F:copilotEngine(opts?) AgentFactory wrapping CopilotClient+RuntimeConnection
  * F:configureAgent(factory) sets global AgentFactory used by agent() calls at module scope
@@ -62,6 +66,7 @@
  * INV:repair-contract addon intercepts AgentError, appends error to prompt, retries up to maxTurns
  * INV:json-extraction model response is parsed directly as JSON; fallback strategies: extract ```json fenced block, then extract first balanced {…}/[…] value
  * INV:schema-symbol Schema objects carry private SCHEMA_SYMBOL; toJSON serializes via serializeSchema
+ * INV:p-write-no-path p.write() contributes a write instruction to the prompt; it does NOT return the path; hard-code path in agent output [NEW]
  */
 import { basename, dirname, isAbsolute, resolve } from "node:path";
 import { fileURLToPath, pathToFileURL } from "node:url";
