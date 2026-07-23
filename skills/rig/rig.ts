@@ -1520,7 +1520,10 @@ function ok(): ValidationResult {
 
 function bad(path: string, expected: string, actual: unknown): ValidationResult {
   const actualType = actual === null ? "null" : Array.isArray(actual) ? "array" : typeof actual;
-  return { ok: false, error: `${path}: expected ${expected}, got ${actualType}` };
+  const actualRepr = JSON.stringify(actual);
+  const truncated = actualRepr !== undefined && actualRepr.length > 80 ? `${actualRepr.slice(0, 80)}…` : actualRepr;
+  const detail = truncated !== undefined ? ` (${truncated})` : "";
+  return { ok: false, error: `${path}: expected ${expected}, got ${actualType}${detail}` };
 }
 
 function tag(name: string, value: string): string {
