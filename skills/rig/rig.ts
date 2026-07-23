@@ -1521,7 +1521,33 @@ function ok(): ValidationResult {
 function bad(path: string, expected: string, actual: unknown): ValidationResult {
   const actualType = actual === null ? "null" : Array.isArray(actual) ? "array" : typeof actual;
   const actualRepr = JSON.stringify(actual);
-  const truncated = actualRepr !== undefined && actualRepr.length > 80 ? `${actualRepr.slice(0, 80)}…` : actualRepr;
+  const expectedLiterals = expected.split(" | ");
+  const maxPreview = 80;
+  let previewStart = 0;
+  if (actualRepr !== undefined && actualRepr.length > maxPreview) {
+    let bestPrefixLength = 0;
+    for (const expectedLiteral of expectedLiterals) {
+      let prefixLength = 0;
+      while (
+        prefixLength < expectedLiteral.length
+        && prefixLength < actualRepr.length
+        && expectedLiteral[prefixLength] === actualRepr[prefixLength]
+      ) {
+        prefixLength += 1;
+      }
+      if (prefixLength > bestPrefixLength) {
+        bestPrefixLength = prefixLength;
+      }
+    }
+    previewStart = bestPrefixLength > 0 ? Math.max(0, bestPrefixLength - 20) : 0;
+    if (previewStart + maxPreview > actualRepr.length) {
+      previewStart = actualRepr.length - maxPreview;
+    }
+  }
+  const preview = actualRepr === undefined ? undefined : actualRepr.slice(previewStart, previewStart + maxPreview);
+  const prefixEllipsis = actualRepr !== undefined && previewStart > 0 ? "…" : "";
+  const suffixEllipsis = actualRepr !== undefined && previewStart + maxPreview < actualRepr.length ? "…" : "";
+  const truncated = preview === undefined ? undefined : `${prefixEllipsis}${preview}${suffixEllipsis}`;
   const detail = truncated !== undefined ? ` (${truncated})` : "";
   return { ok: false, error: `${path}: expected ${expected}, got ${actualType}${detail}` };
 }
