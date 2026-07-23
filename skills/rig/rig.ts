@@ -1601,6 +1601,22 @@ function withOptions<T extends Omit<Partial<PromptIntent>, "__rig" | "id" | "mod
   return options ? { ...value, options: stripSignal(options) } : value;
 }
 
+/**
+ * Replaces the global `AgentFactory` used by all subsequent `agent()` calls.
+ *
+ * Call this once at program startup (before invoking any agent) to swap in a
+ * custom or mocked engine.  The harness itself calls it internally via
+ * `launchRigProgram` / `runLauncherCli`; most application code does not need
+ * to call it directly.
+ *
+ * @example
+ * // Use a custom engine for all agents in this module:
+ * configureAgent(copilotEngine({ server: true }));
+ *
+ * @example
+ * // Inject a stub engine in tests:
+ * configureAgent(() => ({ ask: async () => '{"ok":true}', close: async () => {} }));
+ */
 export function configureAgent(factory: AgentFactory): void {
   currentAgentFactory = factory;
 }
