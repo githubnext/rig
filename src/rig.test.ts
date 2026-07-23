@@ -937,6 +937,21 @@ describe("prompt intents", () => {
 
     expect(intent.options).toEqual({ cwd: "/tmp" });
   });
+
+  it("p.bashRaw preserves raw backslashes without TypeScript escaping", () => {
+    const intent = p.bashRaw`grep -rn 'app\.get\|app\.post' src/`;
+
+    expect(intent.mode).toBe("prompt.text");
+    expect(intent.command).toBe("grep -rn 'app\\.get\\|app\\.post' src/");
+  });
+
+  it("p.bashRaw interpolates template expressions", () => {
+    const dir = "src";
+    const intent = p.bashRaw`find ${dir} -name '*.ts'`;
+
+    expect(intent.mode).toBe("prompt.text");
+    expect(intent.command).toBe("find src -name '*.ts'");
+  });
 });
 
 describe("prompt builder", () => {
@@ -1357,6 +1372,55 @@ describe("s.literal", () => {
       enum: ["active"],
       description: "must be active",
     });
+  });
+});
+
+describe("s.nonEmptyArray", () => {
+  it("serializes to {type:'array', items:..., minItems:1}", () => {
+    expect(toJsonSchema(s.nonEmptyArray(s.string))).toEqual({ type: "array", items: { type: "string" }, minItems: 1 });
+    expect(toJsonSchema(s.nonEmptyArray(s.number, "scores"))).toEqual({
+      type: "array",
+      items: { type: "number" },
+      minItems: 1,
+      description: "scores",
+    });
+  });
+
+  it("accepts arrays with at least one element", () => {
+    const result = analyzeResponse(JSON.stringify(["hello"]), s.nonEmptyArray(s.string), "test", 1);
+    expect(result.ok).toBe(true);
+  });
+
+  it("accepts arrays with multiple elements", () => {
+    const result = analyzeResponse(JSON.stringify(["a", "b", "c"]), s.nonEmptyArray(s.string), "test", 1);
+    expect(result.ok).toBe(true);
+  });
+
+  it("rejects empty arrays", () => {
+    const result = analyzeResponse(JSON.stringify([]), s.nonEmptyArray(s.string), "test", 1);
+    expect(result.ok).toBe(false);
+    if (!result.ok) {
+      expect(result.error.message).toContain("at least 1 item");
+    }
+  });
+
+  it("still validates item types in a non-empty array", () => {
+    const result = analyzeResponse(JSON.stringify([42]), s.nonEmptyArray(s.string), "test", 1);
+    expect(result.ok).toBe(false);
+    if (!result.ok) {
+      expect(result.error.message).toContain("string");
+    }
+  });
+
+  it("works as an object field", () => {
+    const schema = s.object({ tags: s.nonEmptyArray(s.string) });
+    expect(toJsonSchema(schema)).toEqual({
+      type: "object",
+      properties: { tags: { type: "array", items: { type: "string" }, minItems: 1 } },
+      required: ["tags"],
+    });
+    const result = analyzeResponse(JSON.stringify({ tags: ["rig"] }), schema, "test", 1);
+    expect(result.ok).toBe(true);
   });
 });
 
