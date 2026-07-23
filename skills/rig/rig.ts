@@ -56,7 +56,7 @@
  */
 import { basename, dirname, isAbsolute, resolve } from "node:path";
 import { fileURLToPath, pathToFileURL } from "node:url";
-import { access, mkdir, mkdtemp, rm, writeFile } from "node:fs/promises";
+import { access, mkdir, mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
 import { execFile } from "node:child_process";
 import { promisify } from "node:util";
 import { CopilotClient, RuntimeConnection, approveAll } from "@github/copilot-sdk";
@@ -956,6 +956,24 @@ function renderStdout(value: unknown): string {
   return JSON.stringify(value);
 }
 
+async function hasEsmPackageContext(filePath: string): Promise<boolean> {
+  let dir = dirname(filePath);
+  while (true) {
+    const pkgPath = resolve(dir, "package.json");
+    try {
+      const content = await readFile(pkgPath, "utf8");
+      const pkg = JSON.parse(content) as { type?: string };
+      return pkg.type === "module";
+    } catch {
+      // Not found or not parseable; try parent directory.
+    }
+    const parent = dirname(dir);
+    if (parent === dir) break;
+    dir = parent;
+  }
+  return false;
+}
+
 async function typecheckProgram(programPath: string, cwd: string, displayPath = programPath): Promise<void> {
   const execFileAsync = promisify(execFile);
   const skillTsconfigPath = resolve(dirname(fileURLToPath(import.meta.url)), "tsconfig.json");
@@ -980,9 +998,19 @@ async function typecheckProgram(programPath: string, cwd: string, displayPath = 
   const tempDir = await mkdtemp(resolve(tempRoot, "rig-typecheck-"));
   const projectPath = resolve(tempDir, "tsconfig.typecheck.json");
   try {
+    // For .ts files outside an ESM package context, use a shadow .mts file so
+    // TypeScript treats the program as ESM without requiring a package.json change.
+    const inEsmContext = await hasEsmPackageContext(programPath);
+    let checkPath = programPath;
+    if (!inEsmContext && programPath.endsWith(".ts")) {
+      const shadowPath = resolve(tempDir, "program.mts");
+      const content = await readFile(programPath, "utf8");
+      await writeFile(shadowPath, content, "utf8");
+      checkPath = shadowPath;
+    }
     await writeFile(projectPath, JSON.stringify({
       extends: baseTsconfigPath,
-      include: [programPath],
+      include: [checkPath],
     }), "utf8");
     await execFileAsync(
       "npx",
@@ -1002,7 +1030,11 @@ async function typecheckProgram(programPath: string, cwd: string, displayPath = 
       .join("\n")
       .trim();
     const detail = diagnostics ? `\n${diagnostics}` : "";
-    throw new Error(`Typecheck failed for ${displayPath}.${detail}`);
+    const hasCjsEsmMismatch = diagnostics.includes("TS1295") || diagnostics.includes("TS1479");
+    const hint = hasCjsEsmMismatch
+      ? "\nHint: add {\"type\":\"module\"} to a package.json in the same directory as your rig program."
+      : "";
+    throw new Error(`Typecheck failed for ${displayPath}.${detail}${hint}`);
   } finally {
     await rm(tempDir, { recursive: true, force: true });
   }

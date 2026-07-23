@@ -349,6 +349,37 @@ export default root;
   }
 });
 
+it("typechecks a valid program file outside the project root without requiring package.json type:module", async () => {
+  const tempDir = await mkdtemp(resolve(tmpdir(), "rig-launcher-test-"));
+  const fixturePath = resolve(tempDir, "standalone.ts");
+  await writeFile(
+    fixturePath,
+    `
+import { agent } from "rig";
+const root = agent({
+  name: "standalone-agent",
+  instructions: "Write a short note.",
+});
+export default root;
+`,
+    "utf8",
+  );
+  try {
+    const stdin = Readable.from(["Review this patch"]);
+    const stdout = new Writable({
+      write(_chunk, _encoding, callback) {
+        callback();
+      },
+    });
+
+    await runLauncherCli([fixturePath, "--typecheck"], {}, { stdin, stdout });
+    expect(mocks.createSession).not.toHaveBeenCalled();
+  } finally {
+    await rm(tempDir, { recursive: true, force: true });
+  }
+});
+
+
 it("runs an inlined stdin program by invoking the default no-input root agent", async () => {
   const stdin = Readable.from([`
 const root = agent({

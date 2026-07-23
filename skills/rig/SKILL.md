@@ -327,6 +327,8 @@ Program-file mode also supports `--typecheck`:
 echo "Review this diff" | node skills/rig/rig.ts src/program.ts --typecheck
 ```
 
+When a program file is located outside the project root (for example `/tmp/my-agent.ts`), the harness automatically uses a `.mts` shadow file so TypeScript treats it as ESM. If the program imports sibling modules with relative paths (`./utils`), ensure the file's directory (or an ancestor) contains `{"type":"module"}` in `package.json`.
+
 For program-file mode stdin coercion:
 - if root input schema is `string`, stdin is passed as raw text
 - if root input schema is an object containing `text`, stdin is passed as `{ text: "<stdin>" }`
