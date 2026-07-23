@@ -137,6 +137,10 @@ s.enum(...values)
 s.enum(values, "description")
 s.optional(shape)
 s.optional(shape, "description")
+s.nullable(shape)
+s.nullable(shape, "description")
+s.literal(value)
+s.literal(value, "description")
 ```
 
 Common examples:
@@ -145,6 +149,8 @@ Common examples:
 s.enum("bug", "feature", "question")
 s.optional(s.number)
 s.record(s.string)
+s.nullable(s.string)    // string | null
+s.literal("done")       // exactly "done"
 ```
 
 ## Tools
@@ -183,6 +189,8 @@ p.bash("git diff -- .")
 p.bash("npm test")
 p.read("README.md")
 p.write("README.md", "# Hello\n")
+p.glob("src/**/*.ts")
+p.json({ repo: "rig", stars: 42 })
 ```
 
 Use `p.*` helpers:
@@ -209,9 +217,12 @@ const reviewAgent = agent({
 });
 ```
 
-- ``p`...` `` accepts `${p.bash(...)}`, `${p.read(...)}`, and `${p.write(...)}` expressions.
+- ``p`...` `` accepts `${p.bash(...)}`, `${p.read(...)}`, `${p.write(...)}`, `${p.glob(...)}`, and `${p.json(...)}` expressions.
 - Nested `PromptBuilder` values used as interpolations are inlined as plain text.
 - The rendered `PromptBuilder` replaces the instructions string when the agent prompt is assembled.
+- `p.write(path, contents)` contributes a write-file instruction to the prompt; it does **not** return the file path or contents as text. Use `p.read(path)` to read back the file in a subsequent expression.
+- `p.glob(pattern)` resolves to a list of matching paths at runtime; it is resolved by the Copilot runtime, not in-process.
+- `p.json(value)` returns a pretty-printed JSON string immediately; use it to inline structured data into a prompt template without calling `JSON.stringify` manually.
 
 ## Call-time options
 
@@ -254,6 +265,30 @@ const reviewer = agent({
 
 When delegating task resolution, keep each subagent narrow and explicit (for example: `analyzeTask`, `draftRigProgram`, `verifySchema`) and make the root agent instructions require combining their outputs into one final response.
 
+## Sequential two-agent chaining
+
+There is no built-in chain primitive. The recommended idiom for sequential agent composition is to wire the upstream agent as a named subagent of the downstream agent via `agents: { ... }`. This keeps all agents reachable from the exported root and avoids TS6133 unused-variable errors.
+
+```ts
+// Agent role: extract key facts from the input text.
+const extractor = agent({
+  model: "mini",
+  output: s.object({ facts: s.array(s.string) }),
+});
+
+// Agent role: assess extracted facts and return a verdict.
+const assessor = agent({
+  model: "mini",
+  output: s.enum("healthy", "needs-work", "critical"),
+  agents: { extractor },
+  instructions: "Use the extractor subagent to gather facts, then produce a verdict.",
+});
+
+export default assessor;
+```
+
+Declaring `const extractor = agent(...)` without adding it to `agents: { extractor }` on the root agent causes TypeScript error TS6133 ("declared but its value is never read") because the variable is unused. Always attach upstream agents to `agents` on the root export.
+
 ## Task harness pattern for rig markdown
 
 When the task asks for a runnable markdown example, require exactly one fenced ````rig` block that is valid inline harness input:
@@ -277,6 +312,8 @@ const summarize = agent({
   addons: repair,
 });
 ```
+
+`maxTurns` sets the total turn budget (initial attempt + retries). Automatic repair on JSON or schema failure requires the `repair` addon; setting `maxTurns` alone does not enable repair. Both must be present to get automatic retry behavior.
 
 Use addons to steer retry prompts when needed (for example `steering()` from `rig/addons`).
 Use `oncePerAgent()` from `rig/addons` when you need to register with the runtime agent once per call instead of checking `context.turn === 1`.

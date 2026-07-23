@@ -875,11 +875,28 @@ describe("prompt intents", () => {
     const diff = p.bash("git diff");
     const testOutput = p.bash("npm test", { cwd: "/tmp/workspace" });
     const readme = p.read("README.md");
+    const tsFiles = p.glob("src/**/*.ts");
 
     expect(diff.mode).toBe("prompt.text");
     expect(testOutput.mode).toBe("prompt.text");
     expect(testOutput.options).toEqual({ cwd: "/tmp/workspace" });
     expect(readme.mode).toBe("prompt.read");
+    expect(tsFiles.mode).toBe("prompt.glob");
+    expect(tsFiles.pattern).toBe("src/**/*.ts");
+  });
+
+  it("p.glob stores pattern and supports options", () => {
+    const intent = p.glob("**/*.md", { cwd: "/workspace" });
+
+    expect(intent.mode).toBe("prompt.glob");
+    expect(intent.pattern).toBe("**/*.md");
+    expect(intent.options).toEqual({ cwd: "/workspace" });
+  });
+
+  it("p.json serializes a value to a pretty JSON string", () => {
+    expect(p.json({ key: "value" })).toBe('{\n  "key": "value"\n}');
+    expect(p.json([1, 2, 3])).toBe('[\n  1,\n  2,\n  3\n]');
+    expect(p.json("hello")).toBe('"hello"');
   });
 
   it("strips AbortSignal from intent options", () => {
@@ -895,6 +912,7 @@ describe("prompt builder", () => {
     expect(p.read("README.md").mode).toBe("prompt.read");
     expect(p.bash("git status --short").mode).toBe("prompt.text");
     expect(p.write("README.md", "# Updated\n").mode).toBe("prompt.write");
+    expect(p.glob("src/**/*.ts").mode).toBe("prompt.glob");
   });
 
   it("returns a prompt builder from tagged template syntax", () => {
@@ -941,6 +959,19 @@ describe("prompt builder", () => {
 
     expect(String(builder)).toBe("```ts\nconst done = true;\n```\n");
     expect(p.region("json", "{\n  \"ok\": true\n}")).toContain("```json");
+  });
+
+  it("renders p.glob intent as a file-list instruction", () => {
+    const builder = p`Find TypeScript sources: ${p.glob("src/**/*.ts")}`;
+
+    expect(String(builder)).toContain('List files matching glob pattern "src/**/*.ts"');
+    expect(String(builder)).toContain("sandboxed agentic workflow");
+  });
+
+  it("inlines p.json as a pretty JSON string", () => {
+    const builder = p`Context: ${p.json({ repo: "rig" })}`;
+
+    expect(String(builder)).toContain('Context: {\n  "repo": "rig"\n}');
   });
 });
 
