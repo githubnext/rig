@@ -1,3 +1,58 @@
+/**
+ * @file skills/rig/rig.ts @last-analyzed 7476c6d @edit-time 2026-07-23T07:07:59Z
+ * @purpose Minimal TypeScript multi-agent harness: typed input/output schemas, prompt intents, sub-agent delegation, Copilot SDK runtime
+ * @deps @github/copilot-sdk (CopilotClient,RuntimeConnection,approveAll); node:path,url,fs/promises,child_process,util
+ * T:Json type null|bool|num|str|Json[]|{[k]:Json}
+ * T:Schema type StringSchema|NumberSchema|BooleanSchema|UnknownSchema|ArraySchema|ObjectSchema|RecordSchema|EnumSchema|OptionalSchema
+ * T:InferSchema<T> type TS inference from schema descriptor to runtime type
+ * T:AgentInputValue<T> type input accepting raw values or PromptIntent/PromptBuilder at any nesting level
+ * T:Simplify<T> type flattens intersection types for display
+ * T:ValidationResult type {ok:true}|{ok:false;error:string}
+ * T:AgentSpec<I,O> type {name,description,input,output,prompt,addons?,maxTurns?,agents?} agent declaration; agents? enables sub-agent delegation
+ * T:AgentFn<I,O> type callable agent with .use(addons) and .spec property
+ * T:AgentFactory type (options:AgentOptions)=>Agent|Promise<Agent>
+ * T:Agent interface {ask(input,opts?):Promise<unknown>,close():Promise<void>}
+ * T:AgentAddon type middleware (ctx,next)=>Promise<void>; ctx exposes spec,turn,prompt,output,completed,nextPrompt
+ * T:AgentAddonContext type context passed to each addon in the chain
+ * T:AgentDefinitionFactory type typeof agent (for passing agent constructor as value)
+ * T:AgentError class error carrying turn,agentName,rawOutput,parseError fields
+ * T:Tool<TArgs> type ToolConfig+name; created by defineTool
+ * T:ToolConfig<TArgs> type {description,parameters,handler}
+ * T:PromptIntent type declarative placeholder {kind:'bash'|'read'|'write',…} resolved into prompt text
+ * T:PromptBuilder class template-tag result; composes intents+strings into a prompt fragment
+ * T:PromptHelpers type shape of exported p object
+ * T:ResponseAnalysisResult type {ok:true;output}|{ok:false;error:AgentError}
+ * T:CopilotEngineOptions type CopilotClientOptions minus connection, plus server/token/headers fields
+ * T:LaunchOptions type options for launchRigProgram (server,token,headers,cwd,args)
+ * T:LauncherIo type {stdin,stdout,stderr} override for launcher subprocess
+ * T:JsonSchemaObject type {[key:string]:unknown} plain JSON Schema object
+ * s.string/number/boolean SchemaHelperFactory primitives; call as value or fn(desc)
+ * s.array(items,desc?) ArraySchema
+ * s.object(props,desc?) ObjectSchema; s.optional(inner) marks field optional
+ * s.record(valSchema,desc?) RecordSchema keyed by string
+ * s.enum(...values|values,desc) EnumSchema
+ * s.unknown() unconstrained JSON
+ * p`...` PromptBuilder template tag; interpolates PromptIntent|string|PromptBuilder
+ * p.bash(cmd,opts?) PromptIntent bash execution declaration (not run in-process)
+ * p.read(path,opts?) PromptIntent file read declaration
+ * p.write(path,content,opts?) PromptIntent file write declaration
+ * F:agent(spec) AgentFn<I,O>; spec={name,description,input,output,prompt,addons,maxTurns}
+ * F:copilotEngine(opts?) AgentFactory wrapping CopilotClient+RuntimeConnection
+ * F:configureAgent(factory) sets global AgentFactory used by agent() calls at module scope
+ * F:launchRigProgram(path,opts?) runs .ts agent file as subprocess via tsx
+ * F:runLauncherCli(opts?) entry-point CLI: parses argv, wires copilotEngine, runs agent
+ * F:defineTool(name,config) Tool with handler+parameters schema
+ * F:analyzeResponse(resp,schema,name,turn) ResponseAnalysisResult parse+validate from <output> XML tag
+ * F:defaultRepairPrompt(spec,err) string re-prompt on parse/validation failure
+ * F:toJsonSchema(schema) JsonSchemaObject converts Schema to plain JSON Schema
+ * addon:repair re-prompts on JSON/schema failure up to maxTurns (built-in via defaultRepairPrompt)
+ * INV:shape-descriptors JS values promote to schemas ("" → string, 0 → number, [""] → string[])
+ * INV:optional-key trailing _ on spec key means optional field
+ * INV:prompt-intents p.* are declarative placeholders resolved into prompt text, never executed
+ * INV:repair-contract addon intercepts AgentError, appends error to prompt, retries up to maxTurns
+ * INV:output-tag model response parsed from <output>...</output> XML tag in assistant message
+ * INV:schema-symbol Schema objects carry private SCHEMA_SYMBOL; toJSON serializes via serializeSchema
+ */
 import { basename, dirname, isAbsolute, resolve } from "node:path";
 import { fileURLToPath, pathToFileURL } from "node:url";
 import { access, mkdir, mkdtemp, rm, writeFile } from "node:fs/promises";
