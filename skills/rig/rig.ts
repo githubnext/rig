@@ -27,9 +27,9 @@
  * T:LauncherIo type {stdin,stdout,stderr} override for launcher subprocess
  * T:JsonSchemaObject type {[key:string]:unknown} plain JSON Schema object
  * s.string/number/integer/boolean/null SchemaHelperFactory primitives; call as value or fn(desc)
- * s.array(items,desc?) ArraySchema
- * s.object(props,desc?) ObjectSchema; s.optional(inner) marks field optional
- * s.record(valSchema,desc?) RecordSchema keyed by string
+ * s.array(items,desc?) ArraySchema; use for homogeneous lists, e.g. s.array(s.string)
+ * s.object(props,desc?) ObjectSchema; s.optional(inner) marks field optional; use for fixed-key shapes
+ * s.record(valSchema,desc?) RecordSchema keyed by string; use for open-ended key→value maps
  * s.enum(...values|values,desc) EnumSchema
  * s.unknown() unconstrained JSON
  * p`...` PromptBuilder template tag; interpolates PromptIntent|string|PromptBuilder
@@ -202,15 +202,33 @@ export const s = {
   null: createTypedPrimitiveSchema<NullSchema>("null"),
   /** Schema for an unconstrained JSON value. Serializes to an empty schema object. */
   unknown: createUnknownSchema(),
-  /** Schema for a homogeneous array. `s.array(s.string)` → `string[]`. */
+  /**
+   * Schema for a homogeneous array.
+   *
+   * @example
+   * s.array(s.string)            // string[]
+   * s.array(s.number, "scores")  // number[] with description
+   */
   array<Item extends Schema>(items: Item, description?: string): ArraySchema<Item> {
     return description === undefined ? markAsSchema({ type: "array", items }) : markAsSchema({ type: "array", items, description });
   },
-  /** Schema for a fixed-shape object. Fields wrapped with `s.optional` are omitted from `required`. */
+  /**
+   * Schema for a fixed-shape object. Fields wrapped with `s.optional` are omitted from `required`.
+   *
+   * @example
+   * s.object({ name: s.string, age: s.optional(s.number) })
+   */
   object<Fields extends Record<string, Schema>>(properties: Fields, description?: string): ObjectSchema<Fields> {
     return description === undefined ? markAsSchema({ type: "object", properties }) : markAsSchema({ type: "object", properties, description });
   },
-  /** Schema for a string-keyed map where every value shares the same schema. */
+  /**
+   * Schema for a string-keyed map where every value shares the same schema.
+   * Use this instead of `s.object` when the keys are not known in advance.
+   *
+   * @example
+   * s.record(s.string)                    // Record<string, string>
+   * s.record(s.number, "score by name")   // Record<string, number> with description
+   */
   record<Value extends Schema>(additionalProperties: Value, description?: string): RecordSchema<Value> {
     return description === undefined ? markAsSchema({ type: "object", additionalProperties }) : markAsSchema({ type: "object", additionalProperties, description });
   },
