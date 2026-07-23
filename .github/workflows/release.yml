@@ -16,7 +16,7 @@ jobs:
   release:
     runs-on: ubuntu-latest
     # Only run on the origin repo (not forks)
-    if: github.repository == 'pelikhan/rig'
+    if: ${{ !(github.event.repository.fork) }}
     permissions:
       contents: write
 
