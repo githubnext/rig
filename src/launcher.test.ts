@@ -240,7 +240,7 @@ it("accepts --server flag without rejecting", async () => {
   expect(mocks.forStdio).toHaveBeenCalled();
 });
 
-it("accepts --typecheck flag without rejecting", async () => {
+it("typechecks a program file without executing it", async () => {
   const fixturePath = resolve(dirname(fileURLToPath(import.meta.url)), "./launcher.stdin.fixture.ts");
   const stdin = Readable.from(["Review this patch"]);
   const output: string[] = [];
@@ -253,7 +253,8 @@ it("accepts --typecheck flag without rejecting", async () => {
 
   await runLauncherCli([fixturePath, "--typecheck"], {}, { stdin, stdout });
 
-  expect(output.join("")).toBe("done");
+  expect(output.join("")).toBe("");
+  expect(mocks.createSession).not.toHaveBeenCalled();
 });
 
 it("falls back to the skill tsconfig when cwd tsconfig is missing", async () => {
@@ -270,7 +271,8 @@ it("falls back to the skill tsconfig when cwd tsconfig is missing", async () => 
 
   await runLauncherCli([fixturePath, "--typecheck"], { cwd: skillDirCwd }, { stdin, stdout });
 
-  expect(output.join("")).toBe("done");
+  expect(output.join("")).toBe("");
+  expect(mocks.createSession).not.toHaveBeenCalled();
 });
 
 it("rejects --typecheck when inline program fails typecheck", async () => {
@@ -290,6 +292,28 @@ export default root;
   await expect(runLauncherCli(["--typecheck"], {}, { stdin, stdout })).rejects.toThrow(
     /Typecheck failed/,
   );
+});
+
+it("typechecks an inline program from stdin without executing it", async () => {
+  const stdin = Readable.from([`
+const root = agent({
+  name: "launcher-stdin-program",
+  instructions: "Write a short note.",
+});
+export default root;
+`]);
+  const output: string[] = [];
+  const stdout = new Writable({
+    write(chunk, _encoding, callback) {
+      output.push(chunk.toString());
+      callback();
+    },
+  });
+
+  await runLauncherCli(["--typecheck"], {}, { stdin, stdout });
+
+  expect(output.join("")).toBe("");
+  expect(mocks.createSession).not.toHaveBeenCalled();
 });
 
 it("rejects --typecheck when program file fails typecheck before execution", async () => {
