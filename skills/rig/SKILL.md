@@ -312,7 +312,7 @@ Pass `--server` to have the harness start the Copilot server automatically befor
 echo "Review this diff" | node skills/rig/rig.ts src/program.ts --server
 ```
 
-Pass `--typecheck` to typecheck the rig program before execution:
+Pass `--typecheck` to typecheck the rig program and exit without executing it:
 
 ```bash
 cat <<'RIG' | node skills/rig/rig.ts --typecheck

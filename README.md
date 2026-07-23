@@ -280,7 +280,7 @@ Pass `--server` to start the Copilot server automatically as part of the run:
 cat ./program.ts | node skills/rig/rig.ts --server
 ```
 
-Pass `--typecheck` to typecheck the rig program before execution:
+Pass `--typecheck` to typecheck the rig program and exit without executing it:
 
 ```bash
 cat ./program.ts | node skills/rig/rig.ts --typecheck

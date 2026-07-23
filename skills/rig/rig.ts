@@ -863,7 +863,20 @@ function withInjectedRigImport(programCode: string): string {
   if (/\bfrom\s*["']rig["']/.test(programCode)) {
     return programCode;
   }
-  return `import { agent, p, s } from "rig";\n\n${programCode}`;
+  const names: string[] = [];
+  if (/\bagent\s*\(/u.test(programCode)) {
+    names.push("agent");
+  }
+  if (/\bp(?:\s*`|\s*\.)/u.test(programCode)) {
+    names.push("p");
+  }
+  if (/\bs\s*\./u.test(programCode)) {
+    names.push("s");
+  }
+  if (names.length === 0) {
+    return programCode;
+  }
+  return `import { ${names.join(", ")} } from "rig";\n\n${programCode}`;
 }
 
 function withInjectedDefaultRootAgent(programCode: string): string {
@@ -909,7 +922,7 @@ function renderStdout(value: unknown): string {
   return JSON.stringify(value);
 }
 
-async function typecheckProgram(programPath: string, cwd: string): Promise<void> {
+async function typecheckProgram(programPath: string, cwd: string, displayPath = programPath): Promise<void> {
   const execFileAsync = promisify(execFile);
   const skillTsconfigPath = resolve(dirname(fileURLToPath(import.meta.url)), "tsconfig.json");
   const candidateTsconfigPaths = [resolve(cwd, "tsconfig.json"), skillTsconfigPath];
@@ -955,7 +968,7 @@ async function typecheckProgram(programPath: string, cwd: string): Promise<void>
       .join("\n")
       .trim();
     const detail = diagnostics ? `\n${diagnostics}` : "";
-    throw new Error(`Typecheck failed for ${programPath}.${detail}`);
+    throw new Error(`Typecheck failed for ${displayPath}.${detail}`);
   } finally {
     await rm(tempDir, { recursive: true, force: true });
   }
@@ -967,15 +980,16 @@ async function runRootAgentFromStdin(
   io: LauncherIo,
   scriptName: string,
 ): Promise<void> {
-  const prompt = await readStdin(io.stdin);
-  if (!prompt.trim()) {
-    throw new Error(`Usage: ${scriptName} <program-file>`);
-  }
-
   const cwd = options.cwd ?? process.cwd();
   const resolvedPath = isAbsolute(programPath) ? programPath : resolve(cwd, programPath);
   if (options.typecheck) {
     await typecheckProgram(resolvedPath, cwd);
+    return;
+  }
+
+  const prompt = await readStdin(io.stdin);
+  if (!prompt.trim()) {
+    throw new Error(`Usage: ${scriptName} <program-file>`);
   }
 
   configureAgent(copilotEngine(resolveCopilotOptions(cwd, options)));
@@ -1008,7 +1022,8 @@ async function runProgramCodeFromStdin(
   await writeFile(tempProgramPath, transformedProgramCode, "utf8");
   try {
     if (options.typecheck) {
-      await typecheckProgram(tempProgramPath, cwd);
+      await typecheckProgram(tempProgramPath, cwd, "<stdin>");
+      return;
     }
     configureAgent(copilotEngine(resolveCopilotOptions(cwd, options)));
     const mod = await import(pathToFileURL(tempProgramPath).href);
