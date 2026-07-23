@@ -1518,36 +1518,45 @@ function ok(): ValidationResult {
   return { ok: true };
 }
 
+function longestSharedPrefixLength(value: string, candidates: readonly string[]): number {
+  let bestPrefixLength = 0;
+  for (const candidate of candidates) {
+    let prefixLength = 0;
+    while (
+      prefixLength < candidate.length
+      && prefixLength < value.length
+      && candidate[prefixLength] === value[prefixLength]
+    ) {
+      prefixLength += 1;
+    }
+    if (prefixLength > bestPrefixLength) {
+      bestPrefixLength = prefixLength;
+    }
+  }
+  return bestPrefixLength;
+}
+
+function previewWithFirstDiff(value: string | undefined, expected: string, maxPreview: number): string | undefined {
+  if (value === undefined) return undefined;
+  const expectedLiterals = expected.split(" | ");
+  let previewStart = 0;
+  if (value.length > maxPreview) {
+    const bestPrefixLength = longestSharedPrefixLength(value, expectedLiterals);
+    previewStart = bestPrefixLength > 0 ? Math.max(0, bestPrefixLength - 20) : 0;
+    if (previewStart + maxPreview > value.length) {
+      previewStart = value.length - maxPreview;
+    }
+  }
+  const preview = value.slice(previewStart, previewStart + maxPreview);
+  const prefixEllipsis = previewStart > 0 ? "…" : "";
+  const suffixEllipsis = previewStart + maxPreview < value.length ? "…" : "";
+  return `${prefixEllipsis}${preview}${suffixEllipsis}`;
+}
+
 function bad(path: string, expected: string, actual: unknown): ValidationResult {
   const actualType = actual === null ? "null" : Array.isArray(actual) ? "array" : typeof actual;
   const actualRepr = JSON.stringify(actual);
-  const expectedLiterals = expected.split(" | ");
-  const maxPreview = 80;
-  let previewStart = 0;
-  if (actualRepr !== undefined && actualRepr.length > maxPreview) {
-    let bestPrefixLength = 0;
-    for (const expectedLiteral of expectedLiterals) {
-      let prefixLength = 0;
-      while (
-        prefixLength < expectedLiteral.length
-        && prefixLength < actualRepr.length
-        && expectedLiteral[prefixLength] === actualRepr[prefixLength]
-      ) {
-        prefixLength += 1;
-      }
-      if (prefixLength > bestPrefixLength) {
-        bestPrefixLength = prefixLength;
-      }
-    }
-    previewStart = bestPrefixLength > 0 ? Math.max(0, bestPrefixLength - 20) : 0;
-    if (previewStart + maxPreview > actualRepr.length) {
-      previewStart = actualRepr.length - maxPreview;
-    }
-  }
-  const preview = actualRepr === undefined ? undefined : actualRepr.slice(previewStart, previewStart + maxPreview);
-  const prefixEllipsis = actualRepr !== undefined && previewStart > 0 ? "…" : "";
-  const suffixEllipsis = actualRepr !== undefined && previewStart + maxPreview < actualRepr.length ? "…" : "";
-  const truncated = preview === undefined ? undefined : `${prefixEllipsis}${preview}${suffixEllipsis}`;
+  const truncated = previewWithFirstDiff(actualRepr, expected, 80);
   const detail = truncated !== undefined ? ` (${truncated})` : "";
   return { ok: false, error: `${path}: expected ${expected}, got ${actualType}${detail}` };
 }
