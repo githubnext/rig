@@ -13,9 +13,9 @@ permissions:
   contents: read
   pull-requests: read
   copilot-requests: write
+model: claude-sonnet-4.6
 engine:
   id: copilot
-  model: claude-sonnet-4.6
   max-continuations: 6
 imports:
   - uses: shared/pr-review-base.md
