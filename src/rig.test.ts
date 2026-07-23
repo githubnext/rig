@@ -51,7 +51,7 @@ vi.mock("@github/copilot-sdk", () => ({
   RuntimeConnection: { forUri: mocks.forUri, forStdio: mocks.forStdio },
 }));
 
-import { AgentError, PromptBuilder, agent, configureAgent, copilotEngine, defineTool, p, s, toJsonSchema } from "rig";
+import { AgentError, PromptBuilder, agent, analyzeResponse, configureAgent, copilotEngine, defineTool, p, s, toJsonSchema } from "rig";
 import { oncePerAgent, repair, steering, timeout } from "rig/addons";
 
 beforeEach(() => {
@@ -989,6 +989,7 @@ describe("toJsonSchema", () => {
   it("converts primitive schemas", () => {
     expect(toJsonSchema(s.string)).toEqual({ type: "string" });
     expect(toJsonSchema(s.number)).toEqual({ type: "number" });
+    expect(toJsonSchema(s.integer)).toEqual({ type: "integer" });
     expect(toJsonSchema(s.boolean)).toEqual({ type: "boolean" });
     expect(toJsonSchema(s.unknown)).toEqual({});
   });
@@ -996,6 +997,7 @@ describe("toJsonSchema", () => {
   it("includes description when present", () => {
     expect(toJsonSchema(s.string("A text value"))).toEqual({ type: "string", description: "A text value" });
     expect(toJsonSchema(s.number("A numeric value"))).toEqual({ type: "number", description: "A numeric value" });
+    expect(toJsonSchema(s.integer("A count"))).toEqual({ type: "integer", description: "A count" });
   });
 
   it("converts enum schemas", () => {
@@ -1061,5 +1063,26 @@ describe("toJsonSchema", () => {
 
   it("is accessible as s.toJsonSchema", () => {
     expect(s.toJsonSchema(s.string)).toEqual({ type: "string" });
+  });
+});
+
+describe("s.integer validation", () => {
+  it("accepts whole numbers", () => {
+    const intAgent = agent({ output: s.integer });
+    expect(intAgent.outputSchema).toEqual(s.integer);
+    expect(toJsonSchema(s.integer)).toEqual({ type: "integer" });
+  });
+
+  it("rejects floats in validation", () => {
+    const result = analyzeResponse(JSON.stringify(1.5), s.integer, "test", 1);
+    expect(result.ok).toBe(false);
+    if (!result.ok) {
+      expect(result.error.message).toContain("expected integer");
+    }
+  });
+
+  it("accepts integers in validation", () => {
+    const result = analyzeResponse(JSON.stringify(3), s.integer, "test", 1);
+    expect(result.ok).toBe(true);
   });
 });
