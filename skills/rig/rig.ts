@@ -129,23 +129,45 @@ export type InferSchema<T> =
   unknown;
 
 export const s = {
+  /** Schema for a `string` value. Call as `s.string` or `s.string("description")`. */
   string: createTypedPrimitiveSchema<StringSchema>("string"),
+  /** Schema for a `number` value. Call as `s.number` or `s.number("description")`. */
   number: createTypedPrimitiveSchema<NumberSchema>("number"),
+  /** Schema for a `boolean` value. Call as `s.boolean` or `s.boolean("description")`. */
   boolean: createTypedPrimitiveSchema<BooleanSchema>("boolean"),
+  /** Schema for an unconstrained JSON value. Serializes to an empty schema object. */
   unknown: createUnknownSchema(),
+  /** Schema for a homogeneous array. `s.array(s.string)` → `string[]`. */
   array<Item extends Schema>(items: Item, description?: string): ArraySchema<Item> {
     return description === undefined ? markAsSchema({ type: "array", items }) : markAsSchema({ type: "array", items, description });
   },
+  /** Schema for a fixed-shape object. Fields wrapped with `s.optional` are omitted from `required`. */
   object<Fields extends Record<string, Schema>>(properties: Fields, description?: string): ObjectSchema<Fields> {
     return description === undefined ? markAsSchema({ type: "object", properties }) : markAsSchema({ type: "object", properties, description });
   },
+  /** Schema for a string-keyed map where every value shares the same schema. */
   record<Value extends Schema>(additionalProperties: Value, description?: string): RecordSchema<Value> {
     return description === undefined ? markAsSchema({ type: "object", additionalProperties }) : markAsSchema({ type: "object", additionalProperties, description });
   },
+  /**
+   * Schema for a closed set of literal values.
+   *
+   * @example
+   * s.enum("low", "medium", "high")
+   * s.enum(["low", "medium", "high"], "Risk level")
+   */
   enum: createEnumSchema,
+  /**
+   * Marks a schema field as optional so it is excluded from the `required` array
+   * in the serialized JSON Schema and may be `undefined` in the inferred TypeScript type.
+   *
+   * @example
+   * s.object({ file: s.optional(s.string) })
+   */
   optional<Inner extends Schema>(schema: Inner, description?: string): OptionalSchema<Inner> {
     return markAsOptional(cloneSchema(schema, description));
   },
+  /** Converts a rig `Schema` to a plain JSON Schema object. */
   toJsonSchema,
 };
 
