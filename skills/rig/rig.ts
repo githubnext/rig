@@ -31,6 +31,7 @@
  * s.object(props,desc?) ObjectSchema; s.optional(inner) marks field optional; s.nullable(inner) accepts inner|null; use for fixed-key shapes
  * s.record(valSchema,desc?) RecordSchema keyed by string; use for open-ended key→value maps
  * s.enum(...values|values,desc) EnumSchema
+ * s.literal(value,desc?) EnumSchema with a single value; clearer than s.enum for single-value constraints
  * s.unknown unconstrained JSON; call as value or s.unknown("description")
  * p`...` PromptBuilder template tag; interpolates PromptIntent|string|PromptBuilder
  * p.bash(cmd,opts?) PromptIntent bash execution declaration (not run in-process)
@@ -273,6 +274,18 @@ export const s = {
     return markAsSchema(description !== undefined
       ? { nullable: true, inner: schema, description }
       : { nullable: true, inner: schema });
+  },
+  /**
+   * Schema for a single exact literal value. More expressive than `s.enum` when
+   * only one value is valid. The inferred TypeScript type is the literal itself.
+   *
+   * @example
+   * s.literal("done")               // accepts only "done"; infers as "done"
+   * s.literal(42)                   // accepts only 42; infers as 42
+   * s.literal(true, "must be true") // with description
+   */
+  literal<const T extends Json>(value: T, description?: string): EnumSchema<[T]> {
+    return markAsSchema(description !== undefined ? { enum: [value], description } : { enum: [value] });
   },
   /** Converts a rig `Schema` to a plain JSON Schema object. */
   toJsonSchema,

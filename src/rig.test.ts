@@ -1022,6 +1022,12 @@ describe("toJsonSchema", () => {
     expect(toJsonSchema(s.enum(["x", "y"], "A choice"))).toEqual({ type: "string", enum: ["x", "y"], description: "A choice" });
   });
 
+  it("converts literal schemas", () => {
+    expect(toJsonSchema(s.literal("done"))).toEqual({ type: "string", enum: ["done"] });
+    expect(toJsonSchema(s.literal(42))).toEqual({ enum: [42] });
+    expect(toJsonSchema(s.literal(true, "must be true"))).toEqual({ enum: [true], description: "must be true" });
+  });
+
   it("adds type:string to all-string enums but not mixed enums", () => {
     expect(toJsonSchema(s.enum("low", "medium", "high"))).toEqual({ type: "string", enum: ["low", "medium", "high"] });
     expect(toJsonSchema(s.enum(1, 2, 3))).toEqual({ enum: [1, 2, 3] });
@@ -1178,5 +1184,36 @@ describe("s.null", () => {
     });
     const result = analyzeResponse(JSON.stringify({ value: null }), schema, "test", 1);
     expect(result.ok).toBe(true);
+  });
+});
+
+describe("s.literal", () => {
+  it("serializes a string literal to an all-string enum schema", () => {
+    expect(toJsonSchema(s.literal("done"))).toEqual({ type: "string", enum: ["done"] });
+  });
+
+  it("serializes a number literal to an enum schema without type:string", () => {
+    expect(toJsonSchema(s.literal(42))).toEqual({ enum: [42] });
+  });
+
+  it("accepts the exact literal value in validation", () => {
+    const result = analyzeResponse(JSON.stringify("done"), s.literal("done"), "test", 1);
+    expect(result.ok).toBe(true);
+  });
+
+  it("rejects a different value in validation", () => {
+    const result = analyzeResponse(JSON.stringify("pending"), s.literal("done"), "test", 1);
+    expect(result.ok).toBe(false);
+    if (!result.ok) {
+      expect(result.error.message).toContain('"done"');
+    }
+  });
+
+  it("supports an optional description", () => {
+    expect(toJsonSchema(s.literal("active", "must be active"))).toEqual({
+      type: "string",
+      enum: ["active"],
+      description: "must be active",
+    });
   });
 });
