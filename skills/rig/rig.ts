@@ -1445,6 +1445,9 @@ function validateSchema(value: unknown, schema: Schema, path: string, optional: 
   if ((optional || isOptionalSchema(schema)) && value === undefined) {
     return { ok: true };
   }
+  if (isOptionalSchema(schema) && value === null) {
+    return { ok: false, error: `${path}: optional field must be omitted or a valid value, not null (use s.nullable to allow null)` };
+  }
   if ("nullable" in schema && schema.nullable === true) {
     if (value === null) return ok();
     return validateSchema(value, (schema as NullableSchema).inner, path, false);
