@@ -124,7 +124,13 @@ Use explicit schemas in docs and generated samples.
 ```ts
 s.string
 s.string("description")
+s.nonEmptyString                    // string with minLength: 1
+s.nonEmptyString("description")
+s.url                               // string with format: "uri"
+s.url("description")
 s.number
+s.integer
+s.int                               // alias for s.integer
 s.boolean
 s.unknown
 s.array(item)
@@ -149,8 +155,13 @@ Common examples:
 s.enum("bug", "feature", "question")
 s.optional(s.number)
 s.record(s.string)
+s.record(s.array(s.string))         // Record<string, string[]>
+s.record(s.object({ name: s.string, age: s.number }))
 s.nullable(s.string)    // string | null
 s.literal("done")       // exactly "done"
+s.nonEmptyString        // non-empty string required
+s.url                   // valid URL string
+s.int                   // integer number (no floats)
 ```
 
 ## Tools
@@ -188,8 +199,12 @@ Rig assumes the surrounding workflow already provides the sandbox and protection
 p.bash("git diff -- .")
 p.bash("npm test")
 p.read("README.md")
+p.readOptional("Dockerfile")          // returns "" if file is absent
+p.readOptional(".eslintrc.json", "{}") // returns "{}" if file is absent
 p.write("README.md", "# Hello\n")
 p.glob("src/**/*.ts")
+p.env("GITHUB_TOKEN")                 // returns "" if variable is not set
+p.env("GITHUB_TOKEN", "unset")        // returns "unset" if variable is not set
 p.json({ repo: "rig", stars: 42 })
 ```
 
@@ -217,11 +232,14 @@ const reviewAgent = agent({
 });
 ```
 
-- ``p`...` `` accepts `${p.bash(...)}`, `${p.read(...)}`, `${p.write(...)}`, `${p.glob(...)}`, and `${p.json(...)}` expressions.
+- ``p`...` `` accepts `${p.bash(...)}`, `${p.read(...)}`, `${p.readOptional(...)}`, `${p.write(...)}`, `${p.glob(...)}`, `${p.env(...)}`, and `${p.json(...)}` expressions.
+- Multiple `p.*` calls in the same template are resolved independently in order; each contributes its own instruction line.
 - Nested `PromptBuilder` values used as interpolations are inlined as plain text.
 - The rendered `PromptBuilder` replaces the instructions string when the agent prompt is assembled.
 - `p.write(path, contents)` contributes a write-file instruction to the prompt; it does **not** return the file path or contents as text. Use `p.read(path)` to read back the file in a subsequent expression.
 - `p.glob(pattern)` resolves to a list of matching paths at runtime; it is resolved by the Copilot runtime, not in-process.
+- `p.readOptional(path, fallback?)` reads a file if it exists; returns the fallback string (default `""`) if the file is absent. Use this instead of `p.read` when the file may not exist.
+- `p.env(name, fallback?)` reads an environment variable; returns the fallback string (default `""`) if the variable is not set.
 - `p.json(value)` returns a pretty-printed JSON string immediately; use it to inline structured data into a prompt template without calling `JSON.stringify` manually.
 
 ## Call-time options
@@ -349,7 +367,8 @@ Pass `--server` to have the harness start the Copilot server automatically befor
 echo "Review this diff" | node skills/rig/rig.ts src/program.ts --server
 ```
 
-Pass `--typecheck` to typecheck the rig program and exit without executing it:
+Pass `--typecheck` to typecheck the rig program and exit without executing it.
+On success, writes `typecheck passed` to stdout and exits 0. On failure, throws with the TypeScript diagnostic output.
 
 ```bash
 cat <<'RIG' | node skills/rig/rig.ts --typecheck

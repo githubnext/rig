@@ -253,7 +253,7 @@ it("typechecks a program file without executing it", async () => {
 
   await runLauncherCli([fixturePath, "--typecheck"], {}, { stdin, stdout });
 
-  expect(output.join("")).toBe("");
+  expect(output.join("")).toBe("typecheck passed\n");
   expect(mocks.createSession).not.toHaveBeenCalled();
 });
 
@@ -271,7 +271,7 @@ it("falls back to the skill tsconfig when cwd tsconfig is missing", async () => 
 
   await runLauncherCli([fixturePath, "--typecheck"], { cwd: skillDirCwd }, { stdin, stdout });
 
-  expect(output.join("")).toBe("");
+  expect(output.join("")).toBe("typecheck passed\n");
   expect(mocks.createSession).not.toHaveBeenCalled();
 });
 
@@ -312,7 +312,7 @@ export default root;
 
   await runLauncherCli(["--typecheck"], {}, { stdin, stdout });
 
-  expect(output.join("")).toBe("");
+  expect(output.join("")).toBe("typecheck passed\n");
   expect(mocks.createSession).not.toHaveBeenCalled();
 });
 

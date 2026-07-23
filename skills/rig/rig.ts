@@ -27,6 +27,7 @@
  * T:LauncherIo type {stdin,stdout,stderr} override for launcher subprocess
  * T:JsonSchemaObject type {[key:string]:unknown} plain JSON Schema object
  * s.string/number/integer/boolean/null SchemaHelperFactory primitives; call as value or fn(desc)
+ * s.int alias for s.integer; s.nonEmptyString string with minLength:1; s.url string with format:"uri"
  * s.array(items,desc?) ArraySchema; use for homogeneous lists, e.g. s.array(s.string)
  * s.object(props,desc?) ObjectSchema; s.optional(inner) marks field optional; s.nullable(inner) accepts inner|null; use for fixed-key shapes
  * s.record(valSchema,desc?) RecordSchema keyed by string; use for open-ended key→value maps
@@ -36,8 +37,10 @@
  * p`...` PromptBuilder template tag; interpolates PromptIntent|string|PromptBuilder
  * p.bash(cmd,opts?) PromptIntent bash execution declaration (not run in-process)
  * p.read(path,opts?) PromptIntent file read declaration
+ * p.readOptional(path,fallback?,opts?) PromptIntent file read declaration; returns fallback (default "") if file absent
  * p.write(path,content,opts?) PromptIntent file write declaration
  * p.glob(pattern,opts?) PromptIntent glob file-list declaration (not run in-process)
+ * p.env(name,fallback?,opts?) PromptIntent env var read declaration; returns fallback (default "") if not set
  * p.json(value) string JSON.stringify helper for inlining structured values in prompt templates
  * F:agent(spec) AgentFn<I,O>; spec={name,description,input,output,prompt,addons,maxTurns}
  * F:copilotEngine(opts?) AgentFactory wrapping CopilotClient+RuntimeConnection
@@ -67,7 +70,7 @@ import type { CopilotClientOptions } from "@github/copilot-sdk";
 export type Json = null | boolean | number | string | Json[] | { [key: string]: Json };
 export type ValidationResult = { ok: true } | { ok: false; error: string };
 
-export type StringSchema = { type: "string"; description?: string };
+export type StringSchema = { type: "string"; description?: string; minLength?: number; format?: string };
 export type NumberSchema = { type: "number"; description?: string };
 export type IntegerSchema = { type: "integer"; description?: string };
 export type BooleanSchema = { type: "boolean"; description?: string };
@@ -142,6 +145,15 @@ function createTypedPrimitiveSchema<T extends StringSchema | NumberSchema | Inte
   return factory;
 }
 
+function createConstrainedStringSchema(constraint: Omit<StringSchema, "type" | "description">): SchemaHelperFactory<StringSchema> {
+  const base = markAsSchema({ type: "string", ...constraint } as StringSchema);
+  const factory = Object.assign(
+    markAsSchema(((description?: string) => (description === undefined ? base : markAsSchema({ type: "string", ...constraint, description } as StringSchema))) as SchemaHelperFactory<StringSchema>),
+    base,
+  );
+  return factory;
+}
+
 function createUnknownSchema(): SchemaHelperFactory<UnknownSchema> {
   const base: UnknownSchema = markAsSchema({});
   const factory = Object.assign(
@@ -198,10 +210,16 @@ export type InferSchema<T> =
 export const s = {
   /** Schema for a `string` value. Call as `s.string` or `s.string("description")`. */
   string: createTypedPrimitiveSchema<StringSchema>("string"),
+  /** Schema for a non-empty `string` value (minLength: 1). Call as `s.nonEmptyString` or `s.nonEmptyString("description")`. */
+  nonEmptyString: createConstrainedStringSchema({ minLength: 1 }),
+  /** Schema for a URL string (format: "uri"). Call as `s.url` or `s.url("description")`. */
+  url: createConstrainedStringSchema({ format: "uri" }),
   /** Schema for a `number` value. Call as `s.number` or `s.number("description")`. */
   number: createTypedPrimitiveSchema<NumberSchema>("number"),
   /** Schema for an integer value. Serializes to `{"type":"integer"}` in JSON Schema. Call as `s.integer` or `s.integer("description")`. */
   integer: createTypedPrimitiveSchema<IntegerSchema>("integer"),
+  /** Schema for an integer value. Alias for `s.integer`. Call as `s.int` or `s.int("description")`. */
+  int: createTypedPrimitiveSchema<IntegerSchema>("integer"),
   /** Schema for a `boolean` value. Call as `s.boolean` or `s.boolean("description")`. */
   boolean: createTypedPrimitiveSchema<BooleanSchema>("boolean"),
   /** Schema for the JSON `null` literal. Call as `s.null` or `s.null("description")`. */
@@ -334,6 +352,13 @@ function serializeSchema(schema: Schema): JsonSchemaObject {
     return withDescription(obj);
   }
   if ("type" in schema) {
+    if (schema.type === "string") {
+      const { minLength, format } = schema as StringSchema;
+      const base: JsonSchemaObject = { type: "string" };
+      if (minLength !== undefined) base["minLength"] = minLength;
+      if (format !== undefined) base["format"] = format;
+      return withDescription(base);
+    }
     return withDescription({ type: schema.type });
   }
   return withDescription({});
@@ -581,11 +606,12 @@ export type PromptIntentOptions = {
 export type PromptIntent = {
   __rig: "prompt";
   id: string;
-  mode: "prompt.text" | "prompt.read" | "prompt.write" | "prompt.glob";
+  mode: "prompt.text" | "prompt.read" | "prompt.write" | "prompt.glob" | "prompt.readOptional" | "prompt.env";
   command?: string;
   path?: string;
   contents?: string;
   pattern?: string;
+  fallback?: string;
   options?: Omit<PromptIntentOptions, "signal">;
 };
 
@@ -613,6 +639,28 @@ type PromptHelpers = {
    * input: { source: p.read("src/index.ts") }
    */
   read(path: string, options?: PromptIntentOptions): PromptIntent;
+  /**
+   * Declarative intent that instructs the LLM to read the file at `path` if it
+   * exists and substitute its contents into the prompt.  If the file does not
+   * exist, the `fallback` string (default `""`) is used instead.  The file is
+   * **not** read in-process; resolution happens inside the Copilot runtime.
+   *
+   * @example
+   * input: { config: p.readOptional(".eslintrc.json") }
+   * input: { config: p.readOptional(".eslintrc.json", "{}") }
+   */
+  readOptional(path: string, fallback?: string, options?: PromptIntentOptions): PromptIntent;
+  /**
+   * Declarative intent that instructs the LLM to read the environment variable
+   * `name` and substitute its value into the prompt.  If the variable is not
+   * set, the `fallback` string (default `""`) is used instead.  The variable is
+   * **not** read in-process; resolution happens inside the Copilot runtime.
+   *
+   * @example
+   * input: { token: p.env("GITHUB_TOKEN") }
+   * input: { token: p.env("GITHUB_TOKEN", "unset") }
+   */
+  env(name: string, fallback?: string, options?: PromptIntentOptions): PromptIntent;
   /**
    * Declarative intent that instructs the LLM to write `contents` to `path`.
    * The write is **not** performed in-process; it is resolved by the Copilot
@@ -753,6 +801,12 @@ export const p: PromptHelpers = Object.assign(
     },
     read(path: string, options?: PromptIntentOptions): PromptIntent {
       return createPromptIntent("prompt.read", withOptions({ path }, options));
+    },
+    readOptional(path: string, fallback = "", options?: PromptIntentOptions): PromptIntent {
+      return createPromptIntent("prompt.readOptional", withOptions({ path, fallback }, options));
+    },
+    env(name: string, fallback = "", options?: PromptIntentOptions): PromptIntent {
+      return createPromptIntent("prompt.env", withOptions({ command: name, fallback }, options));
     },
     write(path: string, contents: string, options?: PromptIntentOptions): PromptIntent {
       return createPromptIntent("prompt.write", withOptions({ path, contents }, options));
@@ -1085,6 +1139,7 @@ async function runRootAgentFromStdin(
   const resolvedPath = isAbsolute(programPath) ? programPath : resolve(cwd, programPath);
   if (options.typecheck) {
     await typecheckProgram(resolvedPath, cwd);
+    io.stdout.write("typecheck passed\n");
     return;
   }
 
@@ -1124,6 +1179,7 @@ async function runProgramCodeFromStdin(
   try {
     if (options.typecheck) {
       await typecheckProgram(tempProgramPath, cwd, "<stdin>");
+      io.stdout.write("typecheck passed\n");
       return;
     }
     configureAgent(copilotEngine(resolveCopilotOptions(cwd, options)));
@@ -1602,7 +1658,17 @@ function validateSchema(value: unknown, schema: Schema, path: string, optional: 
     return ok();
   }
   if ("type" in schema) {
-    if (schema.type === "string") return typeof value === "string" ? ok() : bad(path, "string", value);
+    if (schema.type === "string") {
+      if (typeof value !== "string") return bad(path, "string", value);
+      const { minLength, format } = schema as StringSchema;
+      if (minLength !== undefined && value.length < minLength) {
+        return { ok: false, error: `${path}: expected string with minLength ${minLength}, got empty string` };
+      }
+      if (format === "uri") {
+        try { new URL(value); } catch { return { ok: false, error: `${path}: expected a valid URL, got ${JSON.stringify(value)}` }; }
+      }
+      return ok();
+    }
     if (schema.type === "number") return typeof value === "number" ? ok() : bad(path, "number", value);
     if (schema.type === "integer") return (typeof value === "number" && Number.isInteger(value)) ? ok() : bad(path, "integer", value);
     if (schema.type === "boolean") return typeof value === "boolean" ? ok() : bad(path, "boolean", value);
@@ -1684,6 +1750,10 @@ function renderPromptIntentInstruction(intent: PromptIntent): string {
       return `Run bash command and return stdout as text: ${intent.command}${promptExecutionContext()}${options}`;
     case "prompt.read":
       return `Read file and return its contents as text: ${JSON.stringify(requiredPath(intent))}${promptExecutionContext()}${options}`;
+    case "prompt.readOptional":
+      return `Read file and return its contents as text: ${JSON.stringify(requiredPath(intent))}. If the file does not exist, return ${JSON.stringify(intent.fallback ?? "")} instead${promptExecutionContext()}${options}`;
+    case "prompt.env":
+      return `Read environment variable ${JSON.stringify(intent.command ?? "")} and return its value as text. If the variable is not set, return ${JSON.stringify(intent.fallback ?? "")} instead${promptExecutionContext()}${options}`;
     case "prompt.write":
       return `Write file at path ${JSON.stringify(requiredPath(intent))} with contents:\n${intent.contents ?? ""}${promptExecutionContext()}${options}`;
     case "prompt.glob":
