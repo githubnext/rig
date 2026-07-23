@@ -1284,7 +1284,7 @@ function parseJson(text: string): { ok: true; value: unknown } | { ok: false; er
     }
   }
 
-  const objectText = extractBalancedJsonObject(text);
+  const objectText = extractBalancedJson(text);
   if (objectText === undefined) {
     return { ok: false, error: "No JSON value found." };
   }
@@ -1329,16 +1329,24 @@ function extractFencedJson(text: string): string | undefined {
   return text.slice(cursor, fenceEnd);
 }
 
-function extractBalancedJsonObject(text: string): string | undefined {
+function extractBalancedJson(text: string): string | undefined {
   const objectStart = text.indexOf("{");
-  if (objectStart === -1) {
+  const arrayStart = text.indexOf("[");
+  const start =
+    objectStart === -1 ? arrayStart :
+    arrayStart === -1 ? objectStart :
+    Math.min(objectStart, arrayStart);
+  if (start === -1) {
     return undefined;
   }
+
+  const openChar = text[start] as "{" | "[";
+  const closeChar = openChar === "{" ? "}" : "]";
 
   let depth = 0;
   let inString = false;
   let escaping = false;
-  for (let index = objectStart; index < text.length; index += 1) {
+  for (let index = start; index < text.length; index += 1) {
     const char = text[index]!;
     if (inString) {
       if (escaping) {
@@ -1356,12 +1364,12 @@ function extractBalancedJsonObject(text: string): string | undefined {
       continue;
     }
 
-    if (char === "{") {
+    if (char === openChar) {
       depth += 1;
-    } else if (char === "}") {
+    } else if (char === closeChar) {
       depth -= 1;
       if (depth === 0) {
-        return text.slice(objectStart, index + 1);
+        return text.slice(start, index + 1);
       }
     }
   }
