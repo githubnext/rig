@@ -1085,6 +1085,40 @@ describe("toJsonSchema", () => {
   });
 });
 
+describe("s.nullable", () => {
+  it("serializes to anyOf with null", () => {
+    expect(toJsonSchema(s.nullable(s.string))).toEqual({ anyOf: [{ type: "string" }, { type: "null" }] });
+    expect(toJsonSchema(s.nullable(s.number))).toEqual({ anyOf: [{ type: "number" }, { type: "null" }] });
+  });
+
+  it("includes description when provided", () => {
+    expect(toJsonSchema(s.nullable(s.string, "maybe text"))).toEqual({
+      anyOf: [{ type: "string" }, { type: "null" }],
+      description: "maybe text",
+    });
+  });
+
+  it("accepts null values during validation", async () => {
+    mocks.setSendAndWaitImpl(async () => JSON.stringify({ score: null }));
+    const a = agent({ output: s.object({ score: s.nullable(s.number) }) });
+    const result = await a("");
+    expect(result).toEqual({ score: null });
+  });
+
+  it("accepts non-null values during validation", async () => {
+    mocks.setSendAndWaitImpl(async () => JSON.stringify({ score: 42 }));
+    const a = agent({ output: s.object({ score: s.nullable(s.number) }) });
+    const result = await a("");
+    expect(result).toEqual({ score: 42 });
+  });
+
+  it("rejects invalid values that are neither null nor inner type", async () => {
+    mocks.setSendAndWaitImpl(async () => JSON.stringify({ score: "not-a-number" }));
+    const a = agent({ output: s.object({ score: s.nullable(s.number) }), maxTurns: 1 });
+    await expect(a("")).rejects.toBeInstanceOf(AgentError);
+  });
+});
+
 describe("s.integer validation", () => {
   it("accepts whole numbers", () => {
     const intAgent = agent({ output: s.integer });

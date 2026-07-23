@@ -28,7 +28,7 @@
  * T:JsonSchemaObject type {[key:string]:unknown} plain JSON Schema object
  * s.string/number/integer/boolean/null SchemaHelperFactory primitives; call as value or fn(desc)
  * s.array(items,desc?) ArraySchema; use for homogeneous lists, e.g. s.array(s.string)
- * s.object(props,desc?) ObjectSchema; s.optional(inner) marks field optional; use for fixed-key shapes
+ * s.object(props,desc?) ObjectSchema; s.optional(inner) marks field optional; s.nullable(inner) accepts inner|null; use for fixed-key shapes
  * s.record(valSchema,desc?) RecordSchema keyed by string; use for open-ended key→value maps
  * s.enum(...values|values,desc) EnumSchema
  * s.unknown unconstrained JSON; call as value or s.unknown("description")
@@ -82,6 +82,7 @@ const OPTIONAL_SYMBOL: unique symbol = Symbol("rig.optional");
 type OptionalMarker = { readonly [OPTIONAL_SYMBOL]: true };
 type UnwrapOptional<T> = Omit<T, typeof OPTIONAL_SYMBOL>;
 export type OptionalSchema<Inner extends Schema = Schema> = Inner & OptionalMarker;
+export type NullableSchema<Inner extends Schema = Schema> = { nullable: true; inner: Inner; description?: string };
 
 export type Schema =
   | StringSchema
@@ -94,7 +95,8 @@ export type Schema =
   | ObjectSchema<any>
   | RecordSchema<any>
   | EnumSchema<any>
-  | OptionalSchema<any>;
+  | OptionalSchema<any>
+  | NullableSchema<any>;
 
 type SchemaHelperFactory<T extends Schema> = T & ((description?: string) => T);
 
@@ -174,6 +176,7 @@ export type AgentInputValue<T> =
   T | PromptIntent | PromptBuilder;
 
 export type InferSchema<T> =
+  T extends { nullable: true; inner: infer Inner extends Schema } ? InferSchema<Inner> | null :
   T extends OptionalMarker ? InferSchema<UnwrapOptional<T>> | undefined :
   T extends { type: "string" } ? string :
   T extends { type: "number" } ? number :
@@ -257,6 +260,20 @@ export const s = {
   optional<Inner extends Schema>(schema: Inner, description?: string): OptionalSchema<Inner> {
     return markAsOptional(cloneSchema(schema, description));
   },
+  /**
+   * Wraps a schema to also accept `null`. The serialized JSON Schema uses `anyOf`
+   * with the inner schema and `{"type":"null"}`. The inferred TypeScript type is
+   * `InferSchema<Inner> | null`.
+   *
+   * @example
+   * s.nullable(s.string)                   // string | null
+   * s.nullable(s.number, "score or null")  // number | null with description
+   */
+  nullable<Inner extends Schema>(schema: Inner, description?: string): NullableSchema<Inner> {
+    return markAsSchema(description !== undefined
+      ? { nullable: true, inner: schema, description }
+      : { nullable: true, inner: schema });
+  },
   /** Converts a rig `Schema` to a plain JSON Schema object. */
   toJsonSchema,
 };
@@ -268,9 +285,13 @@ export function toJsonSchema(schema: Schema): JsonSchemaObject {
 }
 
 function serializeSchema(schema: Schema): JsonSchemaObject {
-  const { description } = schema;
+  const { description } = schema as { description?: string };
   const withDescription = (obj: JsonSchemaObject): JsonSchemaObject =>
     description === undefined ? obj : { ...obj, description };
+  if ("nullable" in schema && schema.nullable === true) {
+    const inner = serializeSchema((schema as NullableSchema).inner);
+    return withDescription({ anyOf: [inner, { type: "null" }] });
+  }
   if ("enum" in schema) {
     const enumValues = schema.enum as readonly unknown[];
     const allStrings = enumValues.length > 0 && enumValues.every((v) => typeof v === "string");
@@ -1380,6 +1401,10 @@ function extractBalancedJson(text: string): string | undefined {
 function validateSchema(value: unknown, schema: Schema, path: string, optional: boolean): ValidationResult {
   if ((optional || isOptionalSchema(schema)) && value === undefined) {
     return { ok: true };
+  }
+  if ("nullable" in schema && schema.nullable === true) {
+    if (value === null) return ok();
+    return validateSchema(value, (schema as NullableSchema).inner, path, false);
   }
   if ("enum" in schema) {
     return schema.enum.some((item: Json) => deepEqual(item, value))
