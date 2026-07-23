@@ -476,15 +476,25 @@ export function defineTool<T = unknown>(name: string, config: ToolConfig<T>): To
 }
 
 export type AgentSpec<Input extends Schema = StringSchema, Output extends Schema = StringSchema> = {
+  /** Human-readable name used in error messages and JSONL event logs. Defaults to `"agent"`. */
   name?: string;
+  /** Natural-language task description rendered into the `<instructions>` prompt section. */
   instructions?: string | PromptBuilder;
+  /** Schema describing the agent's input value. Defaults to `s.string`. */
   input?: Input;
+  /** Schema describing the agent's expected output. The harness validates and retries until it matches. Defaults to `s.string`. */
   output?: Output;
+  /** Model identifier passed to the engine, e.g. `"mini"`, `"gpt-4.1"`, `"claude-sonnet"`. Defaults to `"gpt-4.1"`. */
   model?: string;
+  /** Maximum number of turns (initial + repair retries). Defaults to `4`. */
   maxTurns?: number;
+  /** Middleware addons that wrap each turn's ask/response cycle, e.g. `repair`, `steering`. */
   addons?: AgentAddon | AgentAddon[];
+  /** Named sub-agents available for delegation from this agent's prompt. */
   agents?: Record<string, AgentFn<any, any>>;
+  /** Optional system message forwarded to the underlying engine session. */
   systemMessage?: unknown;
+  /** Tool definitions exposed to the engine session for function-calling. */
   tools?: Tool<any>[];
 };
 /** Internal normalized variant with a guaranteed resolved name. */
