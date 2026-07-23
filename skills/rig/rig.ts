@@ -501,9 +501,13 @@ export type AgentSpec<Input extends Schema = StringSchema, Output extends Schema
 type NormalizedAgentSpec<Input extends Schema = StringSchema, Output extends Schema = StringSchema> = AgentSpec<Input, Output> & { name: string };
 
 export type CallOptions = {
+  /** AbortSignal that cancels the in-flight agent turn. Also composable with `timeout`. */
   signal?: AbortSignal;
+  /** Milliseconds before the agent turn is automatically aborted with a timeout error. */
   timeout?: number;
+  /** Model identifier that overrides the agent's default `model` for this call only. */
   model?: string;
+  /** Maximum turns override for this call, taking precedence over the agent's `maxTurns`. */
   maxTurns?: number;
 };
 
