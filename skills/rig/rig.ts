@@ -1805,7 +1805,7 @@ function describeSchemaType(schema: Schema): string {
   if ("properties" in schema || "additionalProperties" in schema) {
     return "object";
   }
-  return "value";
+  return "any";
 }
 
 function bad(path: string, expected: string, actual: unknown): ValidationResult {

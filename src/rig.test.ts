@@ -1279,4 +1279,15 @@ describe("missing required field error message", () => {
       expect(result.error.message).toContain('"open"');
     }
   });
+
+  it("reports a missing required unknown field with 'any'", () => {
+    const schema = s.object({ payload: s.unknown, name: s.string });
+    const result = analyzeResponse(JSON.stringify({ name: "x" }), schema, "test", 1);
+    expect(result.ok).toBe(false);
+    if (!result.ok) {
+      expect(result.error.message).toContain("missing required field");
+      expect(result.error.message).toContain("$.payload");
+      expect(result.error.message).toContain("any");
+    }
+  });
 });
