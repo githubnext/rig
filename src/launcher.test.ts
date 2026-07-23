@@ -349,6 +349,68 @@ export default root;
   }
 });
 
+it("typechecks an external program file outside an ESM package", async () => {
+  const tempDir = await mkdtemp(resolve(tmpdir(), "rig-launcher-external-typecheck-"));
+  const fixturePath = resolve(tempDir, "typecheck-pass.ts");
+  await writeFile(
+    fixturePath,
+    `
+import { agent } from "rig";
+export default agent({
+  name: "launcher-external-typecheck-pass",
+});
+`,
+    "utf8",
+  );
+  try {
+    const stdin = Readable.from(["Review this patch"]);
+    const output: string[] = [];
+    const stdout = new Writable({
+      write(chunk, _encoding, callback) {
+        output.push(chunk.toString());
+        callback();
+      },
+    });
+
+    await runLauncherCli([fixturePath, "--typecheck"], {}, { stdin, stdout });
+
+    expect(output.join("")).toBe("");
+    expect(mocks.createSession).not.toHaveBeenCalled();
+  } finally {
+    await rm(tempDir, { recursive: true, force: true });
+  }
+});
+
+it("includes a clear ESM hint when --typecheck runs in a CommonJS package", async () => {
+  const tempDir = await mkdtemp(resolve(tmpdir(), "rig-launcher-cjs-typecheck-"));
+  const fixturePath = resolve(tempDir, "typecheck-fail.ts");
+  await writeFile(resolve(tempDir, "package.json"), "{}\n", "utf8");
+  await writeFile(
+    fixturePath,
+    `
+import { agent } from "rig";
+export default agent({
+  name: "launcher-cjs-typecheck-fail",
+});
+`,
+    "utf8",
+  );
+  try {
+    const stdin = Readable.from(["Review this patch"]);
+    const stdout = new Writable({
+      write(_chunk, _encoding, callback) {
+        callback();
+      },
+    });
+
+    await expect(runLauncherCli([fixturePath, "--typecheck"], {}, { stdin, stdout })).rejects.toThrow(
+      /outside an ESM package/,
+    );
+  } finally {
+    await rm(tempDir, { recursive: true, force: true });
+  }
+});
+
 it("runs an inlined stdin program by invoking the default no-input root agent", async () => {
   const stdin = Readable.from([`
 const root = agent({

@@ -56,7 +56,7 @@
  */
 import { basename, dirname, isAbsolute, resolve } from "node:path";
 import { fileURLToPath, pathToFileURL } from "node:url";
-import { access, mkdir, mkdtemp, rm, writeFile } from "node:fs/promises";
+import { access, mkdir, mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
 import { execFile } from "node:child_process";
 import { promisify } from "node:util";
 import { CopilotClient, RuntimeConnection, approveAll } from "@github/copilot-sdk";
@@ -874,9 +874,69 @@ function withInjectedRigImport(programCode: string): string {
     names.push("s");
   }
   if (names.length === 0) {
-    return programCode;
+    return `import "rig";\n\n${programCode}`;
   }
   return `import { ${names.join(", ")} } from "rig";\n\n${programCode}`;
+}
+
+type PackageJsonInfo = { exists: boolean; type: string | undefined };
+
+async function readPackageJsonInfo(path: string): Promise<PackageJsonInfo> {
+  try {
+    const raw = await readFile(path, "utf8");
+    const parsed = JSON.parse(raw) as { type?: unknown };
+    return { exists: true, type: typeof parsed.type === "string" ? parsed.type : undefined };
+  } catch (error) {
+    const fileError = error as NodeJS.ErrnoException;
+    if (fileError.code === "ENOENT") {
+      return { exists: false, type: undefined };
+    }
+    if (fileError instanceof SyntaxError) {
+      return { exists: true, type: undefined };
+    }
+    throw fileError;
+  }
+}
+
+async function readNearestPackageJsonType(startDir: string): Promise<string | undefined> {
+  let current = startDir;
+  while (true) {
+    const packageJsonPath = resolve(current, "package.json");
+    const packageInfo = await readPackageJsonInfo(packageJsonPath);
+    if (packageInfo.exists) {
+      return packageInfo.type;
+    }
+    const parent = dirname(current);
+    if (parent === current) {
+      return undefined;
+    }
+    current = parent;
+  }
+}
+
+async function ensureEsmTypecheckContext(programPath: string): Promise<() => Promise<void>> {
+  const programDir = dirname(programPath);
+  const programPackagePath = resolve(programDir, "package.json");
+  const localPackageInfo = await readPackageJsonInfo(programPackagePath);
+  if (localPackageInfo.exists || localPackageInfo.type === "module") {
+    return async () => {};
+  }
+  const nearestPackageType = await readNearestPackageJsonType(programDir);
+  if (nearestPackageType === "module") {
+    return async () => {};
+  }
+  try {
+    await writeFile(programPackagePath, `${JSON.stringify({ type: "module" })}\n`, "utf8");
+  } catch (error) {
+    const writeError = error as NodeJS.ErrnoException;
+    if (writeError.code === "EACCES" || writeError.code === "EPERM" || writeError.code === "EROFS") {
+      return async () => {};
+    }
+    throw writeError;
+  }
+  return async () => {
+    await rm(programPackagePath, { force: true });
+  };
 }
 
 function withInjectedDefaultRootAgent(programCode: string): string {
@@ -944,6 +1004,7 @@ async function typecheckProgram(programPath: string, cwd: string, displayPath = 
   const tempRoot = resolve(cwd, ".tmp");
   await mkdir(tempRoot, { recursive: true });
   const tempDir = await mkdtemp(resolve(tempRoot, "rig-typecheck-"));
+  const cleanupEsmContext = await ensureEsmTypecheckContext(programPath);
   const projectPath = resolve(tempDir, "tsconfig.typecheck.json");
   try {
     await writeFile(projectPath, JSON.stringify({
@@ -967,9 +1028,13 @@ async function typecheckProgram(programPath: string, cwd: string, displayPath = 
       .filter((entry) => typeof entry === "string" && entry.trim())
       .join("\n")
       .trim();
+    const esmHint = /\bTS(?:1295|1479)\b/u.test(diagnostics)
+      ? "\nHint: Your program file appears to be outside an ESM package. Add `{ \"type\": \"module\" }` to a package.json in the same directory, or use a `.mts` extension."
+      : "";
     const detail = diagnostics ? `\n${diagnostics}` : "";
-    throw new Error(`Typecheck failed for ${displayPath}.${detail}`);
+    throw new Error(`Typecheck failed for ${displayPath}.${detail}${esmHint}`);
   } finally {
+    await cleanupEsmContext();
     await rm(tempDir, { recursive: true, force: true });
   }
 }

@@ -327,6 +327,8 @@ Program-file mode also supports `--typecheck`:
 echo "Review this diff" | node skills/rig/rig.ts src/program.ts --typecheck
 ```
 
+When `--typecheck` is used with a program file outside this repository, rig now creates a temporary `package.json` with `{ "type": "module" }` next to the program file when needed. If the directory already has a CommonJS `package.json`, use `.mts` or set `"type": "module"` yourself.
+
 For program-file mode stdin coercion:
 - if root input schema is `string`, stdin is passed as raw text
 - if root input schema is an object containing `text`, stdin is passed as `{ text: "<stdin>" }`
