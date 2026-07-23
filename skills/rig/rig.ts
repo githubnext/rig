@@ -31,7 +31,7 @@
  * s.object(props,desc?) ObjectSchema; s.optional(inner) marks field optional; use for fixed-key shapes
  * s.record(valSchema,desc?) RecordSchema keyed by string; use for open-ended key→value maps
  * s.enum(...values|values,desc) EnumSchema
- * s.unknown() unconstrained JSON
+ * s.unknown unconstrained JSON; call as value or s.unknown("description")
  * p`...` PromptBuilder template tag; interpolates PromptIntent|string|PromptBuilder
  * p.bash(cmd,opts?) PromptIntent bash execution declaration (not run in-process)
  * p.read(path,opts?) PromptIntent file read declaration
@@ -200,7 +200,14 @@ export const s = {
   boolean: createTypedPrimitiveSchema<BooleanSchema>("boolean"),
   /** Schema for the JSON `null` literal. Call as `s.null` or `s.null("description")`. */
   null: createTypedPrimitiveSchema<NullSchema>("null"),
-  /** Schema for an unconstrained JSON value. Serializes to an empty schema object. */
+  /**
+   * Schema for an unconstrained JSON value. Serializes to an empty schema object.
+   * Call as `s.unknown` or `s.unknown("description")`.
+   *
+   * @example
+   * s.unknown                      // any JSON value
+   * s.unknown("raw API payload")   // any JSON value with description
+   */
   unknown: createUnknownSchema(),
   /**
    * Schema for a homogeneous array.
