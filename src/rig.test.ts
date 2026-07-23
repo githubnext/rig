@@ -893,6 +893,38 @@ describe("prompt intents", () => {
     expect(intent.options).toEqual({ cwd: "/workspace" });
   });
 
+  it("p.readOptional stores path, default fallback, and mode", () => {
+    const intent = p.readOptional("Dockerfile");
+
+    expect(intent.mode).toBe("prompt.readOptional");
+    expect(intent.path).toBe("Dockerfile");
+    expect(intent.fallback).toBe("");
+  });
+
+  it("p.readOptional stores custom fallback", () => {
+    const intent = p.readOptional(".eslintrc.json", "{}");
+
+    expect(intent.mode).toBe("prompt.readOptional");
+    expect(intent.path).toBe(".eslintrc.json");
+    expect(intent.fallback).toBe("{}");
+  });
+
+  it("p.env stores variable name, default fallback, and mode", () => {
+    const intent = p.env("GITHUB_TOKEN");
+
+    expect(intent.mode).toBe("prompt.env");
+    expect(intent.command).toBe("GITHUB_TOKEN");
+    expect(intent.fallback).toBe("");
+  });
+
+  it("p.env stores custom fallback", () => {
+    const intent = p.env("GITHUB_TOKEN", "unset");
+
+    expect(intent.mode).toBe("prompt.env");
+    expect(intent.command).toBe("GITHUB_TOKEN");
+    expect(intent.fallback).toBe("unset");
+  });
+
   it("p.json serializes a value to a pretty JSON string", () => {
     expect(p.json({ key: "value" })).toBe('{\n  "key": "value"\n}');
     expect(p.json([1, 2, 3])).toBe('[\n  1,\n  2,\n  3\n]');
@@ -973,6 +1005,20 @@ describe("prompt builder", () => {
 
     expect(String(builder)).toContain('Context: {\n  "repo": "rig"\n}');
   });
+
+  it("renders p.readOptional as a conditional-read instruction", () => {
+    const builder = p`Lint config: ${p.readOptional(".eslintrc.json", "{}")}`;
+
+    expect(String(builder)).toContain('Read file and return its contents as text: ".eslintrc.json". If the file does not exist, return "{}" instead');
+    expect(String(builder)).toContain("sandboxed agentic workflow");
+  });
+
+  it("renders p.env as an environment-variable instruction", () => {
+    const builder = p`Token: ${p.env("GITHUB_TOKEN", "unset")}`;
+
+    expect(String(builder)).toContain('Read environment variable "GITHUB_TOKEN" and return its value as text. If the variable is not set, return "unset" instead');
+    expect(String(builder)).toContain("sandboxed agentic workflow");
+  });
 });
 
 describe("p template literal for instructions", () => {
@@ -1037,9 +1083,17 @@ describe("toJsonSchema", () => {
     expect(toJsonSchema(s.string)).toEqual({ type: "string" });
     expect(toJsonSchema(s.number)).toEqual({ type: "number" });
     expect(toJsonSchema(s.integer)).toEqual({ type: "integer" });
+    expect(toJsonSchema(s.int)).toEqual({ type: "integer" });
     expect(toJsonSchema(s.boolean)).toEqual({ type: "boolean" });
     expect(toJsonSchema(s.null)).toEqual({ type: "null" });
     expect(toJsonSchema(s.unknown)).toEqual({});
+  });
+
+  it("converts constrained string schemas", () => {
+    expect(toJsonSchema(s.nonEmptyString)).toEqual({ type: "string", minLength: 1 });
+    expect(toJsonSchema(s.nonEmptyString("A non-empty value"))).toEqual({ type: "string", minLength: 1, description: "A non-empty value" });
+    expect(toJsonSchema(s.url)).toEqual({ type: "string", format: "uri" });
+    expect(toJsonSchema(s.url("A URL"))).toEqual({ type: "string", format: "uri", description: "A URL" });
   });
 
   it("includes description when present", () => {
@@ -1179,6 +1233,63 @@ describe("s.integer validation", () => {
   it("accepts integers in validation", () => {
     const result = analyzeResponse(JSON.stringify(3), s.integer, "test", 1);
     expect(result.ok).toBe(true);
+  });
+});
+
+describe("s.int", () => {
+  it("is an alias for s.integer and serializes to {type:'integer'}", () => {
+    expect(toJsonSchema(s.int)).toEqual({ type: "integer" });
+    expect(toJsonSchema(s.int("a count"))).toEqual({ type: "integer", description: "a count" });
+  });
+
+  it("rejects floats", () => {
+    const result = analyzeResponse(JSON.stringify(2.7), s.int, "test", 1);
+    expect(result.ok).toBe(false);
+  });
+
+  it("accepts integers", () => {
+    const result = analyzeResponse(JSON.stringify(5), s.int, "test", 1);
+    expect(result.ok).toBe(true);
+  });
+});
+
+describe("s.nonEmptyString", () => {
+  it("serializes to {type:'string', minLength:1}", () => {
+    expect(toJsonSchema(s.nonEmptyString)).toEqual({ type: "string", minLength: 1 });
+    expect(toJsonSchema(s.nonEmptyString("required name"))).toEqual({ type: "string", minLength: 1, description: "required name" });
+  });
+
+  it("accepts non-empty strings", () => {
+    const result = analyzeResponse(JSON.stringify("hello"), s.nonEmptyString, "test", 1);
+    expect(result.ok).toBe(true);
+  });
+
+  it("rejects empty strings", () => {
+    const result = analyzeResponse(JSON.stringify(""), s.nonEmptyString, "test", 1);
+    expect(result.ok).toBe(false);
+    if (!result.ok) {
+      expect(result.error.message).toContain("minLength");
+    }
+  });
+});
+
+describe("s.url", () => {
+  it("serializes to {type:'string', format:'uri'}", () => {
+    expect(toJsonSchema(s.url)).toEqual({ type: "string", format: "uri" });
+    expect(toJsonSchema(s.url("target URL"))).toEqual({ type: "string", format: "uri", description: "target URL" });
+  });
+
+  it("accepts valid URLs", () => {
+    const result = analyzeResponse(JSON.stringify("https://example.com/path"), s.url, "test", 1);
+    expect(result.ok).toBe(true);
+  });
+
+  it("rejects invalid URLs", () => {
+    const result = analyzeResponse(JSON.stringify("not-a-url"), s.url, "test", 1);
+    expect(result.ok).toBe(false);
+    if (!result.ok) {
+      expect(result.error.message).toContain("valid URL");
+    }
   });
 });
 

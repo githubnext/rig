@@ -81,7 +81,13 @@ When the context already lives in the workspace, prefer intent templates like th
 ```ts
 s.string
 s.string("description")
+s.nonEmptyString                    // string with minLength: 1
+s.nonEmptyString("description")
+s.url                               // string with format: "uri"
+s.url("description")
 s.number
+s.integer
+s.int                               // alias for s.integer
 s.boolean
 s.unknown
 s.array(item, "description")
@@ -110,8 +116,12 @@ Prompt intents for shell and file operations are optimized for sandboxed agentic
 p.bash("git status --short")
 p.bash("npm test")
 p.read("README.md")
+p.readOptional("Dockerfile")           // returns "" if file is absent
+p.readOptional(".eslintrc.json", "{}") // returns "{}" if file is absent
 p.write("README.md", "# Updated\n")
 p.glob("src/**/*.ts")
+p.env("GITHUB_TOKEN")                  // returns "" if variable is not set
+p.env("GITHUB_TOKEN", "unset")         // returns "unset" if variable is not set
 p.json({ repo: "rig", stars: 42 })
 
 const reviewWorkspace = agent({
@@ -286,7 +296,8 @@ Pass `--server` to start the Copilot server automatically as part of the run:
 cat ./program.ts | node skills/rig/rig.ts --server
 ```
 
-Pass `--typecheck` to typecheck the rig program and exit without executing it:
+Pass `--typecheck` to typecheck the rig program and exit without executing it.
+On success, prints `typecheck passed` to stdout and exits 0. On failure, throws with the TypeScript diagnostics.
 
 ```bash
 cat ./program.ts | node skills/rig/rig.ts --typecheck
