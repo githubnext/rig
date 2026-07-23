@@ -940,6 +940,23 @@ export async function runLauncherCli(
   await runProgramCodeFromStdin(mergedOptions, io, scriptName);
 }
 
+/**
+ * Defines a typed agent from a declarative spec and returns a callable function.
+ *
+ * The returned function accepts an input value (plain JS or with `p.*` prompt intents)
+ * and returns a Promise of the validated output. The harness renders the prompt,
+ * invokes the configured engine, parses the JSON response, validates it against
+ * `spec.output`, and retries up to `spec.maxTurns` times on failure.
+ *
+ * @example
+ * const summarize = agent({
+ *   model: "mini",
+ *   input: s.object({ text: s.string }),
+ *   output: s.object({ summary: s.string, keywords: s.array(s.string) }),
+ *   instructions: "Summarize the text and extract keywords.",
+ * });
+ * const result = await summarize({ text: p.read("README.md") });
+ */
 export function agent<
   const Input extends Schema = StringSchema,
   const Output extends Schema = StringSchema
