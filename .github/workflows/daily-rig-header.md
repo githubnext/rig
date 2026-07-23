@@ -94,24 +94,62 @@ As you read, build a complete inventory of:
 
 ### Step 4 — Build the new header
 
-Compose a single `/** ... */` TSDoc block to place at lines 1–N of the file
-(before the first `import`). The header must:
+Compose a single `/** ... */` block to prepend to the file (before the first `import`).
 
-- Start with `@file skills/rig/rig.ts`
-- Include `@last-analyzed <short-sha>  @edit-time <ISO-timestamp>` on the second line
-  (using the values from Step 2).
-- Contain a 2–4 sentence **summary** of the file's purpose and role in the project.
-- List every public export in a compact table format: `name — kind — one-liner`.
-  Group by category: Schema Types, Schema Helpers (`s.*`), Prompt Helpers (`p.*`),
-  Agent Core, Engine, Utilities.
-- Call out any **new** exports that do not appear in the old header (if a header
-  existed). Mark them clearly as `[NEW]`.
-- Describe the 3–5 most important **patterns** or **invariants** an agent must know
-  (e.g. shape descriptor promotion, optional trailing `_` key convention, repair
-  addon re-prompt contract, `p.*` as declarative intent not executed in-process).
-- Be dense — every line should carry information. No filler sentences.
-- Keep total length within 80 lines to stay within the 150-line read window along
-  with the opening imports.
+**Format rules — strictly agent-optimized:**
+- Zero empty lines anywhere inside the block. Every line carries data.
+- No prose sentences. Use compact structured notation throughout.
+- Line 1: `* @file skills/rig/rig.ts @last-analyzed <sha7> @edit-time <ISO>`
+- Line 2: `* @purpose <10-20 word description of what this module is and does>`
+- Line 3: `* @deps @github/copilot-sdk; node:path,fs/promises,child_process,util,url`
+- Schema types block — one line per type, format `* T:<Name> <kind> <role>`:
+  ```
+  * T:Json type null|bool|num|str|Json[]|{[k]:Json}
+  * T:Schema type union of all schema variants
+  * T:InferSchema<T> type TS inference from schema to runtime type
+  * T:AgentInputValue<T> type input accepting raw values or PromptIntent/PromptBuilder
+  ...
+  ```
+- Schema helpers block — prefix `* s.`:
+  ```
+  * s.string/number/boolean SchemaHelperFactory primitives; call as value or fn(desc)
+  * s.array(items,desc?) ArraySchema
+  * s.object(props,desc?) ObjectSchema; s.optional(inner) marks field optional
+  * s.record(valSchema,desc?) RecordSchema keyed by string
+  * s.enum(...values|values,desc) EnumSchema
+  * s.unknown() unconstrained JSON
+  ```
+- Prompt helpers block — prefix `* p.`:
+  ```
+  * p`...` PromptBuilder template tag; interpolates PromptIntent|string|PromptBuilder
+  * p.bash(cmd,opts?) PromptIntent bash execution declaration (not run in-process)
+  * p.read(path,opts?) PromptIntent file read declaration
+  * p.write(path,content,opts?) PromptIntent file write declaration
+  ```
+- Agent core block:
+  ```
+  * F:agent(spec) AgentFn<I,O>; spec={name,description,input,output,prompt,addons,maxTurns}
+  * F:copilotEngine(opts?) AgentFactory wrapping CopilotClient+RuntimeConnection
+  * F:configureAgent(factory) returns Agent{ask(input,opts?),close()}
+  * F:launchRigProgram(path,opts?) runs .ts agent file as subprocess
+  * F:defineTool(name,config) Tool with handler+parameters schema
+  * F:analyzeResponse(resp,schema,name,turn) ResponseAnalysisResult parse+validate
+  * F:defaultRepairPrompt(spec,err) string re-prompt on parse/validation failure
+  ```
+- Addons block (one line each):
+  ```
+  * addon:repair re-prompts on JSON/schema failure up to maxTurns
+  ```
+- Key invariants — prefix `* INV:`, one per line, no empty lines:
+  ```
+  * INV:shape-descriptors JS values promote to schemas ("" → string, 0 → number, [""] → string[])
+  * INV:optional-key trailing _ on spec key means optional field
+  * INV:prompt-intents p.* are declarative placeholders resolved into prompt text, never executed
+  * INV:repair-contract addon intercepts AgentError, appends error to prompt, retries up to maxTurns
+  * INV:output-tag model response parsed from <output>...</output> XML tag in assistant message
+  ```
+- Mark any symbol absent from the old header with `[NEW]` appended inline.
+- Keep total line count ≤ 60 so the block fits within the 150-line read window.
 
 ### Step 5 — Measure the change
 
