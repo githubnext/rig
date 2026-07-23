@@ -878,7 +878,7 @@ function withInjectedRigImport(programCode: string): string {
     names.push("s");
   }
   if (names.length === 0) {
-    return programCode;
+    return `import "rig";\n\n${programCode}`;
   }
   return `import { ${names.join(", ")} } from "rig";\n\n${programCode}`;
 }
