@@ -540,7 +540,12 @@ export type ToolConfig<TArgs = unknown> = {
   overridesBuiltInTool?: boolean;
   skipPermission?: boolean;
 };
+type InferToolArgs<TParameters extends ToolParameters> = TParameters extends Schema ? InferSchema<TParameters> : unknown;
 
+export function defineTool<const TParameters extends ToolParameters>(
+  name: string,
+  config: Omit<ToolConfig<InferToolArgs<TParameters>>, "parameters"> & { parameters: TParameters },
+): Tool<InferToolArgs<TParameters>>;
 export function defineTool<T = unknown>(name: string, config: ToolConfig<T>): Tool<T> {
   return {
     name,

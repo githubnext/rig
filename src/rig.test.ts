@@ -52,6 +52,7 @@ vi.mock("@github/copilot-sdk", () => ({
 }));
 
 import { AgentError, PromptBuilder, agent, analyzeResponse, configureAgent, copilotEngine, defineTool, p, s, toJsonSchema } from "rig";
+import type { Tool } from "rig";
 import { oncePerAgent, repair, steering, timeout } from "rig/addons";
 
 beforeEach(() => {
@@ -537,18 +538,19 @@ describe("agent invocation", () => {
   });
 
   it("defines tools with rig schemas using the Copilot SDK helper shape", () => {
-    const handler = vi.fn(async ({ issue }: { issue: string }) => `Issue ${issue}`);
     const lookupIssue = defineTool("lookup_issue", {
       description: "Look up an issue by id.",
       parameters: s.object({ issue: s.string }),
-      handler,
+      handler: vi.fn(async ({ issue }) => `Issue ${issue}`),
     });
+    const expectIssueTool = (_tool: Tool<{ issue: string }>) => true;
+    expect(expectIssueTool(lookupIssue)).toBe(true);
 
     expect(lookupIssue).toEqual({
       name: "lookup_issue",
       description: "Look up an issue by id.",
       parameters: toJsonSchema(s.object({ issue: s.string })),
-      handler,
+      handler: expect.any(Function),
       skipPermission: true,
     });
   });
