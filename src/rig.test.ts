@@ -422,6 +422,17 @@ describe("agent invocation", () => {
     await expect(reviewer("go")).resolves.toEqual({ text: "hello" });
   });
 
+  it("parses a JSON array embedded in surrounding text", async () => {
+    mocks.setSendAndWaitImpl(async () => 'Here are the results:\n["alpha","beta"]\nDone.');
+
+    const lister = agent({
+      name: "lister",
+      output: s.array(s.string),
+    });
+
+    await expect(lister("go")).resolves.toEqual(["alpha", "beta"]);
+  });
+
   it("retries validation failures with addon-customized repair prompts", async () => {
     const prompts: string[] = [];
     let calls = 0;
