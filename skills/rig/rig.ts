@@ -452,6 +452,36 @@ export type AgentAddonContext = {
   nextPrompt?: string;
   error?: unknown;
 };
+/**
+ * Middleware function that wraps each agent turn.  Addons are called in
+ * declaration order; each must call `await next()` to continue the chain (or
+ * the terminal `runtimeAgent.ask`).
+ *
+ * **Control-flow fields** — set on `context` after `await next()` returns:
+ * - `context.completed = true` + `context.output` — short-circuit; return
+ *   `output` immediately without further turns.
+ * - `context.nextPrompt` — replace the prompt for the next turn; the harness
+ *   loops back to turn N+1 with the new prompt.
+ * - `context.error` — abort the agent and rethrow this value as the error.
+ * - Leave all fields unchanged to let the harness parse and validate
+ *   `context.response` with the declared output schema as normal.
+ *
+ * @example
+ * // Custom repair addon: retry up to maxTurns with the schema error appended
+ * const repairAddon: AgentAddon = async (ctx, next) => {
+ *   await next();
+ *   if (ctx.completed || ctx.response === undefined) return;
+ *   const analysis = analyzeResponse(ctx.response, ctx.outputSchema, ctx.spec.name, ctx.turn);
+ *   if (analysis.ok) {
+ *     ctx.completed = true;
+ *     ctx.output = analysis.output;
+ *   } else if (ctx.turn < ctx.maxTurns) {
+ *     ctx.nextPrompt = defaultRepairPrompt(ctx.spec, analysis.error);
+ *   } else {
+ *     ctx.error = analysis.error;
+ *   }
+ * };
+ */
 export type AgentAddon = (
   context: AgentAddonContext,
   next: () => Promise<void>,
