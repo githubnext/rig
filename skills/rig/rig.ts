@@ -48,7 +48,7 @@
  * F:launchRigProgram(path,opts?) runs .ts agent file as subprocess via tsx
  * F:runLauncherCli(opts?) entry-point CLI: parses argv, wires copilotEngine, runs agent
  * F:defineTool(name,config) Tool with handler+parameters schema
- * F:analyzeResponse(resp,schema,name,turn) ResponseAnalysisResult parse+validate from <output> XML tag
+ * F:analyzeResponse(resp,schema,name,turn) ResponseAnalysisResult parse+validate JSON from raw response text (tries direct parse, then fenced ```json block, then balanced-brace extraction)
  * F:defaultRepairPrompt(spec,err) string re-prompt on parse/validation failure
  * F:toJsonSchema(schema) JsonSchemaObject converts Schema to plain JSON Schema
  * addon:repair re-prompts on JSON/schema failure up to maxTurns (built-in via defaultRepairPrompt)
@@ -56,7 +56,7 @@
  * INV:optional-key trailing _ on spec key means optional field
  * INV:prompt-intents p.* are declarative placeholders resolved into prompt text, never executed
  * INV:repair-contract addon intercepts AgentError, appends error to prompt, retries up to maxTurns
- * INV:output-tag model response parsed from <output>...</output> XML tag in assistant message
+ * INV:json-extraction model response is parsed directly as JSON; fallback strategies: extract ```json fenced block, then extract first balanced {…}/[…] value
  * INV:schema-symbol Schema objects carry private SCHEMA_SYMBOL; toJSON serializes via serializeSchema
  */
 import { basename, dirname, isAbsolute, resolve } from "node:path";
@@ -1709,6 +1709,17 @@ function inlinePromptIntents<T>(value: T): T {
 
 export type ResponseAnalysisResult = { ok: true; output: unknown } | { ok: false; error: AgentError };
 
+/**
+ * Parses and validates a raw agent response string against `outputSchema`.
+ *
+ * JSON extraction strategy (in order):
+ * 1. Parse the entire `response` string directly as JSON.
+ * 2. Extract and parse the first ` ```json … ``` ` fenced block.
+ * 3. Extract and parse the first balanced `{…}` or `[…]` value.
+ *
+ * Returns `{ok:true, output}` on success, or `{ok:false, error:AgentError}` on
+ * parse failure or schema validation failure.
+ */
 export function analyzeResponse(response: string, outputSchema: Schema, agentName: string, turn: number): ResponseAnalysisResult {
   const parsed = parseJson(response);
   if (!parsed.ok) {
