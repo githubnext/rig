@@ -530,10 +530,15 @@ export type AgentFn<Input = unknown, Output = unknown> = ((input: AgentInputValu
 };
 
 export type PromptIntentOptions = {
+  /** Working directory for the command. Serialized into the `Options` block shown to the LLM. */
   cwd?: string;
+  /** Environment variable overrides for the command. Serialized into the `Options` block shown to the LLM. */
   env?: Record<string, string>;
+  /** Maximum milliseconds the command may run. Serialized into the `Options` block shown to the LLM. */
   timeout?: number;
+  /** Human-readable explanation of why the command is needed. Serialized into the `Options` block shown to the LLM to aid the runtime in understanding intent. */
   purpose?: string;
+  /** Abort signal. **Not** serialized into the prompt; used only for in-process cancellation. */
   signal?: AbortSignal;
 };
 
