@@ -18,7 +18,7 @@
  * T:AgentError class error carrying turn,agentName,rawOutput,parseError fields
  * T:Tool<TArgs> type ToolConfig+name; created by defineTool
  * T:ToolConfig<TArgs> type {description,parameters,handler}
- * T:PromptIntent type declarative placeholder {kind:'bash'|'read'|'write',…} resolved into prompt text
+ * T:PromptIntent type declarative placeholder {kind:'bash'|'read'|'write'|'glob',…} resolved into prompt text
  * T:PromptBuilder class template-tag result; composes intents+strings into a prompt fragment
  * T:PromptHelpers type shape of exported p object
  * T:ResponseAnalysisResult type {ok:true;output}|{ok:false;error:AgentError}
@@ -37,6 +37,8 @@
  * p.bash(cmd,opts?) PromptIntent bash execution declaration (not run in-process)
  * p.read(path,opts?) PromptIntent file read declaration
  * p.write(path,content,opts?) PromptIntent file write declaration
+ * p.glob(pattern,opts?) PromptIntent glob file-list declaration (not run in-process)
+ * p.json(value) string JSON.stringify helper for inlining structured values in prompt templates
  * F:agent(spec) AgentFn<I,O>; spec={name,description,input,output,prompt,addons,maxTurns}
  * F:copilotEngine(opts?) AgentFactory wrapping CopilotClient+RuntimeConnection
  * F:configureAgent(factory) sets global AgentFactory used by agent() calls at module scope
@@ -579,10 +581,11 @@ export type PromptIntentOptions = {
 export type PromptIntent = {
   __rig: "prompt";
   id: string;
-  mode: "prompt.text" | "prompt.read" | "prompt.write";
+  mode: "prompt.text" | "prompt.read" | "prompt.write" | "prompt.glob";
   command?: string;
   path?: string;
   contents?: string;
+  pattern?: string;
   options?: Omit<PromptIntentOptions, "signal">;
 };
 
@@ -619,6 +622,23 @@ type PromptHelpers = {
    * input: { readme: p.write("README.md", draft) }
    */
   write(path: string, contents: string, options?: PromptIntentOptions): PromptIntent;
+  /**
+   * Declarative intent that instructs the LLM to list files matching `pattern`
+   * and substitute the results into the prompt.  Resolution happens inside the
+   * Copilot runtime; no in-process glob expansion occurs.
+   *
+   * @example
+   * input: { files: p.glob("src/**\/*.ts") }
+   */
+  glob(pattern: string, options?: PromptIntentOptions): PromptIntent;
+  /**
+   * Serializes `value` to a pretty-printed JSON string for inline use inside
+   * prompt templates.  Equivalent to `JSON.stringify(value, null, 2)`.
+   *
+   * @example
+   * const prompt = p`Context: ${p.json({ repo: "rig", stars: 42 })}`;
+   */
+  json(value: unknown): string;
   var<T>(name: string, value: T): PromptVariable<T>;
   region(language: string, body: unknown): string;
 };
@@ -736,6 +756,12 @@ export const p: PromptHelpers = Object.assign(
     },
     write(path: string, contents: string, options?: PromptIntentOptions): PromptIntent {
       return createPromptIntent("prompt.write", withOptions({ path, contents }, options));
+    },
+    glob(pattern: string, options?: PromptIntentOptions): PromptIntent {
+      return createPromptIntent("prompt.glob", withOptions({ pattern }, options));
+    },
+    json(value: unknown): string {
+      return json(value);
     },
     var<T>(name: string, value: T): PromptVariable<T> {
       return createPromptVariable(name, value);
@@ -1002,8 +1028,9 @@ async function typecheckProgram(programPath: string, cwd: string, displayPath = 
     // TypeScript treats the program as ESM without requiring a package.json change.
     const inEsmContext = await hasEsmPackageContext(programPath);
     let checkPath = programPath;
+    let shadowPath: string | undefined;
     if (!inEsmContext && programPath.endsWith(".ts")) {
-      const shadowPath = resolve(tempDir, "program.mts");
+      shadowPath = resolve(tempDir, "program.mts");
       const content = await readFile(programPath, "utf8");
       await writeFile(shadowPath, content, "utf8");
       checkPath = shadowPath;
@@ -1025,10 +1052,18 @@ async function typecheckProgram(programPath: string, cwd: string, displayPath = 
     if (execError.code === "ENOENT") {
       throw new Error("Typecheck mode requires `npx tsc` to be available in PATH.");
     }
-    const diagnostics = [execError.stdout, execError.stderr]
+    const rawDiagnostics = [execError.stdout, execError.stderr]
       .filter((entry) => typeof entry === "string" && entry.trim())
       .join("\n")
       .trim();
+    // Replace both the absolute and cwd-relative shadow .mts path with the
+    // original file path so error messages reference the user's file instead
+    // of the internal temp directory.
+    const absoluteShadowPath = resolve(tempDir, "program.mts");
+    const relativeShadowPath = `.tmp/${basename(tempDir)}/program.mts`;
+    const diagnostics = rawDiagnostics
+      .replaceAll(absoluteShadowPath, displayPath)
+      .replaceAll(relativeShadowPath, displayPath);
     const detail = diagnostics ? `\n${diagnostics}` : "";
     const hasCjsEsmMismatch = diagnostics.includes("TS1295") || diagnostics.includes("TS1479");
     const hint = hasCjsEsmMismatch
@@ -1651,6 +1686,8 @@ function renderPromptIntentInstruction(intent: PromptIntent): string {
       return `Read file and return its contents as text: ${JSON.stringify(requiredPath(intent))}${promptExecutionContext()}${options}`;
     case "prompt.write":
       return `Write file at path ${JSON.stringify(requiredPath(intent))} with contents:\n${intent.contents ?? ""}${promptExecutionContext()}${options}`;
+    case "prompt.glob":
+      return `List files matching glob pattern ${JSON.stringify(intent.pattern ?? "")} and return the list of matching paths${promptExecutionContext()}${options}`;
     default:
       throw new Error(`Unsupported prompt intent mode: ${(intent as { mode?: string }).mode ?? "unknown"}`);
   }

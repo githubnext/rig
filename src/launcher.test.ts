@@ -379,6 +379,33 @@ export default root;
   }
 });
 
+it("typecheck error messages reference the original file path, not the internal shadow .mts path", async () => {
+  const tempDir = await mkdtemp(resolve(tmpdir(), "rig-launcher-test-"));
+  const fixturePath = resolve(tempDir, "typecheck-fail.ts");
+  await writeFile(
+    fixturePath,
+    `
+import { agent, s } from "rig";
+const shouldBeString: string = 42;
+void shouldBeString;
+const root = agent({ name: "shadow-path-test" });
+export default root;
+`,
+    "utf8",
+  );
+  try {
+    const stdin = Readable.from(["Review this"]);
+    const stdout = new Writable({ write(_c, _e, cb) { cb(); } });
+
+    const error = await runLauncherCli([fixturePath, "--typecheck"], {}, { stdin, stdout }).catch((e: Error) => e);
+    expect(error).toBeInstanceOf(Error);
+    expect((error as Error).message).toContain(fixturePath);
+    expect((error as Error).message).not.toContain("program.mts");
+  } finally {
+    await rm(tempDir, { recursive: true, force: true });
+  }
+});
+
 
 it("runs an inlined stdin program by invoking the default no-input root agent", async () => {
   const stdin = Readable.from([`

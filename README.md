@@ -91,6 +91,10 @@ s.enum(...values)
 s.enum(values, "description")
 s.optional(shape)
 s.optional(shape, "description")
+s.nullable(shape)
+s.nullable(shape, "description")
+s.literal(value)
+s.literal(value, "description")
 ```
 
 Use declarative `s.*` helpers for every schema node.
@@ -107,6 +111,8 @@ p.bash("git status --short")
 p.bash("npm test")
 p.read("README.md")
 p.write("README.md", "# Updated\n")
+p.glob("src/**/*.ts")
+p.json({ repo: "rig", stars: 42 })
 
 const reviewWorkspace = agent({
   instructions: p`Review ${p.read("README.md")} against ${p.bash("git status --short")}.`,
