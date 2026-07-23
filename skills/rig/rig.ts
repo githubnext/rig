@@ -1,6 +1,6 @@
 /**
  * @file skills/rig/rig.ts @last-analyzed 7476c6d @edit-time 2026-07-23T07:07:59Z
- * @purpose Minimal TypeScript agent harness: typed input/output schemas, prompt intents, Copilot SDK runtime
+ * @purpose Minimal TypeScript multi-agent harness: typed input/output schemas, prompt intents, sub-agent delegation, Copilot SDK runtime
  * @deps @github/copilot-sdk (CopilotClient,RuntimeConnection,approveAll); node:path,url,fs/promises,child_process,util
  * T:Json type null|bool|num|str|Json[]|{[k]:Json}
  * T:Schema type StringSchema|NumberSchema|BooleanSchema|UnknownSchema|ArraySchema|ObjectSchema|RecordSchema|EnumSchema|OptionalSchema
@@ -8,7 +8,7 @@
  * T:AgentInputValue<T> type input accepting raw values or PromptIntent/PromptBuilder at any nesting level
  * T:Simplify<T> type flattens intersection types for display
  * T:ValidationResult type {ok:true}|{ok:false;error:string}
- * T:AgentSpec<I,O> type {name,description,input,output,prompt,addons?,maxTurns?} agent declaration
+ * T:AgentSpec<I,O> type {name,description,input,output,prompt,addons?,maxTurns?,agents?} agent declaration; agents? enables sub-agent delegation
  * T:AgentFn<I,O> type callable agent with .use(addons) and .spec property
  * T:AgentFactory type (options:AgentOptions)=>Agent|Promise<Agent>
  * T:Agent interface {ask(input,opts?):Promise<unknown>,close():Promise<void>}
