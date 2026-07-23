@@ -34,6 +34,7 @@ safe-outputs:
     max-patch-size: 1024
     allowed-files:
       - "skills/rig/rig.ts"
+      - "src/rig.test.ts"
 ---
 
 ## Task
@@ -90,6 +91,7 @@ Do **not** change the public API in a breaking way. Keep the change small and re
 ### Step 6 — Apply the improvement
 
 Edit `skills/rig/rig.ts` to implement the improvement. Use the `edit` tool.
+If the change adds or modifies exported API, also update `src/rig.test.ts` to cover it.
 
 ### Step 7 — Create a pull request
 
