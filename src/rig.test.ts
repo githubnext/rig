@@ -1247,6 +1247,17 @@ describe("missing required field error message", () => {
     expect(result.ok).toBe(true);
   });
 
+  it("rejects null for optional fields with a clear 'omit or provide valid value' message", () => {
+    const schema = s.object({ name: s.string, note: s.optional(s.string) });
+    const result = analyzeResponse(JSON.stringify({ name: "Alice", note: null }), schema, "test", 1);
+    expect(result.ok).toBe(false);
+    if (!result.ok) {
+      expect(result.error.message).toContain("$.note");
+      expect(result.error.message).toContain("optional field must be omitted");
+      expect(result.error.message).toContain("s.nullable");
+    }
+  });
+
   it("reports a missing required array field with type 'array'", () => {
     const schema = s.object({ items: s.array(s.string), name: s.string });
     const result = analyzeResponse(JSON.stringify({ name: "x" }), schema, "test", 1);
