@@ -546,7 +546,8 @@ export function defineTool<const TParameters extends ToolParameters>(
   name: string,
   config: Omit<ToolConfig<InferToolArgs<TParameters>>, "parameters"> & { parameters: TParameters },
 ): Tool<InferToolArgs<TParameters>>;
-export function defineTool<T = unknown>(name: string, config: ToolConfig<T>): Tool<T> {
+export function defineTool<T = unknown>(name: string, config: ToolConfig<T>): Tool<T>;
+export function defineTool(name: string, config: ToolConfig<any>): Tool<any> {
   return {
     name,
     ...normalizeToolConfig(config),
