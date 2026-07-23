@@ -21,35 +21,9 @@ imports:
   - uses: shared/pr-review-base.md
     with:
       min-integrity: approved
+skills:
+  - mattpocock/skills/skills/engineering@ed37663cc5fbef691ddfecd080dff42f7e7e350d
 pre-agent-steps:
-  - name: Upgrade gh CLI
-    run: |
-      bash "${RUNNER_TEMP}/gh-aw/actions/install_gh_cli.sh"
-      GH_VERSION=$(gh --version | head -1 | grep -oP '\d+\.\d+\.\d+')
-      echo "gh version: ${GH_VERSION}"
-      REQUIRED="2.90.0"
-      if ! printf '%s\n%s\n' "$REQUIRED" "$GH_VERSION" | sort -V -C; then
-        echo "::error::gh ${GH_VERSION} is older than required ${REQUIRED} (gh skill support requires v2.90+)"
-        exit 1
-      fi
-  - name: Install Matt Pocock skills
-    env:
-      GH_TOKEN: ${{ github.token }}
-    run: |
-      set -euo pipefail
-      SKILLS_DST="${RUNNER_TEMP}/gh-aw/mattpocock-skills"
-      mkdir -p "${SKILLS_DST}"
-      while IFS= read -r skill; do
-        gh skill install mattpocock/skills "$skill" --dir "${SKILLS_DST}" --force
-      done < <(gh api repos/mattpocock/skills/contents/skills/engineering \
-        --jq '[.[] | select(.type == "dir") | .name] | .[]')
-      SKILL_COUNT=$(find "${SKILLS_DST}" -name "SKILL.md" | wc -l)
-      echo "Installed ${SKILL_COUNT} skill(s):"
-      find "${SKILLS_DST}" -name "SKILL.md" | head -20
-      if [ "${SKILL_COUNT}" -eq 0 ]; then
-        echo "::error::No SKILL.md files found after installing mattpocock/skills"
-        exit 1
-      fi
   - name: Pre-fetch PR diff
     env:
       GH_TOKEN: ${{ github.token }}
@@ -58,7 +32,7 @@ pre-agent-steps:
     run: |
       set -euo pipefail
       mkdir -p /tmp/gh-aw/agent
-      { gh pr diff "$PR_NUMBER" --repo $EXPR_GITHUB_REPOSITORY \
+      { gh pr diff "$PR_NUMBER" --repo "$EXPR_GITHUB_REPOSITORY" \
           --exclude '**/*.lock.yml' \
           --exclude '**/generated/**' \
           --exclude '**/dist/**' \
@@ -66,7 +40,7 @@ pre-agent-steps:
           || true; } | head -n 3000 > /tmp/gh-aw/agent/pr-diff.patch
       LINES=$(wc -l < /tmp/gh-aw/agent/pr-diff.patch)
       gh pr view "$PR_NUMBER" \
-        --repo $EXPR_GITHUB_REPOSITORY \
+        --repo "$EXPR_GITHUB_REPOSITORY" \
         --json number,title,body,headRefName,additions,deletions,changedFiles,files \
         > /tmp/gh-aw/agent/pr-meta.json
       echo "Pre-fetched PR diff (${LINES} lines) and metadata"
@@ -104,14 +78,13 @@ You are a skilled engineering reviewer who applies [Matt Pocock's engineering sk
 
 ## Available Matt Pocock Skills
 
-The following skills have been installed via `gh skill` and are available under `${RUNNER_TEMP}/gh-aw/mattpocock-skills/`. Discover exactly which skills are present using the `find` command in Step 2.
+The workflow installs the pinned `mattpocock/skills/skills/engineering` pack via frontmatter `skills:` and wires those skills into the agent automatically.
 
-- **`/diagnose`** — Disciplined debugging loop: reproduce → minimise → hypothesise → instrument → fix → regression-test. Use for PRs that fix bugs or address performance regressions.
+- **`/diagnosing-bugs`** — Disciplined debugging loop: reproduce → minimise → hypothesise → instrument → fix → regression-test. Use for PRs that fix bugs or address performance regressions.
 - **`/tdd`** — Test-driven development: red-green-refactor loop. Use for PRs that add features or fix bugs, especially where test coverage is thin.
-- **`/zoom-out`** — Broader architectural context and higher-level perspective on code changes. Use for large refactors or when reviewing unfamiliar modules.
+- **`/codebase-design`** — Broader architectural context and shared vocabulary for modules, seams, and deep interfaces. Use for large refactors or when reviewing unfamiliar modules.
 - **`/improve-codebase-architecture`** — Find deepening opportunities informed by the domain language. Use for PRs that restructure or extend the architecture.
 - **`/grill-with-docs`** — Challenges the plan against the existing domain model and terminology. Use when changes introduce new concepts or abstractions.
-- **`/to-prd`** — Turn context into a PRD. Use when the PR description is unclear or the scope is hard to understand.
 
 ## Your Mission
 
@@ -142,15 +115,9 @@ Do **not** call `gh pr diff` or `gh pr view` inside the agent — the data is al
 
 If the pre-fetched patch has 3000 lines, treat it as potentially truncated and focus your review on the highest-impact changed files. The 3000-line cap is intentional to keep token usage bounded on very large PRs; if important context appears missing, explicitly call that out in your review.
 
-### Step 2: Read Available Skills
+### Step 2: Use the Installed Skills Directly
 
-Discover the installed Matt Pocock skills from the install root `${RUNNER_TEMP}/gh-aw/mattpocock-skills/`. List what is available:
-
-```bash
-find "${RUNNER_TEMP}/gh-aw/mattpocock-skills" -name "SKILL.md" 2>/dev/null | head -30
-```
-
-Use the inline skill guidance below by default. Only read a skill file when the inline guidance is insufficient for the specific PR.
+Use the inline skill guidance below by default. Only inspect a skill file when the inline guidance is insufficient for the specific PR.
 
 ### Step 3: Identify Change Type and Select Skills
 
@@ -171,7 +138,7 @@ Apply the skill(s) to review the changed lines. For each issue you find:
 
 Focus areas by skill:
 
-**`/diagnose` guidance:**
+**`/diagnosing-bugs` guidance:**
 - Is the bug fix accompanied by a regression test?
 - Is the root cause properly addressed, or only the symptom?
 - Are error paths instrumented to surface future regressions?
@@ -182,9 +149,9 @@ Focus areas by skill:
 - Are test names descriptive — do they read as specifications?
 - Is test structure clear: Arrange / Act / Assert?
 
-**`/zoom-out` guidance:**
+**`/codebase-design` guidance:**
 - Does the change fit the broader architecture?
-- Are new abstractions consistent with existing patterns?
+- Are new abstractions consistent with existing seams and patterns?
 - Could this change make the codebase harder to navigate?
 
 **`/improve-codebase-architecture` guidance:**
@@ -210,7 +177,7 @@ For each issue found, create a review comment using `create-pull-request-review-
 ```
 
 Guidelines:
-- Prefix each comment with the skill name in brackets: `**[/diagnose]**`, `**[/tdd]**`, etc.
+- Prefix each comment with the skill name in brackets: `**[/diagnosing-bugs]**`, `**[/tdd]**`, etc.
 - Keep the **immediately visible text brief** (1–2 sentences): state the issue and its impact
 - Wrap code examples, detailed explanations, and multi-step suggestions in `<details><summary>💡 …</summary>` blocks
 - Be specific: file path, line number, exact issue
@@ -231,7 +198,7 @@ The review body should apply progressive disclosure — keep the immediately vis
 ```markdown
 ### Skills-Based Review 🧠
 
-Applied **`/tdd`** and **`/zoom-out`** — requesting changes on test coverage gaps.
+Applied **`/tdd`** and **`/codebase-design`** — requesting changes on test coverage gaps.
 
 <details>
 <summary>📋 Key Themes & Highlights</summary>
@@ -293,28 +260,28 @@ Tasks:
    - `documentation`
    - `mixed_unclear`
 3. Choose 1–2 `recommended_skills` from:
-   - `/diagnose`
+   - `/diagnosing-bugs`
    - `/tdd`
-   - `/zoom-out`
+   - `/codebase-design`
    - `/improve-codebase-architecture`
    - `/grill-with-docs`
 4. Rank changed files as `high_impact_files` (most important first), including enough files to cover the key risk areas.
 5. Provide concise `key_signals` that justify classification and ranking.
 
 Skill mapping:
-- `bug_fix` → `/diagnose`, `/tdd`
+- `bug_fix` → `/diagnosing-bugs`, `/tdd`
 - `new_feature` → `/tdd`, `/grill-with-docs`
-- `refactor_cleanup` → `/zoom-out`, `/improve-codebase-architecture`
-- `architecture_change` → `/improve-codebase-architecture`, `/zoom-out`
+- `refactor_cleanup` → `/codebase-design`, `/improve-codebase-architecture`
+- `architecture_change` → `/improve-codebase-architecture`, `/codebase-design`
 - `tests_only` → `/tdd`
 - `documentation` → `/grill-with-docs`
-- `mixed_unclear` → `/zoom-out`, `/tdd`
+- `mixed_unclear` → `/codebase-design`, `/tdd`
 
 Return JSON only (no markdown) in this exact shape:
 ```json
 {
   "change_type": "bug_fix",
-  "recommended_skills": ["/diagnose", "/tdd"],
+  "recommended_skills": ["/diagnosing-bugs", "/tdd"],
   "high_impact_files": [
     {
       "path": "pkg/example/file.go",
