@@ -1455,7 +1455,7 @@ function validateSchema(value: unknown, schema: Schema, path: string, optional: 
       const fieldPath = `${path}.${key}`;
       const isOptional = isOptionalSchema(fieldSchema);
       if (fieldValue === undefined && !isOptional) {
-        const expectedType = "type" in fieldSchema ? (fieldSchema as { type: string }).type : "enum" in fieldSchema ? "enum value" : "value";
+        const expectedType = describeSchemaType(fieldSchema);
         return { ok: false, error: `${fieldPath}: missing required field (expected ${expectedType})` };
       }
       const result = validateSchema(fieldValue, fieldSchema, fieldPath, false);
@@ -1787,6 +1787,25 @@ function previewWithFirstDiff(value: string | undefined, expected: string, maxPr
   const prefixEllipsis = previewStart > 0 ? "…" : "";
   const suffixEllipsis = previewStart + maxPreview < value.length ? "…" : "";
   return `${prefixEllipsis}${preview}${suffixEllipsis}`;
+}
+
+function describeSchemaType(schema: Schema): string {
+  if ("nullable" in schema && schema.nullable === true) {
+    return `${describeSchemaType((schema as NullableSchema).inner)} | null`;
+  }
+  if ("type" in schema) {
+    return (schema as { type: string }).type;
+  }
+  if ("enum" in schema) {
+    return (schema as EnumSchema).enum.map((v: Json) => JSON.stringify(v)).join(" | ");
+  }
+  if ("items" in schema) {
+    return "array";
+  }
+  if ("properties" in schema || "additionalProperties" in schema) {
+    return "object";
+  }
+  return "value";
 }
 
 function bad(path: string, expected: string, actual: unknown): ValidationResult {
