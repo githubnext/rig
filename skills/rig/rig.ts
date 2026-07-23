@@ -272,7 +272,9 @@ function serializeSchema(schema: Schema): JsonSchemaObject {
   const withDescription = (obj: JsonSchemaObject): JsonSchemaObject =>
     description === undefined ? obj : { ...obj, description };
   if ("enum" in schema) {
-    return withDescription({ enum: schema.enum });
+    const enumValues = schema.enum as readonly unknown[];
+    const allStrings = enumValues.length > 0 && enumValues.every((v) => typeof v === "string");
+    return withDescription(allStrings ? { type: "string", enum: schema.enum } : { enum: schema.enum });
   }
   if ("items" in schema) {
     return withDescription({ type: "array", items: serializeSchema(schema.items) });

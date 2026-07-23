@@ -1002,8 +1002,15 @@ describe("toJsonSchema", () => {
   });
 
   it("converts enum schemas", () => {
-    expect(toJsonSchema(s.enum("a", "b", "c"))).toEqual({ enum: ["a", "b", "c"] });
-    expect(toJsonSchema(s.enum(["x", "y"], "A choice"))).toEqual({ enum: ["x", "y"], description: "A choice" });
+    expect(toJsonSchema(s.enum("a", "b", "c"))).toEqual({ type: "string", enum: ["a", "b", "c"] });
+    expect(toJsonSchema(s.enum(["x", "y"], "A choice"))).toEqual({ type: "string", enum: ["x", "y"], description: "A choice" });
+  });
+
+  it("adds type:string to all-string enums but not mixed enums", () => {
+    expect(toJsonSchema(s.enum("low", "medium", "high"))).toEqual({ type: "string", enum: ["low", "medium", "high"] });
+    expect(toJsonSchema(s.enum(1, 2, 3))).toEqual({ enum: [1, 2, 3] });
+    expect(toJsonSchema(s.enum("yes", 1))).toEqual({ enum: ["yes", 1] });
+    expect(toJsonSchema(s.enum())).toEqual({ enum: [] });
   });
 
   it("converts array schemas", () => {
