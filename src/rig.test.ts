@@ -954,6 +954,23 @@ describe("prompt intents", () => {
     expect(intent.mode).toBe("prompt.text");
     expect(intent.command).toBe("find src -name '*.ts'");
   });
+
+  it("p.writeOutput stores field and path with mode prompt.writeOutput", () => {
+    const intent = p.writeOutput("report", "todo-report.md");
+
+    expect(intent.mode).toBe("prompt.writeOutput");
+    expect(intent.field).toBe("report");
+    expect(intent.path).toBe("todo-report.md");
+  });
+
+  it("p.writeOutput supports options", () => {
+    const intent = p.writeOutput("summary", "output.md", { cwd: "/workspace" });
+
+    expect(intent.mode).toBe("prompt.writeOutput");
+    expect(intent.field).toBe("summary");
+    expect(intent.path).toBe("output.md");
+    expect(intent.options).toEqual({ cwd: "/workspace" });
+  });
 });
 
 describe("prompt builder", () => {
@@ -1034,6 +1051,14 @@ describe("prompt builder", () => {
     const builder = p`Token: ${p.env("GITHUB_TOKEN", "unset")}`;
 
     expect(String(builder)).toContain('Read environment variable "GITHUB_TOKEN" and return its value as text. If the variable is not set, return "unset" instead');
+    expect(String(builder)).toContain("sandboxed agentic workflow");
+  });
+
+  it("renders p.writeOutput as a post-generation write instruction", () => {
+    const builder = p`Scan for TODOs. ${p.writeOutput("report", "todo-report.md")}`;
+
+    expect(String(builder)).toContain('output field "report"');
+    expect(String(builder)).toContain('"todo-report.md"');
     expect(String(builder)).toContain("sandboxed agentic workflow");
   });
 });
@@ -1422,6 +1447,55 @@ describe("s.nonEmptyArray", () => {
       required: ["tags"],
     });
     const result = analyzeResponse(JSON.stringify({ tags: ["rig"] }), schema, "test", 1);
+    expect(result.ok).toBe(true);
+  });
+});
+
+describe("s.nonEmptyObject", () => {
+  it("serializes to {type:'object', additionalProperties:..., minProperties:1}", () => {
+    expect(toJsonSchema(s.nonEmptyObject(s.string))).toEqual({ type: "object", additionalProperties: { type: "string" }, minProperties: 1 });
+    expect(toJsonSchema(s.nonEmptyObject(s.number, "scores by name"))).toEqual({
+      type: "object",
+      additionalProperties: { type: "number" },
+      minProperties: 1,
+      description: "scores by name",
+    });
+  });
+
+  it("accepts objects with at least one key", () => {
+    const result = analyzeResponse(JSON.stringify({ a: "hello" }), s.nonEmptyObject(s.string), "test", 1);
+    expect(result.ok).toBe(true);
+  });
+
+  it("accepts objects with multiple keys", () => {
+    const result = analyzeResponse(JSON.stringify({ a: "x", b: "y", c: "z" }), s.nonEmptyObject(s.string), "test", 1);
+    expect(result.ok).toBe(true);
+  });
+
+  it("rejects empty objects", () => {
+    const result = analyzeResponse(JSON.stringify({}), s.nonEmptyObject(s.string), "test", 1);
+    expect(result.ok).toBe(false);
+    if (!result.ok) {
+      expect(result.error.message).toContain("at least 1 key");
+    }
+  });
+
+  it("still validates value types in a non-empty object", () => {
+    const result = analyzeResponse(JSON.stringify({ a: 42 }), s.nonEmptyObject(s.string), "test", 1);
+    expect(result.ok).toBe(false);
+    if (!result.ok) {
+      expect(result.error.message).toContain("string");
+    }
+  });
+
+  it("works as an object field", () => {
+    const schema = s.object({ labels: s.nonEmptyObject(s.string) });
+    expect(toJsonSchema(schema)).toEqual({
+      type: "object",
+      properties: { labels: { type: "object", additionalProperties: { type: "string" }, minProperties: 1 } },
+      required: ["labels"],
+    });
+    const result = analyzeResponse(JSON.stringify({ labels: { env: "prod" } }), schema, "test", 1);
     expect(result.ok).toBe(true);
   });
 });

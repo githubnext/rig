@@ -19,7 +19,7 @@
  * T:AgentError class error carrying turn,agentName,rawOutput,parseError fields
  * T:Tool<TArgs> type ToolConfig+name; created by defineTool
  * T:ToolConfig<TArgs> type {description,parameters,handler}
- * T:PromptIntent type declarative placeholder {kind:'bash'|'read'|'write'|'glob'|'env',…} resolved into prompt text
+ * T:PromptIntent type declarative placeholder {kind:'bash'|'read'|'write'|'writeOutput'|'glob'|'env',…} resolved into prompt text
  * T:PromptBuilder class template-tag result; composes intents+strings into a prompt fragment
  * T:PromptHelpers type shape of exported p object
  * T:PromptVariable<T> type {__rig:'prompt.var';name:string;value:T} named prompt variable [NEW]
@@ -34,6 +34,7 @@
  * s.nonEmptyArray(items,desc?) ArraySchema with minItems:1; validates array has at least one element
  * s.object(props,desc?) ObjectSchema; s.optional(inner) marks field optional; s.nullable(inner) accepts inner|null; use for fixed-key shapes
  * s.record(valSchema,desc?) RecordSchema keyed by string; use for open-ended key→value maps
+ * s.nonEmptyObject(valSchema,desc?) RecordSchema with minProperties:1; validates record has at least one key
  * s.enum(...values|values,desc) EnumSchema
  * s.literal(value,desc?) EnumSchema with a single value; clearer than s.enum for single-value constraints
  * s.unknown unconstrained JSON; call as value or s.unknown("description")
@@ -43,6 +44,7 @@
  * p.read(path,opts?) PromptIntent file read declaration
  * p.readOptional(path,fallback?,opts?) PromptIntent file read declaration; returns fallback (default "") if file absent
  * p.write(path,content,opts?) PromptIntent file write declaration; does NOT expand to path in template — hard-code path in output schema
+ * p.writeOutput(field,path,opts?) PromptIntent post-generation write declaration; writes output field value to path
  * p.glob(pattern,opts?) PromptIntent glob file-list declaration (not run in-process)
  * p.env(name,fallback?,opts?) PromptIntent env var read declaration; returns fallback (default "") if not set
  * p.json(value) string JSON.stringify helper for inlining structured values in prompt templates
@@ -89,7 +91,7 @@ export type ObjectSchema<Fields extends Record<string, Schema> = Record<string, 
   properties: Fields;
   description?: string;
 };
-export type RecordSchema<Value extends Schema = Schema> = { type: "object"; additionalProperties: Value; description?: string };
+export type RecordSchema<Value extends Schema = Schema> = { type: "object"; additionalProperties: Value; description?: string; minProperties?: number };
 export type EnumSchema<Values extends readonly Json[] = readonly Json[]> = { enum: Values; description?: string };
 const OPTIONAL_SYMBOL: unique symbol = Symbol("rig.optional");
 type OptionalMarker = { readonly [OPTIONAL_SYMBOL]: true };
@@ -283,6 +285,19 @@ export const s = {
     return description === undefined ? markAsSchema({ type: "object", additionalProperties }) : markAsSchema({ type: "object", additionalProperties, description });
   },
   /**
+   * Schema for a non-empty string-keyed map (minProperties: 1). Validates that the record has at least one key.
+   * Use this instead of `s.record` when the map must not be empty.
+   *
+   * @example
+   * s.nonEmptyObject(s.string)                         // Record<string, string> with at least one key
+   * s.nonEmptyObject(s.number, "scores by name")       // Record<string, number> with at least one key and description
+   */
+  nonEmptyObject<Value extends Schema>(additionalProperties: Value, description?: string): RecordSchema<Value> {
+    return description === undefined
+      ? markAsSchema({ type: "object", additionalProperties, minProperties: 1 })
+      : markAsSchema({ type: "object", additionalProperties, minProperties: 1, description });
+  },
+  /**
    * Schema for a closed set of literal values.
    *
    * @example
@@ -356,7 +371,10 @@ function serializeSchema(schema: Schema): JsonSchemaObject {
     return withDescription(obj);
   }
   if ("additionalProperties" in schema) {
-    return withDescription({ type: "object", additionalProperties: serializeSchema(schema.additionalProperties) });
+    const rec = schema as RecordSchema;
+    const obj: JsonSchemaObject = { type: "object", additionalProperties: serializeSchema(rec.additionalProperties) };
+    if (rec.minProperties !== undefined) obj["minProperties"] = rec.minProperties;
+    return withDescription(obj);
   }
   if ("properties" in schema) {
     const properties: Record<string, JsonSchemaObject> = {};
@@ -634,12 +652,13 @@ export type PromptIntentOptions = {
 export type PromptIntent = {
   __rig: "prompt";
   id: string;
-  mode: "prompt.text" | "prompt.read" | "prompt.write" | "prompt.glob" | "prompt.readOptional" | "prompt.env";
+  mode: "prompt.text" | "prompt.read" | "prompt.write" | "prompt.glob" | "prompt.readOptional" | "prompt.env" | "prompt.writeOutput";
   command?: string;
   path?: string;
   contents?: string;
   pattern?: string;
   fallback?: string;
+  field?: string;
   options?: Omit<PromptIntentOptions, "signal">;
 };
 
@@ -725,6 +744,22 @@ type PromptHelpers = {
    * output: s.object({ writtenTo: s.string })  // agent infers "README.md"
    */
   write(path: string, contents: string, options?: PromptIntentOptions): PromptIntent;
+  /**
+   * Declarative intent that instructs the LLM to write the value of output field
+   * `field` to the file at `path` after generating the response.  The write is
+   * **not** performed in-process; it is resolved by the Copilot runtime after the
+   * agent produces its structured output.
+   *
+   * Use this instead of `p.write` when the content to be written is the
+   * LLM-generated value of an output field — it wires the output field directly
+   * to the target file path so the harness can perform the write automatically.
+   *
+   * @example
+   * // Writes the "report" output field to "todo-report.md" after generation:
+   * instructions: p`Scan for TODO comments. ${p.writeOutput("report", "todo-report.md")}`
+   * output: s.object({ report: s.string })
+   */
+  writeOutput(field: string, path: string, options?: PromptIntentOptions): PromptIntent;
   /**
    * Declarative intent that instructs the LLM to list files matching `pattern`
    * and substitute the results into the prompt.  Resolution happens inside the
@@ -869,6 +904,9 @@ export const p: PromptHelpers = Object.assign(
     },
     write(path: string, contents: string, options?: PromptIntentOptions): PromptIntent {
       return createPromptIntent("prompt.write", withOptions({ path, contents }, options));
+    },
+    writeOutput(field: string, path: string, options?: PromptIntentOptions): PromptIntent {
+      return createPromptIntent("prompt.writeOutput", withOptions({ field, path }, options));
     },
     glob(pattern: string, options?: PromptIntentOptions): PromptIntent {
       return createPromptIntent("prompt.glob", withOptions({ pattern }, options));
@@ -1716,6 +1754,11 @@ function validateSchema(value: unknown, schema: Schema, path: string, optional: 
     if (!value || typeof value !== "object" || Array.isArray(value)) {
       return bad(path, "object", value);
     }
+    const minProperties = (schema as RecordSchema).minProperties;
+    const keyCount = Object.keys(value as object).length;
+    if (minProperties !== undefined && keyCount < minProperties) {
+      return { ok: false, error: `${path}: expected object with at least ${minProperties} key(s), got empty object` };
+    }
     for (const [key, item] of Object.entries(value as object)) {
       const result = validateSchema(item, schema.additionalProperties, `${path}.${key}`, false);
       if (!result.ok) {
@@ -1834,6 +1877,8 @@ function renderPromptIntentInstruction(intent: PromptIntent): string {
       return `Read environment variable ${JSON.stringify(intent.command ?? "")} and return its value as text. If the variable is not set, return ${JSON.stringify(intent.fallback ?? "")} instead${promptExecutionContext()}${options}`;
     case "prompt.write":
       return `Write file at path ${JSON.stringify(requiredPath(intent))} with contents:\n${intent.contents ?? ""}${promptExecutionContext()}${options}`;
+    case "prompt.writeOutput":
+      return `After generating the response, write the value of output field ${JSON.stringify(intent.field ?? "")} to the file at path ${JSON.stringify(requiredPath(intent))}${promptExecutionContext()}${options}`;
     case "prompt.glob":
       return `List files matching glob pattern ${JSON.stringify(intent.pattern ?? "")} and return the list of matching paths${promptExecutionContext()}${options}`;
     default:

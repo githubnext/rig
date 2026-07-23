@@ -95,6 +95,8 @@ s.nonEmptyArray(item)               // array with minItems: 1
 s.nonEmptyArray(item, "description")
 s.object(fields, "description")
 s.record(value, "description")
+s.nonEmptyObject(value)             // Record<string, V> with minProperties: 1
+s.nonEmptyObject(value, "description")
 s.enum(...values)
 s.enum(values, "description")
 s.optional(shape)
@@ -122,6 +124,7 @@ p.read("README.md")
 p.readOptional("Dockerfile")           // returns "" if file is absent
 p.readOptional(".eslintrc.json", "{}") // returns "{}" if file is absent
 p.write("README.md", "# Updated\n")   // write-file instruction; does NOT return the path
+p.writeOutput("report", "todo-report.md")  // after generation, write output field "report" to file
 p.glob("src/**/*.ts")
 p.env("GITHUB_TOKEN")                  // returns "" if variable is not set
 p.env("GITHUB_TOKEN", "unset")         // returns "unset" if variable is not set
@@ -135,6 +138,8 @@ const reviewWorkspace = agent({
 `p.bash(cmd)` requires backslashes to be escaped as in any TypeScript string literal. When a command contains regex patterns (e.g. `grep 'foo\|bar'`), use `p.bashRaw\`...\`` instead — it takes the command verbatim with no TypeScript escaping.
 
 `p.write(path, contents)` contributes a write-file instruction to the prompt; it does **not** return the file path or contents as a string. When used in a template expression the result is a prompt instruction, not the path. If the output schema includes the written file path, hard-code the path string in the agent's output.
+
+`p.writeOutput(field, path)` instructs the harness to write the value of output field `field` to the file at `path` after the agent generates its response. Use this instead of `p.write` when the content to be written is LLM-generated — e.g. `p.writeOutput("report", "todo-report.md")` wires the `report` output field to `todo-report.md` automatically.
 
 ```ts
 const b = p();

@@ -153,6 +153,8 @@ s.object(fields)
 s.object(fields, "description")
 s.record(value)
 s.record(value, "description")
+s.nonEmptyObject(value)             // Record<string, V> with minProperties: 1
+s.nonEmptyObject(value, "description")
 s.enum(...values)
 s.enum(values, "description")
 s.optional(shape)
@@ -177,6 +179,7 @@ s.nonEmptyString        // non-empty string required
 s.url                   // valid URL string
 s.int                   // integer number (no floats); prefer over s.number for counts, line numbers, etc.
 s.nonEmptyArray(s.string)  // string[] with at least one element
+s.nonEmptyObject(s.string) // Record<string, string> with at least one key
 ```
 
 ## Tools
@@ -219,6 +222,7 @@ p.read("README.md")
 p.readOptional("Dockerfile")          // returns "" if file is absent
 p.readOptional(".eslintrc.json", "{}") // returns "{}" if file is absent
 p.write("README.md", "# Hello\n")    // write-file instruction; does NOT return the path
+p.writeOutput("report", "todo-report.md")  // after generation, write output field "report" to file
 p.glob("src/**/*.ts")
 p.env("GITHUB_TOKEN")                 // returns "" if variable is not set
 p.env("GITHUB_TOKEN", "unset")        // returns "unset" if variable is not set
@@ -249,11 +253,12 @@ const reviewAgent = agent({
 });
 ```
 
-- ``p`...` `` accepts `${p.bash(...)}`, `${p.bashRaw\`...\`}`, `${p.read(...)}`, `${p.readOptional(...)}`, `${p.write(...)}`, `${p.glob(...)}`, `${p.env(...)}`, and `${p.json(...)}` expressions.
+- ``p`...` `` accepts `${p.bash(...)}`, `${p.bashRaw\`...\`}`, `${p.read(...)}`, `${p.readOptional(...)}`, `${p.write(...)}`, `${p.writeOutput(...)}`, `${p.glob(...)}`, `${p.env(...)}`, and `${p.json(...)}` expressions.
 - Multiple `p.*` calls in the same template are resolved independently in order; each contributes its own instruction line.
 - Nested `PromptBuilder` values used as interpolations are inlined as plain text.
 - The rendered `PromptBuilder` replaces the instructions string when the agent prompt is assembled.
 - `p.write(path, contents)` contributes a write-file instruction to the prompt; it does **not** return the file path or contents as text. If the output schema needs to reference the written path, hard-code the path string in the agent's output — it cannot be read from the `p.write(...)` expression. Use `p.read(path)` in a **separate** expression to read back written content.
+- `p.writeOutput(field, path)` instructs the harness to write the value of output field `field` to the file at `path` after the agent generates its response. Use this instead of `p.write` when the content to be written is LLM-generated output — e.g. `p.writeOutput("report", "todo-report.md")` wires the `report` output field to `todo-report.md` automatically.
 - `p.bash(cmd)` accepts a regular TypeScript string; backslashes and special characters must be escaped as in any TypeScript string literal. Use `p.bashRaw\`cmd\`` (tagged template) to avoid escaping — the command is taken verbatim from the template. When a grep or regex pattern contains `\.`, `\|`, or other backslash sequences, prefer `p.bashRaw`.
 - `p.glob(pattern)` resolves to a list of matching paths at runtime; it is resolved by the Copilot runtime, not in-process. Brace expansion (`{ts,js}`) and negation patterns are resolved by the runtime and are not guaranteed to work identically across all environments; prefer simple glob wildcards when portability matters.
 - `p.readOptional(path, fallback?)` reads a file if it exists; returns the fallback string (default `""`) if the file is absent. Use this instead of `p.read` when the file may not exist.
