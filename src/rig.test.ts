@@ -1217,3 +1217,33 @@ describe("s.literal", () => {
     });
   });
 });
+
+describe("missing required field error message", () => {
+  it("reports a missing required string field clearly", () => {
+    const schema = s.object({ name: s.string, age: s.number });
+    const result = analyzeResponse(JSON.stringify({ age: 30 }), schema, "test", 1);
+    expect(result.ok).toBe(false);
+    if (!result.ok) {
+      expect(result.error.message).toContain("missing required field");
+      expect(result.error.message).toContain("$.name");
+      expect(result.error.message).toContain("string");
+    }
+  });
+
+  it("reports a missing required boolean field clearly", () => {
+    const schema = s.object({ breaking: s.boolean, summary: s.string });
+    const result = analyzeResponse(JSON.stringify({ summary: "no changes" }), schema, "test", 1);
+    expect(result.ok).toBe(false);
+    if (!result.ok) {
+      expect(result.error.message).toContain("missing required field");
+      expect(result.error.message).toContain("$.breaking");
+      expect(result.error.message).toContain("boolean");
+    }
+  });
+
+  it("does not report missing for optional fields", () => {
+    const schema = s.object({ name: s.string, note: s.optional(s.string) });
+    const result = analyzeResponse(JSON.stringify({ name: "Alice" }), schema, "test", 1);
+    expect(result.ok).toBe(true);
+  });
+});

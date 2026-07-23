@@ -1451,12 +1451,14 @@ function validateSchema(value: unknown, schema: Schema, path: string, optional: 
       return bad(path, "object", value);
     }
     for (const [key, fieldSchema] of Object.entries(schema.properties) as [string, Schema][]) {
-      const result = validateSchema(
-        (value as Record<string, unknown>)[key],
-        fieldSchema,
-        `${path}.${key}`,
-        false,
-      );
+      const fieldValue = (value as Record<string, unknown>)[key];
+      const fieldPath = `${path}.${key}`;
+      const isOptional = isOptionalSchema(fieldSchema);
+      if (fieldValue === undefined && !isOptional) {
+        const expectedType = "type" in fieldSchema ? (fieldSchema as { type: string }).type : "enum" in fieldSchema ? "enum value" : "value";
+        return { ok: false, error: `${fieldPath}: missing required field (expected ${expectedType})` };
+      }
+      const result = validateSchema(fieldValue, fieldSchema, fieldPath, false);
       if (!result.ok) {
         return result;
       }
