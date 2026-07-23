@@ -170,6 +170,7 @@ s.nonEmptyArray(s.string)  // string[] with at least one element
 ## Tools
 
 Register custom tools with `defineTool` using an SDK-neutral tool shape. Use `s.*` schemas for `parameters`. Rig defaults tools to `skipPermission: true`.
+When `parameters` uses `s.*` schemas, `handler` args are inferred automatically; for plain JSON Schema, pass an explicit generic like `defineTool<{ issue: string }>(...)`.
 
 ```ts
 import { agent, defineTool, s } from "rig";
