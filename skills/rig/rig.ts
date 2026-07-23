@@ -914,28 +914,41 @@ async function readNearestPackageJsonType(startDir: string): Promise<string | un
   }
 }
 
-async function ensureEsmTypecheckContext(programPath: string): Promise<() => Promise<void>> {
+async function withMtsTypecheckProgramPath(
+  programPath: string,
+): Promise<{ path: string; cleanup: () => Promise<void> }> {
+  if (!programPath.endsWith(".ts")) {
+    return { path: programPath, cleanup: async () => {} };
+  }
   const programDir = dirname(programPath);
   const programPackagePath = resolve(programDir, "package.json");
   const localPackageInfo = await readPackageJsonInfo(programPackagePath);
-  if (localPackageInfo.exists || localPackageInfo.type === "module") {
-    return async () => {};
+  if (localPackageInfo.exists) {
+    return { path: programPath, cleanup: async () => {} };
   }
   const nearestPackageType = await readNearestPackageJsonType(programDir);
   if (nearestPackageType === "module") {
-    return async () => {};
+    return { path: programPath, cleanup: async () => {} };
   }
+  const shadowPath = resolve(
+    programDir,
+    `${basename(programPath, ".ts")}.rig-typecheck-${process.pid}-${Date.now()}.mts`,
+  );
   try {
-    await writeFile(programPackagePath, `${JSON.stringify({ type: "module" })}\n`, "utf8");
+    const programCode = await readFile(programPath, "utf8");
+    await writeFile(shadowPath, programCode, { encoding: "utf8", flag: "wx" });
   } catch (error) {
-    const writeError = error as NodeJS.ErrnoException;
-    if (writeError.code === "EACCES" || writeError.code === "EPERM" || writeError.code === "EROFS") {
-      return async () => {};
+    const fsError = error as NodeJS.ErrnoException;
+    if (fsError.code === "EACCES" || fsError.code === "EPERM" || fsError.code === "EROFS") {
+      return { path: programPath, cleanup: async () => {} };
     }
-    throw writeError;
+    throw fsError;
   }
-  return async () => {
-    await rm(programPackagePath, { force: true });
+  return {
+    path: shadowPath,
+    cleanup: async () => {
+      await rm(shadowPath, { force: true });
+    },
   };
 }
 
@@ -1004,12 +1017,12 @@ async function typecheckProgram(programPath: string, cwd: string, displayPath = 
   const tempRoot = resolve(cwd, ".tmp");
   await mkdir(tempRoot, { recursive: true });
   const tempDir = await mkdtemp(resolve(tempRoot, "rig-typecheck-"));
-  const cleanupEsmContext = await ensureEsmTypecheckContext(programPath);
+  const typecheckProgramRef = await withMtsTypecheckProgramPath(programPath);
   const projectPath = resolve(tempDir, "tsconfig.typecheck.json");
   try {
     await writeFile(projectPath, JSON.stringify({
       extends: baseTsconfigPath,
-      include: [programPath],
+      include: [typecheckProgramRef.path],
     }), "utf8");
     await execFileAsync(
       "npx",
@@ -1034,7 +1047,7 @@ async function typecheckProgram(programPath: string, cwd: string, displayPath = 
     const detail = diagnostics ? `\n${diagnostics}` : "";
     throw new Error(`Typecheck failed for ${displayPath}.${detail}${esmHint}`);
   } finally {
-    await cleanupEsmContext();
+    await typecheckProgramRef.cleanup();
     await rm(tempDir, { recursive: true, force: true });
   }
 }

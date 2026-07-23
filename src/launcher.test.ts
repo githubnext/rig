@@ -2,7 +2,7 @@ import { beforeEach, expect, it, vi } from "vitest";
 import { resolve, dirname } from "node:path";
 import { Readable, Writable } from "node:stream";
 import { fileURLToPath } from "node:url";
-import { mkdtemp, rm, writeFile } from "node:fs/promises";
+import { mkdtemp, readdir, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 
 const mocks = vi.hoisted(() => {
@@ -376,6 +376,9 @@ export default agent({
 
     expect(output.join("")).toBe("");
     expect(mocks.createSession).not.toHaveBeenCalled();
+    await expect(readdir(tempDir)).resolves.not.toContain("package.json");
+    const files = await readdir(tempDir);
+    expect(files.filter((file) => file.includes(".rig-typecheck-") && file.endsWith(".mts"))).toHaveLength(0);
   } finally {
     await rm(tempDir, { recursive: true, force: true });
   }
