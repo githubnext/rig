@@ -1246,4 +1246,37 @@ describe("missing required field error message", () => {
     const result = analyzeResponse(JSON.stringify({ name: "Alice" }), schema, "test", 1);
     expect(result.ok).toBe(true);
   });
+
+  it("reports a missing required array field with type 'array'", () => {
+    const schema = s.object({ items: s.array(s.string), name: s.string });
+    const result = analyzeResponse(JSON.stringify({ name: "x" }), schema, "test", 1);
+    expect(result.ok).toBe(false);
+    if (!result.ok) {
+      expect(result.error.message).toContain("missing required field");
+      expect(result.error.message).toContain("$.items");
+      expect(result.error.message).toContain("array");
+    }
+  });
+
+  it("reports a missing required nullable field with '<inner> | null'", () => {
+    const schema = s.object({ score: s.nullable(s.number), name: s.string });
+    const result = analyzeResponse(JSON.stringify({ name: "x" }), schema, "test", 1);
+    expect(result.ok).toBe(false);
+    if (!result.ok) {
+      expect(result.error.message).toContain("missing required field");
+      expect(result.error.message).toContain("$.score");
+      expect(result.error.message).toContain("number | null");
+    }
+  });
+
+  it("reports a missing required enum field with enum values", () => {
+    const schema = s.object({ status: s.enum("open", "closed"), name: s.string });
+    const result = analyzeResponse(JSON.stringify({ name: "x" }), schema, "test", 1);
+    expect(result.ok).toBe(false);
+    if (!result.ok) {
+      expect(result.error.message).toContain("missing required field");
+      expect(result.error.message).toContain("$.status");
+      expect(result.error.message).toContain('"open"');
+    }
+  });
 });
