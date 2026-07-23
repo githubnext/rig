@@ -462,6 +462,31 @@ describe("agent invocation", () => {
     await expect(strict("go")).rejects.toMatchObject({ kind: "parse" });
   });
 
+  it("shows enum mismatch preview around the first differing substring", async () => {
+    const sharedPrefix = "a".repeat(100);
+    const expectedStatus = `${sharedPrefix}b`;
+    const actualStatus = `${sharedPrefix}c`;
+    mocks.setSendAndWaitImpl(async () => JSON.stringify({ status: actualStatus }));
+
+    const strict = agent({
+      name: "strict",
+      maxTurns: 1,
+      output: s.object({
+        status: s.enum(expectedStatus),
+      }),
+    });
+
+    try {
+      await strict("go");
+      throw new Error("expected validation error");
+    } catch (error) {
+      expect(error).toMatchObject({ kind: "validation" });
+      expect(error).toBeInstanceOf(AgentError);
+      expect((error as AgentError).message).toContain("got string (…");
+      expect((error as AgentError).message).toContain('aaaaaaaaaaaac"');
+    }
+  });
+
   it("supports per-call model overrides", async () => {
     mocks.setSendAndWaitImpl(async () => JSON.stringify("ok"));
 
