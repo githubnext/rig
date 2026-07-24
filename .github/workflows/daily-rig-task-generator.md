@@ -112,18 +112,22 @@ Write a one-paragraph prompt that tells the `rig-expander` subagent:
 
 **5b. Ask the `rig-expander` subagent to write the program.**
 
-Invoke the `rig-expander` subagent with the prompt from 5a. It will return a complete
-TypeScript program as a plain string (no markdown fence, just raw `.ts` content).
+Invoke the `rig-expander` subagent with the prompt from 5a. It will return the TypeScript
+program wrapped in a single ` ```typescript ` fence.
 
 **5c. Write the program to a temp file.**
 
+Extract the code inside the ` ```typescript ` ... ` ``` ` fence markers from the subagent
+response and write it (fence markers excluded) to the file:
+
 ```bash
 cat > /tmp/gh-aw/agent/rig-task-<N>.ts << 'EOF'
-<program-from-subagent>
+<code-extracted-from-fence>
 EOF
 ```
 
-(Replace `<N>` with the task index 1–5 and `<program-from-subagent>` with the returned code.)
+(Replace `<N>` with the task index 1–5 and `<code-extracted-from-fence>` with the inner
+TypeScript code, stripped of the surrounding fence markers.)
 
 **5d. Typecheck and evaluate the program.**
 
@@ -225,10 +229,17 @@ model: large
 ---
 You are an expert in the rig TypeScript agent harness.
 
+Start by reading the current API reference:
+
+```bash
+cat skills/rig/SKILL.md
+```
+
 You will receive a one-paragraph prompt describing an agentic task, the desired input/output
 schema, and which rig primitives to use.
 
-Your job: write a complete, idiomatic rig TypeScript program that implements the task.
+Your job: write a complete, idiomatic rig TypeScript program that implements the task,
+following the API patterns shown in the SKILL.md you just read.
 
 Rules:
 - Single `import { agent, p, s } from "rig"` (add `defineTool` if tools are needed).
@@ -240,5 +251,5 @@ Rules:
 - Do not use `console.log`.
 - Keep the program under 60 lines.
 
-Return only the raw TypeScript source code — no markdown fences, no explanation, no
-extra commentary. The output will be written directly to a `.ts` file and run.
+Return the complete TypeScript source code wrapped in a single ` ```typescript ` fence.
+Do not add any explanation before or after the fence.
