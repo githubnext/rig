@@ -1815,7 +1815,8 @@ function validateSchema(value: unknown, schema: Schema, path: string, optional: 
       if (typeof value !== "string") return bad(path, "string", value);
       const { minLength, format } = schema as StringSchema;
       if (minLength !== undefined && value.length < minLength) {
-        return { ok: false, error: `${path}: expected string with minLength ${minLength}, got empty string` };
+        const gotDesc = value.length === 0 ? "empty string" : `string of length ${value.length}`;
+        return { ok: false, error: `${path}: expected string with minLength ${minLength}, got ${gotDesc}` };
       }
       if (format === "uri") {
         try { new URL(value); } catch { return { ok: false, error: `${path}: expected a valid URL, got ${JSON.stringify(value)}` }; }
