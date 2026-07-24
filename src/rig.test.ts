@@ -399,7 +399,7 @@ describe("agent invocation", () => {
 
     const repairable = agent({
       name: "repairable",
-      addons: repair,
+      addons: repair(),
       maxTurns: 2,
     });
 
@@ -458,7 +458,7 @@ describe("agent invocation", () => {
             context.nextPrompt = `please fix: ${context.nextPrompt}`;
           }
         },
-        repair,
+        repair(),
       ],
       maxTurns: 2,
     });
@@ -700,7 +700,7 @@ describe("agent invocation", () => {
             context.nextPrompt = `${context.nextPrompt}\nAdd a short correction because you are running out of turns.`;
           }
         },
-        repair,
+        repair(),
       ],
     });
 
@@ -727,7 +727,7 @@ describe("agent invocation", () => {
     const steerable = agent({
       name: "steerable",
       maxTurns: 2,
-      addons: [steering(), repair],
+      addons: [steering(), repair()],
     });
 
     await expect(steerable("go")).resolves.toBe("recovered");
@@ -760,7 +760,7 @@ describe("agent invocation", () => {
             }
           }
         },
-        repair,
+        repair(),
       ],
     });
 
@@ -790,7 +790,7 @@ describe("agent invocation", () => {
         oncePerAgent(async (runtimeAgent, context) => {
           register(runtimeAgent, context.turn);
         }),
-        repair,
+        repair(),
       ],
     });
 

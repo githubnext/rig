@@ -137,6 +137,8 @@ export default triage;
 
 For plain JSON Schema parameters, provide a generic such as `defineTool<{ issue: string }>(...)`. A handler may return a string or any JSON-serializable value; Rig serializes non-string values, so do not call `JSON.stringify` in the handler. Tools default to `skipPermission: true`.
 
+Strict TypeScript compilation reports unused handler bindings. Destructure only the keys the handler uses, or rename an unavoidable binding with a leading underscore, such as `{ filename: _filename, content }`.
+
 ## Call-time options
 
 Use call-time options only for per-run changes:
@@ -161,6 +163,6 @@ Use only the current API:
 - `agent({ name, ... })`
 - `p.*` and ``p`...` `` from `rig`
 - `s.*` for explicit schemas
-- `oncePerAgent`, `repair`, `steering`, and `timeout` from `rig/addons`
+- `oncePerAgent`, `repair()`, `steering`, and `timeout` from `rig/addons`
 
 Do not add deprecated hooks, alternate schema syntaxes, or compatibility bridges.

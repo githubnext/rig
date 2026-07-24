@@ -595,7 +595,7 @@ export type AgentSpec<Input extends Schema = StringSchema, Output extends Schema
   model?: string;
   /** Maximum number of turns (initial + repair retries). Defaults to `4`. */
   maxTurns?: number;
-  /** Middleware addons that wrap each turn's ask/response cycle, e.g. `repair`, `steering`. */
+  /** Middleware addons that wrap each turn's ask/response cycle, e.g. `repair()`, `steering()`. */
   addons?: AgentAddon | AgentAddon[];
   /** Named sub-agents available for delegation from this agent's prompt. */
   agents?: Record<string, AgentFn<any, any>>;

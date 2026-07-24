@@ -4,6 +4,7 @@ import type { Agent, AgentAddon, AgentAddonContext } from "./rig.ts";
 const DEFAULT_STEERING_WARNING = "You are running out of turns. This is your final attempt before reaching the turn limit. Please correct your output now.";
 
 export type SteeringOptions = {
+  /** Warning appended to the final retry prompt. */
   message?: string;
 };
 
@@ -16,6 +17,12 @@ export type AgentRegistration = (
   context: AgentAddonContext,
 ) => void | Promise<void>;
 
+/**
+ * Appends a final-attempt warning to the retry prompt produced by an inner addon.
+ *
+ * Place this before `repair()`, for example
+ * `addons: [steering({ message: "Return valid JSON now." }), repair()]`.
+ */
 export function steering(options: SteeringOptions = {}): AgentAddon {
   const message = options.message ?? DEFAULT_STEERING_WARNING;
   return async (context, next) => {
@@ -26,26 +33,33 @@ export function steering(options: SteeringOptions = {}): AgentAddon {
   };
 }
 
-export const repair: AgentAddon = async (context, next) => {
-  await next();
-  if (context.completed || context.error !== undefined || context.nextPrompt !== undefined) {
-    return;
-  }
-  if (context.response === undefined) {
-    return;
-  }
-  const analysis = analyzeResponse(context.response, context.outputSchema, context.spec.name, context.turn);
-  if (analysis.ok) {
-    context.completed = true;
-    context.output = analysis.output;
-    return;
-  }
-  if (context.turn >= context.maxTurns) {
-    context.error = analysis.error;
-    return;
-  }
-  context.nextPrompt = defaultRepairPrompt(context.spec, analysis.error);
-};
+/**
+ * Parses and validates responses, retrying failures within the agent's turn budget.
+ *
+ * Configure `maxTurns` on the agent spec.
+ */
+export function repair(): AgentAddon {
+  return async (context, next) => {
+    await next();
+    if (context.completed || context.error !== undefined || context.nextPrompt !== undefined) {
+      return;
+    }
+    if (context.response === undefined) {
+      return;
+    }
+    const analysis = analyzeResponse(context.response, context.outputSchema, context.spec.name, context.turn);
+    if (analysis.ok) {
+      context.completed = true;
+      context.output = analysis.output;
+      return;
+    }
+    if (context.turn >= context.maxTurns) {
+      context.error = analysis.error;
+      return;
+    }
+    context.nextPrompt = defaultRepairPrompt(context.spec, analysis.error);
+  };
+}
 
 export function timeout(options: TimeoutOptions): AgentAddon {
   return async (context, next) => {

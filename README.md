@@ -221,7 +221,7 @@ For the common retry flow with last-turn steering or stable default timeouts, op
 ```ts
 const review = agent({
   maxTurns: 3,
-  addons: [timeout({ timeout: 30_000 }), steering(), repair],
+  addons: [timeout({ timeout: 30_000 }), steering(), repair()],
 });
 ```
 
