@@ -85,6 +85,8 @@ s.nonEmptyString                    // string with minLength: 1
 s.nonEmptyString("description")
 s.url                               // string with format: "uri"
 s.url("description")
+s.path                              // string with format: "path"; use for file system paths
+s.path("description")
 s.number
 s.integer
 s.int                               // alias for s.integer; prefer for counts, line numbers, integer-only fields
