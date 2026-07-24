@@ -9,10 +9,11 @@ Rig is a minimal TypeScript agent harness. The core runtime (`skills/rig/rig.ts`
 ```
 skills/rig/rig.ts      — Core runtime (agent, p, copilotEngine, schemas)
 skills/rig/samples/    — 51 sample agents demonstrating patterns
+skills/rig/references/ — Focused documentation loaded on demand from SKILL.md
 src/engines/copilot.test.ts — Copilot engine unit tests (vitest)
 src/rig.test.ts        — Unit tests (vitest)
 scripts/run-sample.test.ts — Sample runner with a stub Copilot SDK client (dry-run)
-skills/rig/SKILL.md    — Framework reference docs
+skills/rig/SKILL.md    — Compact skill entry point and reference router
 ```
 
 All imports use the `"rig"` path alias (resolved via tsconfig paths + vitest alias). `copilotEngine` is exported directly from `rig` for client construction.
@@ -35,6 +36,18 @@ All imports use the `"rig"` path alias (resolved via tsconfig paths + vitest ali
 - Types are colocated with the module that defines them, not in separate `.d.ts` files
 - Trailing underscore on object keys (`key_`) means optional field
 - Do not add legacy compatibility bridges; update callers, samples, and docs to the current API
+
+## Skill Documentation
+
+- Treat `skills/rig/SKILL.md` as prompt context: keep only high-frequency construction rules, decisions, and a minimal canonical example.
+- Target roughly 200 lines or fewer. Use line/word/byte counts as regression signals, not as a reason to compress prose until it is unclear.
+- Put detailed API tables, edge cases, provider behavior, and scenario-specific patterns in focused files under `skills/rig/references/`.
+- Route every reference from `SKILL.md` with a short “read when” description so an agent can load only the relevant secondary context.
+- Prefer one representative example, decision tables, and checklists over repeated prose. Remove duplication before adding guidance.
+- Keep each fact canonical. A compact rule may be summarized in `SKILL.md`, but its examples and edge cases should live in one reference file.
+- Add new material to `SKILL.md` only when it changes how most Rig programs should be generated; otherwise update or add a focused reference.
+- When the API changes, update the affected reference and then audit `SKILL.md`, `README.md`, and samples for stale summaries or links.
+- Before finishing documentation changes, verify relative links and compare `wc -l -w -c skills/rig/SKILL.md skills/rig/references/*.md` with the previous version.
 
 ## Testing
 
