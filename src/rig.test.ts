@@ -356,7 +356,7 @@ describe("agent invocation", () => {
     });
 
     expect(() => greet.use([null as unknown as any] as any)).toThrow(
-      "Agent addon entries must be functions.",
+      "Agent addon entries must be functions (entry at index 0 is null).",
     );
   });
 
@@ -771,7 +771,7 @@ describe("agent invocation", () => {
     mocks.setSendAndWaitImpl(async () => JSON.stringify("ok"));
     const guarded = agent({ name: "guarded", addons: [null as unknown as any] as any });
     await expect(guarded("go")).rejects.toThrow(
-      "Agent addon entries must be functions.",
+      "Agent addon entries must be functions (entry at index 0 is null).",
     );
   });
 
@@ -1166,6 +1166,8 @@ describe("toJsonSchema", () => {
     expect(toJsonSchema(s.nonEmptyString("A non-empty value"))).toEqual({ type: "string", minLength: 1, description: "A non-empty value" });
     expect(toJsonSchema(s.url)).toEqual({ type: "string", format: "uri" });
     expect(toJsonSchema(s.url("A URL"))).toEqual({ type: "string", format: "uri", description: "A URL" });
+    expect(toJsonSchema(s.path)).toEqual({ type: "string", format: "path" });
+    expect(toJsonSchema(s.path("source path"))).toEqual({ type: "string", format: "path", description: "source path" });
   });
 
   it("includes description when present", () => {
@@ -1362,6 +1364,27 @@ describe("s.url", () => {
     if (!result.ok) {
       expect(result.error.message).toContain("valid URL");
     }
+  });
+});
+
+describe("s.path", () => {
+  it("serializes to {type:'string', format:'path'}", () => {
+    expect(toJsonSchema(s.path)).toEqual({ type: "string", format: "path" });
+    expect(toJsonSchema(s.path("source file"))).toEqual({ type: "string", format: "path", description: "source file" });
+  });
+
+  it("accepts any string value", () => {
+    const result = analyzeResponse(JSON.stringify("src/index.ts"), s.path, "test", 1);
+    expect(result.ok).toBe(true);
+  });
+
+  it("is usable as an object field", () => {
+    const schema = s.object({ filePath: s.path });
+    expect(toJsonSchema(schema)).toEqual({
+      type: "object",
+      properties: { filePath: { type: "string", format: "path" } },
+      required: ["filePath"],
+    });
   });
 });
 

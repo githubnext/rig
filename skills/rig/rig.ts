@@ -29,7 +29,7 @@
  * T:LauncherIo type {stdin,stdout,stderr} override for launcher subprocess
  * T:JsonSchemaObject type {[key:string]:unknown} plain JSON Schema object
  * s.string/number/integer/boolean/null SchemaHelperFactory primitives; call as value or fn(desc)
- * s.int alias for s.integer; s.nonEmptyString string with minLength:1; s.url string with format:"uri"
+ * s.int alias for s.integer; s.nonEmptyString string with minLength:1; s.url string with format:"uri"; s.path string with format:"path"
  * s.array(items,desc?) ArraySchema; use for homogeneous lists, e.g. s.array(s.string)
  * s.nonEmptyArray(items,desc?) ArraySchema with minItems:1; validates array has at least one element
  * s.object(props,desc?) ObjectSchema; s.optional(inner) marks field optional; s.nullable(inner) accepts inner|null; use for fixed-key shapes
@@ -225,6 +225,8 @@ export const s = {
   nonEmptyString: createConstrainedStringSchema({ minLength: 1 }),
   /** Schema for a URL string (format: "uri"). Call as `s.url` or `s.url("description")`. */
   url: createConstrainedStringSchema({ format: "uri" }),
+  /** Schema for a file system path string (format: "path"). Use instead of `s.string` when the value is a file or directory path; improves readability and hints to the runtime about path-based context resolution. Call as `s.path` or `s.path("description")`. */
+  path: createConstrainedStringSchema({ format: "path" }),
   /** Schema for a `number` value. Call as `s.number` or `s.number("description")`. */
   number: createTypedPrimitiveSchema<NumberSchema>("number"),
   /** Schema for an integer value. Serializes to `{"type":"integer"}` in JSON Schema. Call as `s.integer` or `s.integer("description")`. */
@@ -2052,9 +2054,11 @@ function normalizeAddons(addons?: AgentAddon | AgentAddon[]): AgentAddon[] {
     return [];
   }
   const items = Array.isArray(addons) ? [...addons] : [addons];
-  for (const addon of items) {
+  for (let i = 0; i < items.length; i++) {
+    const addon = items[i];
     if (typeof addon !== "function") {
-      throw new Error("Agent addon entries must be functions.");
+      const got = addon === null ? "null" : typeof addon;
+      throw new Error(`Agent addon entries must be functions (entry at index ${i} is ${got}).`);
     }
   }
   return items;

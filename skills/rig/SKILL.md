@@ -92,6 +92,7 @@ Declare a structured agent.
 | `maxTurns` | Retry budget for invalid JSON or invalid output |
 | `addons` | Per-turn addons for steering, validation, and retry customization |
 | `agents` | Optional named subagents exposed to the harness |
+| `tools` | Tool definitions for function-calling (registered via `defineTool`) |
 
 Use `agent({ name, ... })` as the only agent declaration form. `name` is optional; when omitted rig normalizes it to `"agent"`.
 
@@ -140,6 +141,8 @@ s.nonEmptyString                    // string with minLength: 1
 s.nonEmptyString("description")
 s.url                               // string with format: "uri"
 s.url("description")
+s.path                              // string with format: "path"; use for file system paths
+s.path("description")
 s.number
 s.integer
 s.int                               // alias for s.integer
@@ -179,6 +182,7 @@ s.nullable(s.string)    // string | null
 s.literal("done")       // exactly "done"
 s.nonEmptyString        // non-empty string required
 s.url                   // valid URL string
+s.path                  // file system path; prefer over s.string for file/directory inputs
 s.int                   // integer number (no floats); prefer over s.number for counts, line numbers, etc.
 s.nonEmptyArray(s.string)  // string[] with at least one element
 s.nonEmptyObject(s.string) // Record<string, string> with at least one key
