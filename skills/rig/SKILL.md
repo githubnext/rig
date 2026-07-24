@@ -47,8 +47,7 @@ export default reviewDiff;
 
 | Concern | Location |
 |---------|----------|
-| `name`, `instructions`, `input`, `output`, tools, stable `model`/general turn cap | `agent({ ... })` |
-| Parse/schema repair and its turn budget | `repair({ maxTurns })` in `addons` |
+| `name`, `instructions`, `input`, `output`, tools, stable `model`/`maxTurns` | `agent({ ... })` |
 | Per-run `model`, `maxTurns`, `timeout`, `signal` | `myAgent(input, { ... })` |
 | Stable addons | `addons` in the spec |
 | Additional addons | `agent.use(addon)` |
@@ -97,8 +96,8 @@ Do not replace file intents with `cat` commands or large in-memory strings. `p.w
 - Define tools with `defineTool(name, { description, parameters: s.object(...), handler })`; schema-based handler arguments are inferred and tools default to `skipPermission: true`. Destructure only handler fields you use.
 - `agents` is a named object such as `agents: { extractor }`, never an array. Attach every declared subagent to the exported root's graph.
 - There is no chain or loop primitive; give the coordinator explicit delegation instructions and require one combined output.
-- Automatic parse/schema repair requires `repair({ maxTurns: 3 })` from `rig/addons`; the budget includes the initial attempt and retries.
-- For a final-turn warning, use `addons: [steering(), repair({ maxTurns: 3 })]`. Custom text uses `steering({ message: "..." })`, not a positional string. Use `oncePerAgent()` for one registration callback per runtime agent.
+- Automatic parse/schema repair requires `repair()` from `rig/addons`; put its `maxTurns` budget on the agent spec.
+- For a final-turn warning, use `addons: [steering(), repair()]`. Custom text uses `steering({ message: "..." })`, not a positional string. Use `oncePerAgent()` for one registration callback per runtime agent.
 
 ## Runnable markdown
 

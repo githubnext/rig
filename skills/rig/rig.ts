@@ -553,14 +553,10 @@ export type AgentAddonContext = {
  *   }
  * };
  */
-export type AgentAddon = {
-  (
-    context: AgentAddonContext,
-    next: () => Promise<void>,
-  ): void | Promise<void>;
-  /** Default total turn budget used unless the agent spec or call overrides it. */
-  readonly maxTurns?: number;
-};
+export type AgentAddon = (
+  context: AgentAddonContext,
+  next: () => Promise<void>,
+) => void | Promise<void>;
 export type ToolHandler<TArgs = unknown> = (args: TArgs) => unknown | Promise<unknown>;
 export type ToolParameters = Schema | Record<string, unknown>;
 export type Tool<TArgs = unknown> = ToolConfig<TArgs> & { name: string };
@@ -597,9 +593,9 @@ export type AgentSpec<Input extends Schema = StringSchema, Output extends Schema
   output?: Output;
   /** Model identifier passed to the engine, e.g. `"mini"`, `"gpt-5"`, `"claude-sonnet"`. Defaults to `"small"`. */
   model?: string;
-  /** Maximum total turns. Overrides addon defaults; otherwise defaults to `4` when no addon supplies a budget. */
+  /** Maximum number of turns (initial + repair retries). Defaults to `4`. */
   maxTurns?: number;
-  /** Middleware addons that wrap each turn's ask/response cycle, e.g. `repair({ maxTurns: 3 })`, `steering()`. */
+  /** Middleware addons that wrap each turn's ask/response cycle, e.g. `repair()`, `steering()`. */
   addons?: AgentAddon | AgentAddon[];
   /** Named sub-agents available for delegation from this agent's prompt. */
   agents?: Record<string, AgentFn<any, any>>;
@@ -2043,25 +2039,14 @@ function resolveCallRuntime(spec: NormalizedAgentSpec<any, any>, options: CallOp
   systemMessage: unknown;
   tools: Tool<any>[] | undefined;
 } {
-  const addons = normalizeAddons(spec.addons);
   return {
     model: options.model ?? spec.model ?? "small",
-    maxTurns: options.maxTurns ?? spec.maxTurns ?? resolveAddonMaxTurns(addons) ?? 4,
+    maxTurns: options.maxTurns ?? spec.maxTurns ?? 4,
     signal: timeoutSignal(options.signal, options.timeout),
-    addons,
+    addons: normalizeAddons(spec.addons),
     systemMessage: spec.systemMessage,
     tools: spec.tools,
   };
-}
-
-function resolveAddonMaxTurns(addons: AgentAddon[]): number | undefined {
-  for (let i = addons.length - 1; i >= 0; i -= 1) {
-    const maxTurns = addons[i]?.maxTurns;
-    if (maxTurns !== undefined) {
-      return maxTurns;
-    }
-  }
-  return undefined;
 }
 
 function normalizeAddons(addons?: AgentAddon | AgentAddon[]): AgentAddon[] {

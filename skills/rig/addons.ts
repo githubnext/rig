@@ -8,11 +8,6 @@ export type SteeringOptions = {
   message?: string;
 };
 
-export type RepairOptions = {
-  /** Maximum total turns, including the initial attempt and all repair retries. */
-  maxTurns: number;
-};
-
 export type TimeoutOptions = {
   timeout: number;
 };
@@ -26,7 +21,7 @@ export type AgentRegistration = (
  * Appends a final-attempt warning to the retry prompt produced by an inner addon.
  *
  * Place this before `repair()`, for example
- * `addons: [steering({ message: "Return valid JSON now." }), repair({ maxTurns: 3 })]`.
+ * `addons: [steering({ message: "Return valid JSON now." }), repair()]`.
  */
 export function steering(options: SteeringOptions = {}): AgentAddon {
   const message = options.message ?? DEFAULT_STEERING_WARNING;
@@ -39,12 +34,12 @@ export function steering(options: SteeringOptions = {}): AgentAddon {
 }
 
 /**
- * Parses and validates responses, retrying failures within the configured turn budget.
+ * Parses and validates responses, retrying failures within the agent's turn budget.
  *
- * Agent-spec and call-time `maxTurns` values override this default.
+ * Configure `maxTurns` on the agent spec.
  */
-export function repair(options: RepairOptions): AgentAddon {
-  const addon: AgentAddon = async (context, next) => {
+export function repair(): AgentAddon {
+  return async (context, next) => {
     await next();
     if (context.completed || context.error !== undefined || context.nextPrompt !== undefined) {
       return;
@@ -64,7 +59,6 @@ export function repair(options: RepairOptions): AgentAddon {
     }
     context.nextPrompt = defaultRepairPrompt(context.spec, analysis.error);
   };
-  return Object.assign(addon, { maxTurns: options.maxTurns });
 }
 
 export function timeout(options: TimeoutOptions): AgentAddon {

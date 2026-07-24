@@ -15,7 +15,7 @@ The focus is generation reliability: what an agent can produce quickly with low 
 | `s.object(...)`, `s.enum(...)`, `s.array(...)` | Explicit JSON schema or prompt-constrained JSON validated in app code | Same pattern: schema-constrained JSON validated by the harness/app |
 | `p.read(...)`, `p.bash(...)` | Tool/context calls orchestrated by the host app before/within turns | Tool/context calls via pi-agent tool integration/orchestration |
 | `agents: { subagent }` | Multiple sessions/roles coordinated in app orchestration | Multi-agent graph/delegation orchestration |
-| Optional `repair({ maxTurns })` addon | Explicit retry + repair loop in app logic | Retry/repair policies in agent workflow/harness |
+| `maxTurns`, optional `repair()` addon | Explicit retry + repair loop in app logic | Retry/repair policies in agent workflow/harness |
 | `permissions` | Host-side policy gates around shell/write operations | Host-side tool permission policies |
 
 ## 2) Top 10 scenarios: Copilot SDK APIs (ranked easiest → hardest)
@@ -30,7 +30,7 @@ The focus is generation reliability: what an agent can produce quickly with low 
 | 6 | PR triage recommendation | Requires prioritization judgment and policy interpretation. | One/two turns with constrained triage schema and confidence fields. |
 | 7 | README draft generation | Creative synthesis adds style and completeness ambiguity. | Multi-section structured output with post-parse checks. |
 | 8 | Release notes generation | Requires grouping/dedup across many commits. | Batched commit input + grouped typed output contract. |
-| 9 | Schema-repairing extractor | Needs robust retry when output is invalid or partial. | Optional `repair({ maxTurns })` addon maps to an explicit app-level validation/repair loop. |
+| 9 | Schema-repairing extractor | Needs robust retry when output is invalid or partial. | `maxTurns` plus optional `repair()` addon maps to an explicit app-level validation/repair loop. |
 | 10 | Multi-agent orchestrator | Highest coordination overhead across roles and merges. | `agents` maps to multi-session orchestration and aggregation logic. |
 
 ## 3) Top 10 scenarios: pi-agent SDK (ranked easiest → hardest)
