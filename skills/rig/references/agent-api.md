@@ -35,7 +35,7 @@ Use `agent({ name, ... })` as the only declaration form. `name` is optional and 
 |---------|---------|
 | Name | `"agent"` |
 | Input/output | `s.string` |
-| Model | `gpt-4.1` |
+| Model | `small` |
 | Max turns | `4` |
 | Addons | none |
 

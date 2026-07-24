@@ -77,7 +77,7 @@ it("subscribes to all Copilot SDK events and logs JSONL to stderr", async () => 
   });
   mocks.createSession.mockResolvedValue({ on, sendAndWait: vi.fn() });
 
-  await copilotEngine()({ model: "gpt-4.1" });
+  await copilotEngine()({ model: "small" });
 
   expect(mocks.copilotClientCtor).toHaveBeenCalledTimes(1);
   expect(mocks.createSession).toHaveBeenCalledTimes(1);
@@ -85,14 +85,14 @@ it("subscribes to all Copilot SDK events and logs JSONL to stderr", async () => 
 
 it("creates one Copilot session per agent implementation", async () => {
   const createAgent = copilotEngine();
-  await createAgent({ model: "gpt-4.1" });
-  await createAgent({ model: "gpt-4.1" });
+  await createAgent({ model: "small" });
+  await createAgent({ model: "small" });
 
   expect(mocks.createSession).toHaveBeenCalledTimes(2);
 });
 
 it("uses a stdio connection when server option is true", async () => {
-  await copilotEngine({ server: true })({ model: "gpt-4.1" });
+  await copilotEngine({ server: true })({ model: "small" });
   expect(mocks.forStdio).toHaveBeenCalledOnce();
   expect(mocks.forUri).not.toHaveBeenCalled();
   expect(mocks.copilotClientCtor).toHaveBeenCalledWith({ connection: { kind: "stdio" } });

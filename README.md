@@ -190,7 +190,7 @@ Use these samples to quickly gauge how well `rig` supports increasingly agentic 
 
 ## Agent behavior
 
-- Default model: `gpt-4.1`
+- Default model: `small`
 - Default max turns: `4`
 - No addons are loaded by default (including repair/retry behavior)
 
