@@ -168,6 +168,14 @@ s.literal(value)
 s.literal(value, "description")
 ```
 
+Description overload quick reference:
+
+| Helper family | Description position |
+|---------------|----------------------|
+| Scalar helpers (`s.string`, `s.int`, `s.path`, `s.url`, `s.boolean`, `s.unknown`) | First argument |
+| Container helpers (`s.array`, `s.object`, `s.record`, `s.optional`, `s.nullable`, `s.nonEmptyArray`, `s.nonEmptyObject`) | Second argument (after the shape/value argument) |
+| Enum/literal helpers (`s.enum`, `s.literal`) | Last argument |
+
 Common examples:
 
 ```ts
@@ -287,6 +295,8 @@ const reviewAgent = agent({
 
 `p.write` is a write instruction embedded in the prompt; `p.writeOutput` is a post-generation hook that the harness executes after the agent produces its structured output. Both are declarative placeholders — neither writes a file in-process.
 
+When using `p.writeOutput("report", "todo-report.md")`, the output schema must include a matching `report` field (for example `output: s.object({ report: s.string })`). Do not rely on `p.writeOutput` to create output fields.
+
 ## Dynamic path reads in subagents
 
 `p.read(path)` requires a literal string path known at definition time. When a subagent receives a file path as an input field, use `p.readInput(field)` instead — it instructs the runtime to read the file at the path provided by `input.<field>`:
@@ -302,6 +312,8 @@ const fileAnalyzer = agent({
 ```
 
 `p.readInput("path")` is resolved at runtime using the value of `input.path` — the field name is the key in the agent's input object. This is the idiomatic alternative to `p.bash("cat <path>")` when the path comes from the caller.
+
+If a coordinator currently passes full file contents in an input field, that pattern is acceptable for small payloads. For larger files, prefer passing `path` and using `p.readInput("path")` in the subagent to reduce prompt size.
 
 ### What happens when `p.bash` fails
 
@@ -344,6 +356,8 @@ const reviewer = agent({
   agents: { summarizeDiff },
   instructions: "Review the diff. You may use the provided subagent conceptually.",
 });
+
+// ✗ wrong: agents: [summarizeDiff]
 ```
 
 When delegating task resolution, keep each subagent narrow and explicit (for example: `analyzeTask`, `draftRigProgram`, `verifySchema`) and make the root agent instructions require combining their outputs into one final response.
