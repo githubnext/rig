@@ -171,6 +171,8 @@ Common examples:
 s.enum("bug", "feature", "question")
 s.optional(s.number)
 s.record(s.string)
+s.record(s.int)                      // Record<string, number> (integer values); good for counts keyed by name
+s.record(s.boolean)                  // Record<string, boolean>; good for feature flags or presence maps
 s.record(s.array(s.string))         // Record<string, string[]>
 s.record(s.object({ name: s.string, age: s.number }))
 s.nullable(s.string)    // string | null
@@ -206,6 +208,8 @@ const triage = agent({
 });
 ```
 
+The `handler` may return a `string` or any JSON-serializable value. Rig automatically serializes non-string return values to JSON before passing them back to the model — do not call `JSON.stringify` manually in the handler.
+
 ## Prompt helpers
 
 `p` is both the prompt template tag and the prompt-intent helper namespace.
@@ -221,6 +225,7 @@ p.bashRaw`grep -rn 'app\.get\|app\.post' src/`  // tagged template: no TypeScrip
 p.read("README.md")
 p.readOptional("Dockerfile")          // returns "" if file is absent
 p.readOptional(".eslintrc.json", "{}") // returns "{}" if file is absent
+p.readAll(["src/index.ts", "src/utils.ts"])  // reads all files and concatenates their contents
 p.write("README.md", "# Hello\n")    // write-file instruction; does NOT return the path
 p.writeOutput("report", "todo-report.md")  // after generation, write output field "report" to file
 p.glob("src/**/*.ts")
@@ -253,7 +258,7 @@ const reviewAgent = agent({
 });
 ```
 
-- ``p`...` `` accepts `${p.bash(...)}`, `${p.bashRaw\`...\`}`, `${p.read(...)}`, `${p.readOptional(...)}`, `${p.write(...)}`, `${p.writeOutput(...)}`, `${p.glob(...)}`, `${p.env(...)}`, and `${p.json(...)}` expressions.
+- ``p`...` `` accepts `${p.bash(...)}`, `${p.bashRaw\`...\`}`, `${p.read(...)}`, `${p.readOptional(...)}`, `${p.readAll(...)}`, `${p.write(...)}`, `${p.writeOutput(...)}`, `${p.glob(...)}`, `${p.env(...)}`, and `${p.json(...)}` expressions.
 - Multiple `p.*` calls in the same template are resolved independently in order; each contributes its own instruction line.
 - Nested `PromptBuilder` values used as interpolations are inlined as plain text.
 - The rendered `PromptBuilder` replaces the instructions string when the agent prompt is assembled.
@@ -261,9 +266,20 @@ const reviewAgent = agent({
 - `p.writeOutput(field, path)` instructs the harness to write the value of output field `field` to the file at `path` after the agent generates its response. Use this instead of `p.write` when the content to be written is LLM-generated output — e.g. `p.writeOutput("report", "todo-report.md")` wires the `report` output field to `todo-report.md` automatically.
 - `p.bash(cmd)` accepts a regular TypeScript string; backslashes and special characters must be escaped as in any TypeScript string literal. Use `p.bashRaw\`cmd\`` (tagged template) to avoid escaping — the command is taken verbatim from the template. When a grep or regex pattern contains `\.`, `\|`, or other backslash sequences, prefer `p.bashRaw`.
 - `p.glob(pattern)` resolves to a list of matching paths at runtime; it is resolved by the Copilot runtime, not in-process. Brace expansion (`{ts,js}`) and negation patterns are resolved by the runtime and are not guaranteed to work identically across all environments; prefer simple glob wildcards when portability matters.
+- `p.readAll(paths)` reads all files in the array and concatenates their contents into a single block. Use this instead of repeated `p.read(...)` calls or `p.bash("cat ...")` when you need the full contents of a known set of files as one context block.
 - `p.readOptional(path, fallback?)` reads a file if it exists; returns the fallback string (default `""`) if the file is absent. Use this instead of `p.read` when the file may not exist.
 - `p.env(name, fallback?)` reads an environment variable; returns the fallback string (default `""`) if the variable is not set.
 - `p.json(value)` returns a pretty-printed JSON string immediately; use it to inline structured data into a prompt template without calling `JSON.stringify` manually.
+
+### `p.write` vs `p.writeOutput` — quick decision guide
+
+| Situation | Use |
+|-----------|-----|
+| Content is known at prompt-build time (e.g. a template string or computed value) | `p.write(path, contents)` |
+| Content is LLM-generated and lives in an output field | `p.writeOutput(field, path)` |
+| You need the written path available as a TypeScript value | Hard-code the path string — neither helper returns it |
+
+`p.write` is a write instruction embedded in the prompt; `p.writeOutput` is a post-generation hook that the harness executes after the agent produces its structured output. Both are declarative placeholders — neither writes a file in-process.
 
 ## Call-time options
 
@@ -306,6 +322,8 @@ const reviewer = agent({
 
 When delegating task resolution, keep each subagent narrow and explicit (for example: `analyzeTask`, `draftRigProgram`, `verifySchema`) and make the root agent instructions require combining their outputs into one final response.
 
+`agents` accepts an **object** (named map), not an array. `agents: { summarizeDiff }` is correct; `agents: [summarizeDiff]` is a TypeScript error.
+
 ## Sequential two-agent chaining
 
 There is no built-in chain primitive. The recommended idiom for sequential agent composition is to wire the upstream agent as a named subagent of the downstream agent via `agents: { ... }`. This keeps all agents reachable from the exported root and avoids TS6133 unused-variable errors.
@@ -329,6 +347,31 @@ export default assessor;
 ```
 
 Declaring `const extractor = agent(...)` without adding it to `agents: { extractor }` on the root agent causes TypeScript error TS6133 ("declared but its value is never read") because the variable is unused. Always attach upstream agents to `agents` on the root export.
+
+### Coordinator loop over a dynamic list
+
+There is no built-in loop primitive for calling a subagent once per item in a list. The recommended pattern is to instruct the coordinator to iterate conceptually and express the per-item subagent call in natural language. The model drives the loop; results are accumulated in the coordinator's output:
+
+```ts
+// Agent role: summarize one file.
+const fileSummarizer = agent({
+  model: "nano",
+  input: s.object({ path: s.string, content: s.string }),
+  output: s.object({ path: s.string, summary: s.string }),
+});
+
+// Agent role: summarize all TypeScript files found by the glob and return a record keyed by path.
+const coordinator = agent({
+  model: "mini",
+  output: s.record(s.string, "summaries keyed by file path"),
+  agents: { fileSummarizer },
+  instructions: p`Find TypeScript files: ${p.glob("src/**/*.ts")}. For each file use fileSummarizer to get a summary, then return a record mapping each path to its summary.`,
+});
+
+export default coordinator;
+```
+
+The coordinator instructs the model to call `fileSummarizer` for each file; the model drives the loop. For large file lists the LLM may process only a subset — add a `maxTurns` budget and `repair` addon when completeness matters.
 
 ## Task harness pattern for rig markdown
 

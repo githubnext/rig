@@ -123,6 +123,7 @@ p.bashRaw`grep -rn 'app\.get\|app\.post' src/`  // tagged template: no TypeScrip
 p.read("README.md")
 p.readOptional("Dockerfile")           // returns "" if file is absent
 p.readOptional(".eslintrc.json", "{}") // returns "{}" if file is absent
+p.readAll(["src/index.ts", "src/utils.ts"])  // reads all files and concatenates their contents
 p.write("README.md", "# Updated\n")   // write-file instruction; does NOT return the path
 p.writeOutput("report", "todo-report.md")  // after generation, write output field "report" to file
 p.glob("src/**/*.ts")
@@ -140,6 +141,8 @@ const reviewWorkspace = agent({
 `p.write(path, contents)` contributes a write-file instruction to the prompt; it does **not** return the file path or contents as a string. When used in a template expression the result is a prompt instruction, not the path. If the output schema includes the written file path, hard-code the path string in the agent's output.
 
 `p.writeOutput(field, path)` instructs the harness to write the value of output field `field` to the file at `path` after the agent generates its response. Use this instead of `p.write` when the content to be written is LLM-generated — e.g. `p.writeOutput("report", "todo-report.md")` wires the `report` output field to `todo-report.md` automatically.
+
+`p.readAll(paths)` reads all files in the array and concatenates their contents into a single block. Use it instead of repeated `p.read(...)` calls or `p.bash("cat ...")` when you need the full contents of a known set of files as one context block.
 
 ```ts
 const b = p();
@@ -172,6 +175,7 @@ const triage = agent({
 Rig defaults agent tools to `skipPermission: true`, and you can also place plain tool objects in `tools`; rig will convert `s.*` parameter schemas into JSON Schema before creating the Copilot session.
 When `parameters` uses `s.*` schemas, `handler` args are inferred automatically; for plain JSON Schema, pass an explicit generic like `defineTool<{ issue: string }>(...)`.
 
+The `handler` may return a `string` or any JSON-serializable value. Rig automatically serializes non-string return values to JSON before passing them back to the model — do not call `JSON.stringify` manually in the handler.
 ## Evaluating agentic performance
 
 Use these samples to quickly gauge how well `rig` supports increasingly agentic workflows:

@@ -19,7 +19,7 @@
  * T:AgentError class error carrying turn,agentName,rawOutput,parseError fields
  * T:Tool<TArgs> type ToolConfig+name; created by defineTool
  * T:ToolConfig<TArgs> type {description,parameters,handler}
- * T:PromptIntent type declarative placeholder {kind:'bash'|'read'|'write'|'writeOutput'|'glob'|'env',…} resolved into prompt text
+ * T:PromptIntent type declarative placeholder {kind:'bash'|'read'|'readAll'|'write'|'writeOutput'|'glob'|'env',…} resolved into prompt text
  * T:PromptBuilder class template-tag result; composes intents+strings into a prompt fragment
  * T:PromptHelpers type shape of exported p object
  * T:PromptVariable<T> type {__rig:'prompt.var';name:string;value:T} named prompt variable [NEW]
@@ -46,6 +46,7 @@
  * p.write(path,content,opts?) PromptIntent file write declaration; does NOT expand to path in template — hard-code path in output schema
  * p.writeOutput(field,path,opts?) PromptIntent post-generation write declaration; writes output field value to path
  * p.glob(pattern,opts?) PromptIntent glob file-list declaration (not run in-process)
+ * p.readAll(paths,opts?) PromptIntent multi-file read declaration; reads all listed paths and concatenates their contents
  * p.env(name,fallback?,opts?) PromptIntent env var read declaration; returns fallback (default "") if not set
  * p.json(value) string JSON.stringify helper for inlining structured values in prompt templates
  * p.var(name,value) PromptVariable<T> named variable binding for prompt templates [NEW]
@@ -652,9 +653,10 @@ export type PromptIntentOptions = {
 export type PromptIntent = {
   __rig: "prompt";
   id: string;
-  mode: "prompt.text" | "prompt.read" | "prompt.write" | "prompt.glob" | "prompt.readOptional" | "prompt.env" | "prompt.writeOutput";
+  mode: "prompt.text" | "prompt.read" | "prompt.write" | "prompt.glob" | "prompt.readOptional" | "prompt.env" | "prompt.writeOutput" | "prompt.readAll";
   command?: string;
   path?: string;
+  paths?: string[];
   contents?: string;
   pattern?: string;
   fallback?: string;
@@ -769,6 +771,21 @@ type PromptHelpers = {
    * input: { files: p.glob("src/**\/*.ts") }
    */
   glob(pattern: string, options?: PromptIntentOptions): PromptIntent;
+  /**
+   * Declarative intent that instructs the LLM to read all files in `paths` and
+   * concatenate their contents into a single prompt block.  Resolution happens
+   * inside the Copilot runtime; no in-process file reading occurs.
+   *
+   * Use this instead of `p.bash("cat file1 file2 ...")` or repeated `p.read`
+   * calls when you want to include the full contents of a known set of files
+   * as a single context block.
+   *
+   * @example
+   * input: { sources: p.readAll(["src/index.ts", "src/utils.ts"]) }
+   * // In a template:
+   * instructions: p`Review all source files: ${p.readAll(["src/a.ts", "src/b.ts"])}`
+   */
+  readAll(paths: string[], options?: PromptIntentOptions): PromptIntent;
   /**
    * Serializes `value` to a pretty-printed JSON string for inline use inside
    * prompt templates.  Equivalent to `JSON.stringify(value, null, 2)`.
@@ -910,6 +927,9 @@ export const p: PromptHelpers = Object.assign(
     },
     glob(pattern: string, options?: PromptIntentOptions): PromptIntent {
       return createPromptIntent("prompt.glob", withOptions({ pattern }, options));
+    },
+    readAll(paths: string[], options?: PromptIntentOptions): PromptIntent {
+      return createPromptIntent("prompt.readAll", withOptions({ paths }, options));
     },
     json(value: unknown): string {
       return json(value);
@@ -1881,6 +1901,13 @@ function renderPromptIntentInstruction(intent: PromptIntent): string {
       return `After generating the response, write the value of output field ${JSON.stringify(intent.field ?? "")} to the file at path ${JSON.stringify(requiredPath(intent))}${promptExecutionContext()}${options}`;
     case "prompt.glob":
       return `List files matching glob pattern ${JSON.stringify(intent.pattern ?? "")} and return the list of matching paths${promptExecutionContext()}${options}`;
+    case "prompt.readAll": {
+      const paths = intent.paths ?? [];
+      if (paths.length === 0) {
+        throw new Error("p.readAll requires at least one path.");
+      }
+      return `Read each of the following files and concatenate their contents in order:\n${paths.map((p) => `- ${JSON.stringify(p)}`).join("\n")}${promptExecutionContext()}${options}`;
+    }
     default:
       throw new Error(`Unsupported prompt intent mode: ${(intent as { mode?: string }).mode ?? "unknown"}`);
   }

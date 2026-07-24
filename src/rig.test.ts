@@ -971,6 +971,21 @@ describe("prompt intents", () => {
     expect(intent.path).toBe("output.md");
     expect(intent.options).toEqual({ cwd: "/workspace" });
   });
+
+  it("p.readAll stores paths array with mode prompt.readAll", () => {
+    const intent = p.readAll(["src/index.ts", "src/utils.ts"]);
+
+    expect(intent.mode).toBe("prompt.readAll");
+    expect(intent.paths).toEqual(["src/index.ts", "src/utils.ts"]);
+  });
+
+  it("p.readAll supports options", () => {
+    const intent = p.readAll(["README.md"], { cwd: "/workspace" });
+
+    expect(intent.mode).toBe("prompt.readAll");
+    expect(intent.paths).toEqual(["README.md"]);
+    expect(intent.options).toEqual({ cwd: "/workspace" });
+  });
 });
 
 describe("prompt builder", () => {
