@@ -116,7 +116,7 @@ const summarize = agent({
 export default summarize;
 ```
 
-`repair()` takes no options. The budget includes the initial attempt and all retries, so configure `maxTurns` on the agent spec; a call-time value can override it.
+`repair()` takes no options. The budget includes the initial attempt and all retries — for example, `maxTurns: 3` means one initial attempt plus two repair retries. Configure `maxTurns` on the agent spec; a call-time value can override it.
 
 ## Final-turn steering
 

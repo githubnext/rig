@@ -47,9 +47,10 @@
  * p.writeOutput(field,path,opts?) PromptIntent post-generation write declaration; writes output field value to path
  * p.glob(pattern,opts?) PromptIntent glob file-list declaration (not run in-process)
  * p.readAll(paths,opts?) PromptIntent multi-file read declaration; reads all listed paths and concatenates their contents
- * p.readInput(field,opts?) PromptIntent file read declaration using a runtime input field as the path; reads the file at the path given by input.<field> [NEW]
+ * p.readInput(field,opts?) PromptIntent file read declaration using a runtime input field as the path; reads the file at the single path given by input.<field> [NEW]
  * p.env(name,fallback?,opts?) PromptIntent env var read declaration; returns fallback (default "") if not set
  * p.json(value) string JSON.stringify helper for inlining structured values in prompt templates
+ * p.inputField(field) string returns "input.<field>" for explicit, documented reference to a caller-supplied input field in prompt prose [NEW]
  * p.var(name,value) PromptVariable<T> named variable binding for prompt templates [NEW]
  * p.region(language,body) string wraps body in a fenced code block for the given language [NEW]
  * F:agent(spec) AgentFn<I,O>; spec={name,description,input,output,prompt,addons,maxTurns}
@@ -814,6 +815,21 @@ type PromptHelpers = {
    * const prompt = p`Context: ${p.json({ repo: "rig", stars: 42 })}`;
    */
   json(value: unknown): string;
+  /**
+   * Returns the string `"input.<field>"` for explicit, documented reference to
+   * a caller-supplied input field in prompt prose.  Use this instead of the
+   * opaque `${"input.fieldName"}` literal when you need to tell the model to
+   * use a non-path input value — for example, to reference an array of file
+   * paths or a string value in the instructions.
+   *
+   * For reading the **file contents** of a path held in an input field, use
+   * `p.readInput(field)` instead.
+   *
+   * @example
+   * // Reference a caller-supplied array of config files in the prompt:
+   * instructions: p`Merge the JSON config files listed in ${p.inputField("files")}.`
+   */
+  inputField(field: string): string;
   var<T>(name: string, value: T): PromptVariable<T>;
   region(language: string, body: unknown): string;
 };
@@ -956,6 +972,9 @@ export const p: PromptHelpers = Object.assign(
     },
     json(value: unknown): string {
       return json(value);
+    },
+    inputField(field: string): string {
+      return `input.${field}`;
     },
     var<T>(name: string, value: T): PromptVariable<T> {
       return createPromptVariable(name, value);
