@@ -2,15 +2,18 @@
 emoji: 🚀
 name: Create Release
 description: >
-  On demand, runs the full build (typecheck + tests), then has the AI agent
-  summarize recent commits and emit a create_release output that pushes a
-  Git tag and publishes a GitHub release with the AI-generated description.
+  On demand, runs the full build (typecheck + tests), computes the next semver
+  version from the latest git tag and the requested bump type (patch/minor/major),
+  then has the AI agent summarize commits and publish a draft GitHub release.
 on:
   workflow_dispatch:
     inputs:
-      version:
-        description: "Release version without the v prefix (e.g. 1.2.3)"
+      bump:
+        description: "Semver bump type"
         required: true
+        type: choice
+        options: [patch, minor, major]
+        default: patch
 permissions:
   contents: read
   actions: read
@@ -33,6 +36,24 @@ steps:
     run: npm run typecheck
   - name: Test
     run: npm test
+  - name: Compute next version
+    id: semver
+    env:
+      BUMP: ${{ github.event.inputs.bump }}
+    run: |
+      git fetch --tags
+      LATEST_TAG=$(git describe --tags --abbrev=0 2>/dev/null || echo "v0.0.0")
+      CURRENT="${LATEST_TAG#v}"
+      IFS='.' read -r MAJOR MINOR PATCH <<< "$CURRENT"
+      MAJOR=${MAJOR:-0}; MINOR=${MINOR:-0}; PATCH=${PATCH:-0}
+      case "$BUMP" in
+        major) MAJOR=$((MAJOR+1)); MINOR=0; PATCH=0 ;;
+        minor) MINOR=$((MINOR+1)); PATCH=0 ;;
+        *)     PATCH=$((PATCH+1)) ;;
+      esac
+      NEXT="${MAJOR}.${MINOR}.${PATCH}"
+      echo "next_version=${NEXT}" >> "$GITHUB_OUTPUT"
+      echo "previous_tag=${LATEST_TAG}" >> "$GITHUB_OUTPUT"
 safe-outputs:
   jobs:
     create-release:
@@ -40,7 +61,7 @@ safe-outputs:
       runs-on: ubuntu-latest
       inputs:
         version:
-          description: "Version without the v prefix (e.g. 1.2.3)"
+          description: "Computed version without the v prefix (e.g. 1.2.3)"
           required: true
           type: string
         body:
@@ -65,6 +86,7 @@ safe-outputs:
             jq -r 'first(.items[] | select(.type == "create_release")) | .body' "$GH_AW_AGENT_OUTPUT" > /tmp/release-body.md
             git config user.name "github-actions[bot]"
             git config user.email "github-actions[bot]@users.noreply.github.com"
+            git fetch --tags
             git tag "v${VERSION}"
             git push origin "v${VERSION}"
             DRAFT_FLAG=""
@@ -77,37 +99,30 @@ safe-outputs:
 
 ## Task
 
-You are preparing a release for **v${{ github.event.inputs.version }}**.
+You are preparing release **v${{ steps.semver.outputs.next_version }}**
+(a **${{ github.event.inputs.bump }}** bump from `${{ steps.semver.outputs.previous_tag }}`).
 
-The build has already passed (typecheck + tests succeeded in the previous steps). Your job is to summarize what changed since the last release and create the release.
+The build has already passed. Your job is to summarize what changed since the previous release and create the draft release.
 
-### Step 1 — Find the range of commits
-
-Check the most recent tag:
-
-```bash
-git describe --tags --abbrev=0 HEAD 2>/dev/null || echo "none"
-```
-
-If a previous tag exists, gather commits since it:
+### Step 1 — Gather commits since the previous release
 
 ```bash
-git log <previous-tag>..HEAD --oneline
+git log ${{ steps.semver.outputs.previous_tag }}..HEAD --oneline
 ```
 
-If no previous tag exists, list all commits:
+If the previous tag was `v0.0.0` (no prior release), list all commits instead:
 
 ```bash
 git log --oneline
 ```
 
-### Step 2 — Read key files for context
+### Step 2 — Read package metadata
 
 ```bash
 cat package.json
 ```
 
-Use the package name, description, and any other metadata to add context to the release notes.
+Use the package name and description to add context to the release notes.
 
 ### Step 3 — Categorize the commits
 
@@ -124,12 +139,12 @@ Group commits into the following categories (omit empty ones):
 
 Call the `create_release` tool with:
 
-- `version`: `${{ github.event.inputs.version }}`
+- `version`: `${{ steps.semver.outputs.next_version }}`
 - `draft`: `true`
 - `body`: A GitHub-flavored markdown release description with:
   - A short summary paragraph
   - Categorized change lists using `###` headings
   - Breaking changes prominently at the top if any exist
-  - Installation / upgrade instructions only if there are breaking changes
+  - Upgrade instructions only if the release contains breaking changes
 
-Call `noop` if the git log returned no commits or if a tag `v${{ github.event.inputs.version }}` already exists.
+Call `noop` if the commit list is empty or if a tag `v${{ steps.semver.outputs.next_version }}` already exists.
