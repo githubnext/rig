@@ -5,13 +5,13 @@
 ## Install
 
 ```bash
-npm install github:pelikhan/rig#v0.0.8
+npm install github:githubnext/rig#v0.0.8
 ```
 
 Or install the skill for Copilot coding agent:
 
 ```bash
-gh skills clone pelikhan/rig
+gh skills clone githubnext/rig
 ```
 
 ## Core API
