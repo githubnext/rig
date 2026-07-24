@@ -89,15 +89,15 @@ Prefer:
 instructions: p`Review ${p.read("README.md")} against ${p.bash("git status --short")}.`
 ```
 
-Do not replace file intents with `cat` commands or large in-memory strings. `p.write` does not return a path; `p.writeOutput` requires a matching output-schema field.
+Do not replace file intents with `cat` commands or large in-memory strings. `p.write` does not return a path; `p.writeOutput` requires a matching output-schema field. `p.bash` and `p.bashRaw` accept only static strings; to run a command that depends on a caller-supplied value, describe it in the instructions prose and reference `input.<field>` by name.
 
 ## Tools, composition, and reliability
 
-- Define tools with `defineTool(name, { description, parameters: s.object(...), handler })`; schema-based handler arguments are inferred and tools default to `skipPermission: true`. Destructure only handler fields you use.
+- Define tools with `defineTool(name, { description, parameters: s.object(...), handler })`; schema-based handler arguments are inferred and tools default to `skipPermission: true`. Destructure only handler fields you use. Use `defineTool` for I/O operations and external calls — not to replace LLM inference with in-process TypeScript logic.
 - `agents` is a named object such as `agents: { extractor }`, never an array. Attach every declared subagent to the exported root's graph.
 - There is no chain or loop primitive; give the coordinator explicit delegation instructions and require one combined output.
 - Automatic parse/schema repair requires `repair()` from `rig/addons`; `repair()` takes no arguments, and its `maxTurns` budget belongs on the agent spec.
-- For a final-turn warning, use `addons: [steering(), repair()]`. Custom text uses `steering({ message: "..." })`, not a positional string. Use `oncePerAgent()` for one registration callback per runtime agent.
+- `addons` accepts a single addon or an array; prefer the array form `[steering(), repair()]` when combining. `steering()` prepends a reinforcement instruction to every retry prompt; custom text uses `steering({ message: "..." })`. `oncePerAgent(callback)` invokes the callback once per runtime agent instance — its internal `WeakSet` already deduplicates, so no external tracking is needed.
 
 ## Runnable markdown
 
