@@ -1338,11 +1338,30 @@ describe("s.nonEmptyString", () => {
     expect(result.ok).toBe(true);
   });
 
-  it("rejects empty strings", () => {
+  it("rejects empty strings with 'empty string' in message", () => {
     const result = analyzeResponse(JSON.stringify(""), s.nonEmptyString, "test", 1);
     expect(result.ok).toBe(false);
     if (!result.ok) {
       expect(result.error.message).toContain("minLength");
+      expect(result.error.message).toContain("empty string");
+    }
+  });
+
+  it("rejects short non-empty strings with actual length in message", () => {
+    // s.object with a string field that has minLength 5 via s.string-based shape
+    const schema = s.object({ code: s.nonEmptyString });
+    // Provide a non-empty but 2-char value to trigger the too-short branch
+    // We need a schema with minLength > 2; build one from scratch via toJsonSchema round-trip isn't possible,
+    // so verify via analyzeResponse with a direct schema literal accepted by the public API.
+    // Use s.nonEmptyString (minLength:1) against "" for the empty branch,
+    // and build a custom schema object for minLength > 1:
+    const minLen5Schema = { type: "string" as const, minLength: 5 };
+    const wrappedSchema = s.object({ code: minLen5Schema as ReturnType<typeof s.string> });
+    const result = analyzeResponse(JSON.stringify({ code: "ab" }), wrappedSchema, "test", 1);
+    expect(result.ok).toBe(false);
+    if (!result.ok) {
+      expect(result.error.message).toContain("minLength 5");
+      expect(result.error.message).toContain("length 2");
     }
   });
 });
