@@ -33,8 +33,8 @@ Intent values are also accepted in agent inputs, but prefer template expressions
 | `p.bash(command)` | Shell command written as a normal TypeScript string |
 | ``p.bashRaw`command` `` | Verbatim shell command with no TypeScript backslash escaping |
 | `p.read(path)` | Required file at a literal path |
-| `p.readOptional(path, fallback?)` | Literal path that may be absent; default fallback is `""` |
-| `p.readAll(paths)` | Concatenated contents of several known files |
+| `p.readOptional(path, fallback?)` | Literal path that may be absent; default fallback is `""` and is injected as prompt text |
+| `p.readAll(paths)` | Concatenated contents of several known files (path list only; no glob overload) |
 | `p.readInput(field)` | File path taken from `input.<field>` at runtime |
 | `p.write(path, content)` | Prompt instruction to write content already known |
 | `p.writeOutput(field, path)` | Post-generation write of an output field |
@@ -131,7 +131,7 @@ The argument is the input field name, not the path itself. Passing full contents
 
 ## Runtime lists of file paths
 
-When input contains an array of paths, there is no `p.readInputAll(...)` helper. Use a coordinator + subagent pattern: let the coordinator iterate and delegate one file at a time to a subagent that uses `p.readInput("path")`.
+When input contains an array of paths, there is no `p.readInputAll(...)` helper. Use a coordinator + subagent pattern: let the coordinator iterate and delegate one file at a time to a subagent that uses `p.readInput("path")`. Likewise, there is no `p.readAll(globPattern)` helper: use `p.glob(...)` for discovery, then delegate per path.
 
 ```ts
 import { agent, p, s } from "rig";
@@ -181,4 +181,4 @@ Do not use `p.bash("git diff " + input.base)` — `input` is not in scope at def
 
 Shell and dynamic-read intents are instructions to the runtime/model. If a command exits non-zero or a dynamic file cannot be read, the resulting stderr or error message enters prompt context so the model can surface or recover from it.
 
-Use `p.readOptional` for a literal path that may be absent. For a dynamic path, tell the agent how to handle a missing file.
+Use `p.readOptional` for a literal path that may be absent; its fallback is inserted into prompt context as provided. For a dynamic path, tell the agent how to handle a missing file.
