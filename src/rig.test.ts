@@ -399,14 +399,45 @@ describe("agent invocation", () => {
 
     const repairable = agent({
       name: "repairable",
-      addons: repair,
-      maxTurns: 2,
+      addons: repair({ maxTurns: 2 }),
     });
 
     await expect(repairable("go")).resolves.toBe("repaired");
     expect(prompts).toHaveLength(2);
     expect(prompts[1]).toContain("<repair");
     expect(prompts[1]).toContain("invalid JSON");
+  });
+
+  it("uses the repair addon turn budget", async () => {
+    let calls = 0;
+    mocks.setSendAndWaitImpl(async () => {
+      calls += 1;
+      return "not json";
+    });
+
+    const repairable = agent({
+      name: "repairable",
+      addons: repair({ maxTurns: 2 }),
+    });
+
+    await expect(repairable("go")).rejects.toMatchObject({ kind: "parse", turn: 2 });
+    expect(calls).toBe(2);
+  });
+
+  it("allows call-time maxTurns to override the repair addon default", async () => {
+    let calls = 0;
+    mocks.setSendAndWaitImpl(async () => {
+      calls += 1;
+      return calls === 1 ? "not json" : JSON.stringify("repaired");
+    });
+
+    const repairable = agent({
+      name: "repairable",
+      addons: repair({ maxTurns: 1 }),
+    });
+
+    await expect(repairable("go", { maxTurns: 2 })).resolves.toBe("repaired");
+    expect(calls).toBe(2);
   });
 
   it("parses JSON wrapped in a fenced markdown block", async () => {
@@ -458,9 +489,8 @@ describe("agent invocation", () => {
             context.nextPrompt = `please fix: ${context.nextPrompt}`;
           }
         },
-        repair,
+        repair({ maxTurns: 2 }),
       ],
-      maxTurns: 2,
     });
 
     await expect(repairable("go")).resolves.toBe("fixed");
@@ -692,7 +722,6 @@ describe("agent invocation", () => {
 
     const steerable = agent({
       name: "steerable",
-      maxTurns: 2,
       addons: [
         async (context, next) => {
           await next();
@@ -700,7 +729,7 @@ describe("agent invocation", () => {
             context.nextPrompt = `${context.nextPrompt}\nAdd a short correction because you are running out of turns.`;
           }
         },
-        repair,
+        repair({ maxTurns: 2 }),
       ],
     });
 
@@ -726,8 +755,7 @@ describe("agent invocation", () => {
 
     const steerable = agent({
       name: "steerable",
-      maxTurns: 2,
-      addons: [steering(), repair],
+      addons: [steering(), repair({ maxTurns: 2 })],
     });
 
     await expect(steerable("go")).resolves.toBe("recovered");
@@ -746,7 +774,6 @@ describe("agent invocation", () => {
 
     const snippetGuard = agent({
       name: "snippet-guard",
-      maxTurns: 2,
       output: s.object({ code: s.string }),
       addons: [
         async (context, next) => {
@@ -760,7 +787,7 @@ describe("agent invocation", () => {
             }
           }
         },
-        repair,
+        repair({ maxTurns: 2 }),
       ],
     });
 
@@ -785,12 +812,11 @@ describe("agent invocation", () => {
 
     const review = agent({
       name: "review",
-      maxTurns: 2,
       addons: [
         oncePerAgent(async (runtimeAgent, context) => {
           register(runtimeAgent, context.turn);
         }),
-        repair,
+        repair({ maxTurns: 2 }),
       ],
     });
 

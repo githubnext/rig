@@ -163,6 +163,6 @@ Use only the current API:
 - `agent({ name, ... })`
 - `p.*` and ``p`...` `` from `rig`
 - `s.*` for explicit schemas
-- `oncePerAgent`, `repair`, `steering`, and `timeout` from `rig/addons`
+- `oncePerAgent`, `repair({ maxTurns })`, `steering`, and `timeout` from `rig/addons`
 
 Do not add deprecated hooks, alternate schema syntaxes, or compatibility bridges.
