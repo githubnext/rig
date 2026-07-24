@@ -47,6 +47,7 @@
  * p.writeOutput(field,path,opts?) PromptIntent post-generation write declaration; writes output field value to path
  * p.glob(pattern,opts?) PromptIntent glob file-list declaration (not run in-process)
  * p.readAll(paths,opts?) PromptIntent multi-file read declaration; reads all listed paths and concatenates their contents
+ * p.readInput(field,opts?) PromptIntent file read declaration using a runtime input field as the path; reads the file at the path given by input.<field> [NEW]
  * p.env(name,fallback?,opts?) PromptIntent env var read declaration; returns fallback (default "") if not set
  * p.json(value) string JSON.stringify helper for inlining structured values in prompt templates
  * p.var(name,value) PromptVariable<T> named variable binding for prompt templates [NEW]
@@ -653,7 +654,7 @@ export type PromptIntentOptions = {
 export type PromptIntent = {
   __rig: "prompt";
   id: string;
-  mode: "prompt.text" | "prompt.read" | "prompt.write" | "prompt.glob" | "prompt.readOptional" | "prompt.env" | "prompt.writeOutput" | "prompt.readAll";
+  mode: "prompt.text" | "prompt.read" | "prompt.write" | "prompt.glob" | "prompt.readOptional" | "prompt.env" | "prompt.writeOutput" | "prompt.readAll" | "prompt.readInput";
   command?: string;
   path?: string;
   paths?: string[];
@@ -786,6 +787,23 @@ type PromptHelpers = {
    * instructions: p`Review all source files: ${p.readAll(["src/a.ts", "src/b.ts"])}`
    */
   readAll(paths: string[], options?: PromptIntentOptions): PromptIntent;
+  /**
+   * Declarative intent that instructs the LLM to read the file at the path
+   * provided by the named input field and substitute its contents into the
+   * prompt.  Use this when a subagent receives a file path as an input field
+   * and needs to read that file — `p.read(...)` requires a literal string, but
+   * `p.readInput("field")` defers path resolution to the value of
+   * `input.<field>` at runtime.
+   *
+   * @example
+   * // Subagent that reads the file path supplied by its caller:
+   * const fileAnalyzer = agent({
+   *   input: s.object({ path: s.string }),
+   *   instructions: p`Analyze the file: ${p.readInput("path")}`,
+   *   output: s.object({ summary: s.string }),
+   * });
+   */
+  readInput(field: string, options?: PromptIntentOptions): PromptIntent;
   /**
    * Serializes `value` to a pretty-printed JSON string for inline use inside
    * prompt templates.  Equivalent to `JSON.stringify(value, null, 2)`.
@@ -930,6 +948,9 @@ export const p: PromptHelpers = Object.assign(
     },
     readAll(paths: string[], options?: PromptIntentOptions): PromptIntent {
       return createPromptIntent("prompt.readAll", withOptions({ paths }, options));
+    },
+    readInput(field: string, options?: PromptIntentOptions): PromptIntent {
+      return createPromptIntent("prompt.readInput", withOptions({ field }, options));
     },
     json(value: unknown): string {
       return json(value);
@@ -1908,6 +1929,8 @@ function renderPromptIntentInstruction(intent: PromptIntent): string {
       }
       return `Read each of the following files and concatenate their contents in order:\n${paths.map((p) => `- ${JSON.stringify(p)}`).join("\n")}${promptExecutionContext()}${options}`;
     }
+    case "prompt.readInput":
+      return `Read the file at the path provided by input field ${JSON.stringify(intent.field ?? "")} and return its contents as text${promptExecutionContext()}${options}`;
     default:
       throw new Error(`Unsupported prompt intent mode: ${(intent as { mode?: string }).mode ?? "unknown"}`);
   }

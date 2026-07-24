@@ -226,6 +226,7 @@ p.read("README.md")
 p.readOptional("Dockerfile")          // returns "" if file is absent
 p.readOptional(".eslintrc.json", "{}") // returns "{}" if file is absent
 p.readAll(["src/index.ts", "src/utils.ts"])  // reads all files and concatenates their contents
+p.readInput("path")                         // reads the file at the path given by input.path at runtime
 p.write("README.md", "# Hello\n")    // write-file instruction; does NOT return the path
 p.writeOutput("report", "todo-report.md")  // after generation, write output field "report" to file
 p.glob("src/**/*.ts")
@@ -258,7 +259,7 @@ const reviewAgent = agent({
 });
 ```
 
-- ``p`...` `` accepts `${p.bash(...)}`, `${p.bashRaw\`...\`}`, `${p.read(...)}`, `${p.readOptional(...)}`, `${p.readAll(...)}`, `${p.write(...)}`, `${p.writeOutput(...)}`, `${p.glob(...)}`, `${p.env(...)}`, and `${p.json(...)}` expressions.
+- ``p`...` `` accepts `${p.bash(...)}`, `${p.bashRaw\`...\`}`, `${p.read(...)}`, `${p.readOptional(...)}`, `${p.readAll(...)}`, `${p.readInput(...)}`, `${p.write(...)}`, `${p.writeOutput(...)}`, `${p.glob(...)}`, `${p.env(...)}`, and `${p.json(...)}` expressions.
 - Multiple `p.*` calls in the same template are resolved independently in order; each contributes its own instruction line.
 - Nested `PromptBuilder` values used as interpolations are inlined as plain text.
 - The rendered `PromptBuilder` replaces the instructions string when the agent prompt is assembled.
@@ -267,6 +268,7 @@ const reviewAgent = agent({
 - `p.bash(cmd)` accepts a regular TypeScript string; backslashes and special characters must be escaped as in any TypeScript string literal. Use `p.bashRaw\`cmd\`` (tagged template) to avoid escaping — the command is taken verbatim from the template. When a grep or regex pattern contains `\.`, `\|`, or other backslash sequences, prefer `p.bashRaw`.
 - `p.glob(pattern)` resolves to a list of matching paths at runtime; it is resolved by the Copilot runtime, not in-process. Brace expansion (`{ts,js}`) and negation patterns are resolved by the runtime and are not guaranteed to work identically across all environments; prefer simple glob wildcards when portability matters.
 - `p.readAll(paths)` reads all files in the array and concatenates their contents into a single block. Use this instead of repeated `p.read(...)` calls or `p.bash("cat ...")` when you need the full contents of a known set of files as one context block.
+- `p.readInput(field)` reads the file at the path provided by the named input field. Use this when a subagent receives a file path as an `input` field — `p.read(...)` requires a literal path known at definition time, but `p.readInput("field")` defers resolution to the value of `input.<field>` at runtime. See [Dynamic path reads in subagents](#dynamic-path-reads-in-subagents).
 - `p.readOptional(path, fallback?)` reads a file if it exists; returns the fallback string (default `""`) if the file is absent. Use this instead of `p.read` when the file may not exist.
 - `p.env(name, fallback?)` reads an environment variable; returns the fallback string (default `""`) if the variable is not set.
 - `p.json(value)` returns a pretty-printed JSON string immediately; use it to inline structured data into a prompt template without calling `JSON.stringify` manually.
@@ -280,6 +282,26 @@ const reviewAgent = agent({
 | You need the written path available as a TypeScript value | Hard-code the path string — neither helper returns it |
 
 `p.write` is a write instruction embedded in the prompt; `p.writeOutput` is a post-generation hook that the harness executes after the agent produces its structured output. Both are declarative placeholders — neither writes a file in-process.
+
+## Dynamic path reads in subagents
+
+`p.read(path)` requires a literal string path known at definition time. When a subagent receives a file path as an input field, use `p.readInput(field)` instead — it instructs the runtime to read the file at the path provided by `input.<field>`:
+
+```ts
+// Agent role: analyze the contents of a caller-supplied file.
+const fileAnalyzer = agent({
+  model: "mini",
+  input: s.object({ path: s.string }),
+  instructions: p`Analyze the file: ${p.readInput("path")}`,
+  output: s.object({ summary: s.string, lineCount: s.int }),
+});
+```
+
+`p.readInput("path")` is resolved at runtime using the value of `input.path` — the field name is the key in the agent's input object. This is the idiomatic alternative to `p.bash("cat <path>")` when the path comes from the caller.
+
+### What happens when `p.bash` fails
+
+`p.bash(...)` and `p.readInput(...)` are declarative instructions to the LLM, not in-process commands. If the shell command exits non-zero or the file cannot be read, the runtime includes the error output (stderr) or an error message in the prompt context. The LLM sees the failure and can surface it in the output or attempt a recovery step. To handle missing files gracefully, prefer `p.readOptional(path)` when the path is a literal, or include instructions that tell the agent how to behave when the file is absent.
 
 ## Call-time options
 
@@ -516,6 +538,7 @@ Use `--server` at launch time when you want the harness to start the Copilot ser
 - Use `s.enum(...)` when exact values matter.
 - Prefer `p.*` inside `p\`\`` templates; fall back to inputs only for real caller-provided data.
 - Prefer `p.read(...)` for existing files instead of shelling out through `cat`.
+- Use `p.readInput("field")` when a subagent receives a file path as an input field — do not fall back to `p.bash("cat ...")` in that case.
 - Assume Node.js 24 runtime for operational code.
 - Prefer `google/zx` for shell-style automation in TypeScript examples.
 - Prefer Node.js native APIs (including built-in `fetch` and native glob support) before adding dependencies.
@@ -532,6 +555,7 @@ Use `--server` at launch time when you want the harness to start the Copilot ser
 - Do not leave outputs as unstructured prose when a schema would help.
 - Do not invent alternate schema syntaxes when explicit `s.*` is available.
 - Do not replace file reads with `cat`-style shell commands or large in-memory strings when a file path already exists.
+- Do not use `p.bash("cat <path>")` when a subagent receives the path as an input field — use `p.readInput("fieldName")` instead.
 - Do not add third-party fetch or glob helpers when Node.js 24 native APIs already cover the requirement.
 - Do not put call-time overrides (`model`, `timeout`, `maxTurns`, `signal`) into unrelated config objects.
 
