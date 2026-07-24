@@ -237,7 +237,7 @@ describe("agent invocation", () => {
     });
     const parent = agent({
       name: "parent",
-      model: "gpt-4.1",
+      model: "small",
       input: s.object({ text: s.string }),
       output: s.object({ text: s.string }),
     });
@@ -254,7 +254,7 @@ describe("agent invocation", () => {
     expect(mocks.copilotClientCtor).toHaveBeenCalledTimes(2);
     expect(mocks.createSession).toHaveBeenCalledTimes(2);
     expect(mocks.createSession.mock.calls).toEqual([
-      [{ model: "gpt-4.1", streaming: false, onPermissionRequest: mocks.approveAll }],
+      [{ model: "small", streaming: false, onPermissionRequest: mocks.approveAll }],
       [{ model: "o3-mini", streaming: false, onPermissionRequest: mocks.approveAll }],
     ]);
     expect(mocks.disconnectSession).toHaveBeenCalledTimes(2);
@@ -507,7 +507,7 @@ describe("agent invocation", () => {
   it("supports per-call model overrides", async () => {
     mocks.setSendAndWaitImpl(async () => JSON.stringify("ok"));
 
-    const call = agent({ name: "model-test", model: "gpt-4.1" });
+    const call = agent({ name: "model-test", model: "small" });
     await call("x", { model: "o3-mini" });
 
     expect(mocks.createSession).toHaveBeenCalledWith({ model: "o3-mini", streaming: false, onPermissionRequest: mocks.approveAll });
@@ -521,7 +521,7 @@ describe("agent invocation", () => {
     await call("x");
 
     expect(mocks.createSession).toHaveBeenCalledWith({
-      model: "gpt-4.1",
+      model: "small",
       streaming: false,
       onPermissionRequest: mocks.approveAll,
       systemMessage,
@@ -534,7 +534,7 @@ describe("agent invocation", () => {
     const call = agent({ name: "no-sys-msg-test" });
     await call("x");
 
-    expect(mocks.createSession).toHaveBeenCalledWith({ model: "gpt-4.1", streaming: false, onPermissionRequest: mocks.approveAll });
+    expect(mocks.createSession).toHaveBeenCalledWith({ model: "small", streaming: false, onPermissionRequest: mocks.approveAll });
   });
 
   it("defines tools with rig schemas using the Copilot SDK helper shape", () => {
@@ -582,7 +582,7 @@ describe("agent invocation", () => {
     await call("x");
 
     expect(mocks.createSession).toHaveBeenCalledWith({
-      model: "gpt-4.1",
+      model: "small",
       onPermissionRequest: mocks.approveAll,
       streaming: false,
       tools: [expect.objectContaining({

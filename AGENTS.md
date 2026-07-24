@@ -35,6 +35,7 @@ All imports use the `"rig"` path alias (resolved via tsconfig paths + vitest ali
 - Use `node:` prefix for Node.js built-in imports
 - Types are colocated with the module that defines them, not in separate `.d.ts` files
 - Trailing underscore on object keys (`key_`) means optional field
+- Use `small` as the model identifier in examples, tests, and defaults
 - Do not add legacy compatibility bridges; update callers, samples, and docs to the current API
 
 ## Skill Documentation

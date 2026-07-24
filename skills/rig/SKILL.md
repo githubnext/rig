@@ -52,7 +52,7 @@ export default reviewDiff;
 | Stable addons | `addons` in the spec |
 | Additional addons | `agent.use(addon)` |
 
-Defaults are model `gpt-4.1`, `maxTurns: 4`, no addons, and name `"agent"`. `agent.use()` accepts only addons.
+Defaults are model `small`, `maxTurns: 4`, no addons, and name `"agent"`. `agent.use()` accepts only addons.
 
 ## Choose schemas deliberately
 
