@@ -156,7 +156,26 @@ const analyzeAll = agent({
 export default analyzeAll;
 ```
 
-For dynamic shell commands that depend on input, describe the command in instructions and keep the input field explicit.
+## Dynamic shell commands
+
+`p.bash(command)` and `p.bashRaw\`command\`` accept only **static strings** fixed at agent-definition time. There is no template-tag form that interpolates `input` values at call time. When the shell command must vary based on caller-supplied input, describe the command in the instructions prose and rely on the LLM to construct and execute it with the correct input values:
+
+```ts
+import { agent, p, s } from "rig";
+
+// Agent role: analyze the diff between two caller-supplied git refs.
+const diffAnalyzer = agent({
+  model: "mini",
+  input: s.object({ base: s.string, head: s.string }),
+  // Describe the command; the model substitutes input.base and input.head.
+  instructions: p`Run \`git diff --stat <input.base>..<input.head>\` and analyze the changes.`,
+  output: s.object({ summary: s.string }),
+});
+
+export default diffAnalyzer;
+```
+
+Do not use `p.bash("git diff " + input.base)` — `input` is not in scope at definition time. The correct pattern is prose instructions that reference `input.<field>` by name.
 
 ## Failures
 

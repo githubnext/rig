@@ -140,20 +140,19 @@ Use `repair()` alone when the validation error is enough guidance. Pass custom w
 
 ## One-time runtime registration
 
-`oncePerAgent()` invokes its callback once for each runtime agent instance, not once per turn:
+`oncePerAgent(register)` invokes its callback exactly once per runtime agent instance — not once per turn and not once per retry. The callback receives `(agent: Agent, context: AgentAddonContext)`. Use it for one-time initialization such as registering a tool adapter or constructing a client:
 
 ```ts
-import { agent, type Agent } from "rig";
+import { agent, s } from "rig";
 import { oncePerAgent, repair } from "rig/addons";
-
-const initializedAgents = new WeakSet<Agent>();
 
 // Agent role: answer after one-time runtime initialization.
 const qa = agent({
   model: "mini",
   addons: [
-    oncePerAgent((runtimeAgent) => {
-      initializedAgents.add(runtimeAgent);
+    oncePerAgent(async (runtimeAgent) => {
+      // e.g. register a tool adapter on the runtime agent once
+      await runtimeAgent.ask("initialize");
     }),
     repair(),
   ],
@@ -162,7 +161,9 @@ const qa = agent({
 export default qa;
 ```
 
-Repair retries reuse the same runtime agent, so the registration still runs once.
+`oncePerAgent` tracks initialization via its own internal `WeakSet`; do not add an external `WeakSet` to track the same thing. Repair retries reuse the same runtime agent, so the registration still runs once.
+
+Both `addons: singleAddon` and `addons: [addon1, addon2]` are valid. Prefer the array form when combining addons.
 
 ## Addon lifecycle
 

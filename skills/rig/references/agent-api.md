@@ -139,6 +139,8 @@ For plain JSON Schema parameters, provide a generic such as `defineTool<{ issue:
 
 Strict TypeScript compilation reports unused handler bindings. Destructure only the keys the handler uses, or rename an unavoidable binding with a leading underscore, such as `{ filename: _filename, content }`.
 
+Use `defineTool` for I/O operations and external calls the LLM should be able to invoke — fetching a URL, running a query, reading a dynamic path. Do not use it to replace LLM inference: if the handler implements the classification or reasoning logic entirely in TypeScript, the model is never exercised for that step. Express classification rules as prompt instructions instead, and use a tool only when a discrete external operation is needed to support the model's reasoning.
+
 ## Call-time options
 
 Use call-time options only for per-run changes:
