@@ -986,6 +986,21 @@ describe("prompt intents", () => {
     expect(intent.paths).toEqual(["README.md"]);
     expect(intent.options).toEqual({ cwd: "/workspace" });
   });
+
+  it("p.readInput stores field name with mode prompt.readInput", () => {
+    const intent = p.readInput("path");
+
+    expect(intent.mode).toBe("prompt.readInput");
+    expect(intent.field).toBe("path");
+  });
+
+  it("p.readInput supports options", () => {
+    const intent = p.readInput("filePath", { cwd: "/workspace" });
+
+    expect(intent.mode).toBe("prompt.readInput");
+    expect(intent.field).toBe("filePath");
+    expect(intent.options).toEqual({ cwd: "/workspace" });
+  });
 });
 
 describe("prompt builder", () => {
