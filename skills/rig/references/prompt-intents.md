@@ -129,6 +129,35 @@ export default fileAnalyzer;
 
 The argument is the input field name, not the path itself. Passing full contents remains reasonable for small payloads; pass a path for larger files to reduce prompt size.
 
+## Runtime lists of file paths
+
+When input contains an array of paths, there is no `p.readInputAll(...)` helper. Use a coordinator + subagent pattern: let the coordinator iterate and delegate one file at a time to a subagent that uses `p.readInput("path")`.
+
+```ts
+import { agent, p, s } from "rig";
+
+// Agent role: analyze one file path supplied at runtime.
+const analyzeFile = agent({
+  model: "mini",
+  input: s.object({ path: s.path }),
+  instructions: p`Analyze ${p.readInput("path")}.`,
+  output: s.object({ summary: s.string }),
+});
+
+// Agent role: process every input file and return one combined report.
+const analyzeAll = agent({
+  model: "mini",
+  input: s.object({ files: s.array(s.path) }),
+  instructions: "For each input.files entry, call analyzeFile with { path } and combine the results.",
+  output: s.object({ summaries: s.array(s.string) }),
+  agents: { analyzeFile },
+});
+
+export default analyzeAll;
+```
+
+For dynamic shell commands that depend on input, describe the command in instructions and keep the input field explicit.
+
 ## Failures
 
 Shell and dynamic-read intents are instructions to the runtime/model. If a command exits non-zero or a dynamic file cannot be read, the resulting stderr or error message enters prompt context so the model can surface or recover from it.
