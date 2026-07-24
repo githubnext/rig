@@ -28,7 +28,7 @@ it("uses the launcher cwd when mounting the default copilot engine", async () =>
   const sendAndWait = vi.fn().mockResolvedValue(JSON.stringify("default-mounted"));
   mocks.createSession.mockResolvedValue({ sendAndWait });
 
-  const cwd = "/tmp/workspace/pelikhan/rig/src";
+  const cwd = "/tmp/workspace/githubnext/rig/src";
   const fixturePath = resolve(dirname(fileURLToPath(import.meta.url)), "./launcher.fixture.ts");
 
   await launchRigProgram(fixturePath, { cwd });

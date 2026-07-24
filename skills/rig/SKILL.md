@@ -5,9 +5,9 @@ Minimal TypeScript harness for structured agents in sandboxed workflows and runn
 ## Install
 
 ```bash
-npm install github:pelikhan/rig#v0.0.8
+npm install github:githubnext/rig#v0.0.8
 # or install as a Copilot coding agent skill
-gh skills clone pelikhan/rig
+gh skills clone githubnext/rig
 ```
 
 ## Default program
