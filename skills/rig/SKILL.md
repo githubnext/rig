@@ -114,6 +114,7 @@ When asked for a runnable markdown example, emit exactly one fenced `rig` block 
 Typecheck without executing:
 
 ```bash
+npm run lint
 cat program.ts | node skills/rig/rig.ts --typecheck
 ```
 
@@ -124,6 +125,7 @@ Run inline input or a program file with `node skills/rig/rig.ts`; add `--server`
 - Known context uses `p.*`; true runtime data uses `input`.
 - Important outputs are explicitly typed and constrained.
 - Every helper and import uses the current `rig` or `rig/addons` API.
+- Repository programs pass `npm run lint`; record values with fixed fields use `s.record(s.object({ ... }))`.
 - Every subagent is named, reachable, and narrowly scoped.
 - Snippets have one default export and no `console.log`.
 - No deprecated hooks or compatibility layers were introduced.
@@ -136,3 +138,4 @@ Read only the reference needed for the current task:
 - [Prompt intents](references/prompt-intents.md) — helper semantics, writes, dynamic paths, and failures.
 - [Composition and addons](references/composition.md) — subagents, coordinator patterns, repair, and addon lifecycle.
 - [Running and engines](references/runtime.md) — inline/file launch modes, typechecking, stdin coercion, and SDK adapters.
+- [Linting Rig programs](references/linting.md) — repository lint command and custom Rig diagnostics.

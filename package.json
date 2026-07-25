@@ -11,7 +11,8 @@
     "./engines/pi": "./skills/rig/engines/pi.ts"
   },
   "scripts": {
-    "test": "vitest run src/",
+    "lint": "eslint .",
+    "test": "vitest run src/ eslint/",
     "test:integration": "vitest run scripts/haiku.integration.test.ts",
     "sample": "vitest run scripts/run-sample.test.ts",
     "sample:run": "node skills/rig/rig.ts",
@@ -24,7 +25,9 @@
     "@github/copilot-sdk": "^1.0.0-beta.9",
     "@openai/codex-sdk": "^0.145.0",
     "@types/node": "^25.9.1",
+    "eslint": "^10.8.0",
     "typescript": "^5.8.0",
+    "typescript-eslint": "^8.65.0",
     "vitest": "^4.1.7",
     "zx": "^8.8.5"
   }
