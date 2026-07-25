@@ -20,6 +20,7 @@ const ruleTester = new RuleTester({
 ruleTester.run("no-object-literal-record", rule, {
   valid: [
     "const output = s.record(s.object({ count: s.number }));",
+    "const output = s.nonEmptyObject(s.object({ count: s.number }));",
     "const output = s.record(s.string);",
     "const output = other.record({ count: s.number });",
   ],
@@ -27,6 +28,11 @@ ruleTester.run("no-object-literal-record", rule, {
     {
       code: "const output = s.record({ count: s.number });",
       output: "const output = s.record(s.object({ count: s.number }));",
+      errors: [{ messageId: "wrapObject" }],
+    },
+    {
+      code: "const output = s.nonEmptyObject({ count: s.number });",
+      output: "const output = s.nonEmptyObject(s.object({ count: s.number }));",
       errors: [{ messageId: "wrapObject" }],
     },
   ],

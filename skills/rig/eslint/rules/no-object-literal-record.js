@@ -22,7 +22,7 @@ export default {
           || callee.object.type !== "Identifier"
           || callee.object.name !== "s"
           || callee.property.type !== "Identifier"
-          || callee.property.name !== "record"
+          || !["record", "nonEmptyObject"].includes(callee.property.name)
         ) {
           return;
         }

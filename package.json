@@ -16,7 +16,7 @@
     "test:integration": "vitest run scripts/haiku.integration.test.ts",
     "sample": "vitest run scripts/run-sample.test.ts",
     "sample:run": "node skills/rig/rig.ts",
-    "lint": "eslint .",
+    "lint": "eslint",
     "typecheck": "tsc --noEmit"
   },
   "devDependencies": {

@@ -1,6 +1,6 @@
 # Linting Rig programs
 
-Rig exports an ESLint plugin from `rig/eslint`. The repository flat config enables its recommended project rules for TypeScript files.
+Rig exports an ESLint plugin from `rig/eslint`. The repository flat config enables its project rules for TypeScript files.
 
 Run the linter after generating or changing a Rig program:
 
@@ -18,7 +18,7 @@ npm run lint -- --fix path/to/program.ts
 
 ### `rig/no-object-literal-record`
 
-An `s.record` value must be a schema. Wrap object fields with `s.object`:
+An `s.record` or `s.nonEmptyObject` value must be a schema. Wrap object fields with `s.object`:
 
 ```ts
 // Invalid
