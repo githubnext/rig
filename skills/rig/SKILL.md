@@ -117,6 +117,12 @@ Typecheck without executing:
 cat program.ts | node skills/rig/rig.ts --typecheck
 ```
 
+Lint a generated program before running it:
+
+```bash
+node skills/rig/eslint/lint.js program.ts
+```
+
 Run inline input or a program file with `node skills/rig/rig.ts`; add `--server` to start the Copilot server. Assume Node.js 24, prefer native APIs, and use `google/zx` for shell-style TypeScript automation.
 
 ## Final checks
@@ -124,6 +130,7 @@ Run inline input or a program file with `node skills/rig/rig.ts`; add `--server`
 - Known context uses `p.*`; true runtime data uses `input`.
 - Important outputs are explicitly typed and constrained.
 - Every helper and import uses the current `rig` or `rig/addons` API.
+- Generated TypeScript passes `node skills/rig/eslint/lint.js <program.ts>` and typechecking.
 - Every subagent is named, reachable, and narrowly scoped.
 - Snippets have one default export and no `console.log`.
 - No deprecated hooks or compatibility layers were introduced.
@@ -136,4 +143,5 @@ Read only the reference needed for the current task:
 - [Agent API and schemas](references/agent-api.md) — spec fields, schema overloads, tools, and call-time options.
 - [Prompt intents](references/prompt-intents.md) — helper semantics, writes, dynamic paths, and failures.
 - [Composition and addons](references/composition.md) — subagents, coordinator patterns, repair, and addon lifecycle.
+- [Linting](references/linting.md) — custom Rig ESLint rules, fixes, and rule scaffolding.
 - [Running and engines](references/runtime.md) — inline/file launch modes, typechecking, stdin coercion, and SDK adapters.

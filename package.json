@@ -5,6 +5,7 @@
   "exports": {
     ".": "./skills/rig/rig.ts",
     "./addons": "./skills/rig/addons.ts",
+    "./eslint": "./skills/rig/eslint/index.js",
     "./engines/anthropic": "./skills/rig/engines/anthropic.ts",
     "./engines/codex": "./skills/rig/engines/codex.ts",
     "./engines/gemini": "./skills/rig/engines/gemini.ts",
@@ -15,6 +16,7 @@
     "test:integration": "vitest run scripts/haiku.integration.test.ts",
     "sample": "vitest run scripts/run-sample.test.ts",
     "sample:run": "node skills/rig/rig.ts",
+    "lint": "node skills/rig/eslint/lint.js .",
     "typecheck": "tsc --noEmit"
   },
   "devDependencies": {
