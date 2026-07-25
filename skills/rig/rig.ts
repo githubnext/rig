@@ -16,7 +16,7 @@
  * T:AgentAddon type middleware (ctx,next)=>Promise<void>; ctx exposes spec,turn,prompt,output,completed,nextPrompt
  * T:AgentAddonContext type context passed to each addon in the chain
  * T:AgentDefinitionFactory type typeof agent (for passing agent constructor as value)
- * T:AgentError class error carrying turn,agentName,rawOutput,parseError fields
+ * T:AgentError class error carrying kind,agent,turn,response,schema,schemaText fields
  * T:Tool<TArgs> type ToolConfig+name; created by defineTool
  * T:ToolConfig<TArgs> type {description,parameters,handler}
  * T:PromptIntent type declarative placeholder {kind:'bash'|'bashEach'|'read'|'readAll'|'write'|'writeOutput'|'writeInput'|'glob'|'env',…} resolved into prompt text
@@ -1100,6 +1100,28 @@ export class PromptBuilder {
   }
 }
 
+/**
+ * Error thrown when an agent's response cannot be parsed as JSON or does not
+ * match the declared output schema.  Surfaces in repair addons via
+ * `context.error` and is re-thrown when all turns are exhausted.
+ *
+ * @property kind      - `"parse"` for JSON parse failures; `"validation"` for
+ *                       schema mismatch.
+ * @property agent     - Name of the agent that produced the invalid response.
+ * @property turn      - 1-based turn number at which the failure occurred.
+ * @property response  - Raw response string returned by the model.
+ * @property schema    - The expected output schema at the time of failure.
+ * @property schemaText - Human-readable rendering of `schema` (JSON string).
+ *
+ * @example
+ * // Inspect the error kind inside a custom repair addon:
+ * const repairAddon: AgentAddon = async (ctx, next) => {
+ *   await next();
+ *   if (ctx.error instanceof AgentError && ctx.error.kind === "validation") {
+ *     ctx.nextPrompt = defaultRepairPrompt(ctx.spec, ctx.error);
+ *   }
+ * };
+ */
 export class AgentError extends Error {
   readonly kind: "parse" | "validation";
   readonly agent: string;
