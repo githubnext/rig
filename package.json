@@ -12,7 +12,7 @@
   },
   "scripts": {
     "lint": "eslint .",
-    "test": "vitest run src/ eslint/",
+    "test": "vitest run src/ skills/rig/eslint/",
     "test:integration": "vitest run scripts/haiku.integration.test.ts",
     "sample": "vitest run scripts/run-sample.test.ts",
     "sample:run": "node skills/rig/rig.ts",

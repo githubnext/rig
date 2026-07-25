@@ -9,7 +9,7 @@ npm run lint
 npm run typecheck
 ```
 
-The repository's flat ESLint configuration loads local rules from `eslint/rig-plugin.js`. Add new Rig-specific diagnostics to that plugin and enable them in `eslint.config.js`.
+The skill includes a flat ESLint configuration at `skills/rig/eslint.config.js` and local rules under `skills/rig/eslint/`. The repository's root config re-exports it. Add new Rig-specific diagnostics to the skill plugin and enable them in the skill config.
 
 ## Record object values
 
