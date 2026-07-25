@@ -229,6 +229,12 @@ Emit a `create-issue` safe output with:
   Identify API patterns that were awkward, frequently confused, or required extra
   boilerplate that a helper could eliminate.
 
+  ### Candidate lint rules
+  For repeated code patterns that confused the model, propose a focused lint rule.
+  Include the proposed rule name, invalid and valid examples, why the pattern is
+  model-confusing, and whether a safe autofix is possible. Do not suggest a rule
+  for a one-off mistake or an issue already caught by the current linter.
+
   ### Documentation gaps
   Note anything in SKILL.md or the references that was underdocumented, missing an
   example, or frequently led to wrong usage.
