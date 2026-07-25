@@ -55,7 +55,7 @@ function closingBrace(tokens, openingIndex) {
   for (let index = openingIndex; index < tokens.length; index += 1) {
     if (tokens[index].value === "{") depth += 1;
     if (tokens[index].value === "}") depth -= 1;
-    if (depth === 0) return tokens[index].end;
+    if (depth === 0) return index;
   }
   return undefined;
 }
@@ -65,23 +65,32 @@ export function lintSource(source) {
   const problems = [];
 
   for (let index = 0; index <= tokens.length - 5; index += 1) {
-    const [schema, dot, method, openCall, object] = tokens.slice(index, index + 5);
+    const [schema, dot, method, openCall] = tokens.slice(index, index + 4);
     if (
       tokens[index - 1]?.value === "."
       || schema.value !== "s"
       || dot.value !== "."
       || !methods.has(method.value)
       || openCall.value !== "("
-      || object.value !== "{"
     ) {
       continue;
     }
 
-    const objectEnd = closingBrace(tokens, index + 4);
-    if (objectEnd !== undefined) {
+    let objectIndex = index + 4;
+    while (tokens[objectIndex]?.value === "(") objectIndex += 1;
+    const object = tokens[objectIndex];
+    if (object?.value !== "{") continue;
+
+    const closingIndex = closingBrace(tokens, objectIndex);
+    const wrapperCount = objectIndex - (index + 4);
+    const wrappersClose = Array.from(
+      { length: wrapperCount },
+      (_, offset) => tokens[(closingIndex ?? tokens.length) + offset + 1]?.value,
+    ).every((value) => value === ")");
+    if (closingIndex !== undefined && wrappersClose) {
       problems.push({
         start: object.start,
-        end: objectEnd,
+        end: tokens[closingIndex].end,
         message: `Wrap object-valued record fields with s.object(...).`,
       });
     }

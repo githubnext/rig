@@ -23,6 +23,10 @@ describe("no-object-literal-record", () => {
       "const output = s.nonEmptyObject(/* value */ { count: s.number });",
       "const output = s.nonEmptyObject(/* value */ s.object({ count: s.number }));",
     ],
+    [
+      "const output = s.record(({ count: s.number }));",
+      "const output = s.record((s.object({ count: s.number })));",
+    ],
   ])("fixes %s", (source, expected) => {
     const problems = lintSource(source);
     expect(problems).toHaveLength(1);
