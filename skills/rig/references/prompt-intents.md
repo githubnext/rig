@@ -101,6 +101,22 @@ Do not:
 
 `p.writeOutput` runs after valid structured output is produced. Its field must exist in the output schema. The `path` argument is a **static string** fixed at definition time.
 
+Field names must match exactly:
+
+```ts
+// wrong: "summary" is not an output field
+const invalid = agent({
+  instructions: p`${p.writeOutput("summary", "todo-report.md")}`,
+  output: s.object({ report: s.string }),
+});
+
+// right: "report" matches the output schema field
+const valid = agent({
+  instructions: p`${p.writeOutput("report", "todo-report.md")}`,
+  output: s.object({ report: s.string }),
+});
+```
+
 Side-by-side comparison:
 
 ```ts
