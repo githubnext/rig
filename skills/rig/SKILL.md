@@ -68,7 +68,7 @@ Defaults are model `small`, `maxTurns: 4`, no addons, and name `"agent"`. `agent
 Descriptions go first for scalar helpers, second after the shape for containers, and last for enums/literals. Schemas serialize directly as JSON Schema; do not invent alternate schema syntax.
 
 Use `s.int`/`s.integer` for integer-valued fields (counts, indices, line numbers); `s.number` for floats or measured values. Use `s.path` for file-system paths — especially input fields read with `p.readInput` — rather than `s.string`.
-Use `s.optional(shape)` when a field may be omitted and `s.nullable(shape)` when the field should be present but can be `null`. Use `s.record(value)` for string-keyed maps such as `s.record(s.number)` for per-file or per-symbol counters.
+Use `s.optional(shape)` when a field may be omitted and `s.nullable(shape)` when the field should be present but can be `null`. Use `s.record(value)` for string-keyed maps such as `s.record(s.number)` for per-file or per-symbol counters. `s.record(...)` is also valid as the root `output` — `output: s.record(s.number)` is correct when the agent returns a map; wrapping it in `s.object` is unnecessary.
 
 ## Choose prompt intents by data source
 
@@ -105,7 +105,7 @@ For `p.readOptional` fallbacks, pass a value the model can parse in context (for
 - `agents` must be a named object — `agents: { extractor }` — never an array (`agents: [extractor]` is a type error). Attach every declared subagent to the exported root's graph.
 - There is no chain or loop primitive; give the coordinator explicit delegation instructions and require one combined output.
 - Automatic parse/schema repair requires `repair()` from `rig/addons`; `repair()` takes no arguments — do not pass `maxTurns` to it. Set `maxTurns` on the agent spec instead; it covers the initial attempt plus all retries.
-- `addons` accepts a single addon or an array. Use `addons: repair()` for one addon, and `addons: [steering(), repair()]` when combining. `steering()` (default warning) or `steering({ message: "..." })` (custom text) should run before `repair()` to append a last-chance instruction on the final retry. `oncePerAgent(callback)` invokes the callback once per runtime agent instance — its internal `WeakSet` already deduplicates, so no external tracking is needed.
+- `addons` accepts a single addon or an array. Use `addons: repair()` for one addon, and `addons: [steering(), repair()]` when combining. **`steering()` must come before `repair()` in the array** — placing it after `repair` is a silent ordering error. `steering()` (default warning) or `steering({ message: "..." })` (custom text) should run before `repair()` to append a last-chance instruction on the final retry. `oncePerAgent(callback)` invokes the callback once per runtime agent instance — its internal `WeakSet` already deduplicates, so no external tracking is needed.
 
 ## Runnable markdown
 
@@ -127,6 +127,7 @@ Run inline input or a program file with `node skills/rig/rig.ts`; add `--server`
 - Every subagent is named, reachable, and narrowly scoped.
 - Snippets have one default export and no `console.log`.
 - No deprecated hooks or compatibility layers were introduced.
+- Root `output` is `s.record(...)` for map returns; do not wrap it in an extra `s.object`.
 
 ## Focused references
 
