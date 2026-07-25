@@ -1466,6 +1466,40 @@ describe("s.path", () => {
   });
 });
 
+describe("s.date", () => {
+  it("serializes to {type:'string', format:'date'}", () => {
+    expect(toJsonSchema(s.date)).toEqual({ type: "string", format: "date" });
+    expect(toJsonSchema(s.date("release date"))).toEqual({ type: "string", format: "date", description: "release date" });
+  });
+
+  it("accepts a valid YYYY-MM-DD date string", () => {
+    const result = analyzeResponse(JSON.stringify("2024-03-15"), s.date, "test", 1);
+    expect(result.ok).toBe(true);
+  });
+
+  it("rejects a string that is not in YYYY-MM-DD format", () => {
+    const result = analyzeResponse(JSON.stringify("March 15 2024"), s.date, "test", 1);
+    expect(result.ok).toBe(false);
+    if (!result.ok) {
+      expect(result.error.message).toContain("YYYY-MM-DD");
+    }
+  });
+
+  it("rejects a datetime string with time component", () => {
+    const result = analyzeResponse(JSON.stringify("2024-03-15T10:00:00Z"), s.date, "test", 1);
+    expect(result.ok).toBe(false);
+  });
+
+  it("is usable as an object field", () => {
+    const schema = s.object({ createdAt: s.date });
+    expect(toJsonSchema(schema)).toEqual({
+      type: "object",
+      properties: { createdAt: { type: "string", format: "date" } },
+      required: ["createdAt"],
+    });
+  });
+});
+
 describe("s.positiveInt", () => {
   it("serializes to {type:'integer', minimum:1}", () => {
     expect(toJsonSchema(s.positiveInt)).toEqual({ type: "integer", minimum: 1 });

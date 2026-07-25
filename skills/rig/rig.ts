@@ -29,7 +29,7 @@
  * T:LauncherIo type {stdin,stdout,stderr} override for launcher subprocess
  * T:JsonSchemaObject type {[key:string]:unknown} plain JSON Schema object
  * s.string/number/integer/boolean/null SchemaHelperFactory primitives; call as value or fn(desc)
- * s.int alias for s.integer; s.nonEmptyString string with minLength:1; s.url string with format:"uri"; s.path string with format:"path"
+ * s.int alias for s.integer; s.nonEmptyString string with minLength:1; s.url string with format:"uri"; s.path string with format:"path"; s.date string with format:"date" validated as YYYY-MM-DD
  * s.positiveInt integer with minimum:1; s.nonNegativeInt integer with minimum:0; NumberSchema/IntegerSchema support minimum/maximum constraints
  * s.array(items,desc?) ArraySchema; use for homogeneous lists, e.g. s.array(s.string)
  * s.nonEmptyArray(items,desc?) ArraySchema with minItems:1; validates array has at least one element
@@ -241,6 +241,8 @@ export const s = {
   url: createConstrainedStringSchema({ format: "uri" }),
   /** Schema for a file system path string (format: "path"). Use instead of `s.string` when the value is a file or directory path; improves readability and hints to the runtime about path-based context resolution. Call as `s.path` or `s.path("description")`. */
   path: createConstrainedStringSchema({ format: "path" }),
+  /** Schema for an ISO 8601 calendar date string (format: "date", pattern `YYYY-MM-DD`). Use when the value is a date-only value (no time component). Validated at runtime: non-conforming strings fail with a clear error. Call as `s.date` or `s.date("description")`. */
+  date: createConstrainedStringSchema({ format: "date" }),
   /** Schema for a `number` value. Call as `s.number` or `s.number("description")`. */
   number: createTypedPrimitiveSchema<NumberSchema>("number"),
   /** Schema for an integer value. Serializes to `{"type":"integer"}` in JSON Schema. Call as `s.integer` or `s.integer("description")`. */
@@ -2058,6 +2060,11 @@ function validateSchema(value: unknown, schema: Schema, path: string, optional: 
       }
       if (format === "uri") {
         try { new URL(value); } catch { return { ok: false, error: `${path}: expected a valid URL, got ${JSON.stringify(value)}` }; }
+      }
+      if (format === "date") {
+        if (!/^\d{4}-\d{2}-\d{2}$/.test(value)) {
+          return { ok: false, error: `${path}: expected a date string in YYYY-MM-DD format, got ${JSON.stringify(value)}` };
+        }
       }
       return ok();
     }
