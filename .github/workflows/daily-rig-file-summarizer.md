@@ -1,7 +1,7 @@
 ---
 name: Daily Rig File Summarizer
 description: >
-  Each day, runs an inline rig program that uses a file-summarizer subagent to summarize
+  Each day, runs a rig program that uses a file-summarizer subagent to summarize
   each TypeScript source file individually via the Copilot SDK, synthesizes a global
   project summary, and posts the result as a GitHub issue.
 on:
@@ -16,6 +16,8 @@ features:
   copilot-sdk: true
 strict: true
 timeout-minutes: 30
+skills:
+  - githubnext/rig/skills/rig/SKILL.md@31d2dbdf686db9fa8bcb3fbc1792011faabc0c89
 tools:
   bash: ["*"]
 network:
@@ -30,26 +32,21 @@ safe-outputs:
 
 ## Task
 
-Run an inline rig file-summarizer program that uses a Copilot SDK subagent to summarize
-each TypeScript source file individually and then synthesizes a global project summary.
-Post the result as a GitHub issue.
-
-### Step 1 — Install dependencies
+Install dependencies, run the rig program below, and post a `create-issue` safe output
+with the results.
 
 ```bash
 npm install 2>&1
 ```
 
-### Step 2 — Write the rig program
-
-```bash
-mkdir -p /tmp/gh-aw/agent && cat > /tmp/gh-aw/agent/file-summarizer.ts << 'RIGEOF'
+```rig
 import { agent, configureAgent, copilotEngine, p, s } from "rig";
 
 configureAgent(copilotEngine());
 
 const FileSummary = s.object({ path: s.path, summary: s.string });
 
+// Agent role: read one TypeScript file and return a 1-2 sentence summary.
 const summarizeFile = agent({
   name: "file-summarizer",
   model: "mini",
@@ -58,6 +55,7 @@ const summarizeFile = agent({
   output: FileSummary,
 });
 
+// Agent role: discover TypeScript source files, delegate to summarizeFile, then synthesize a global summary.
 const projectSummarizer = agent({
   name: "project-summarizer",
   model: "small",
@@ -74,24 +72,12 @@ Call summarizeFile for each file path, then write a concise globalSummary of the
 });
 
 export default projectSummarizer;
-RIGEOF
 ```
-
-### Step 3 — Run the rig file summarizer
-
-```bash
-node skills/rig/rig.ts /tmp/gh-aw/agent/file-summarizer.ts 2>&1
-```
-
-Capture the JSON output object `{"files":[...],"globalSummary":"..."}` printed to stdout.
-If the program exits with a non-zero code, emit `noop` with the error and stop.
-
-### Step 4 — Create an issue
 
 Emit a `create-issue` safe output with:
 
 - **title**: `Daily file summary — <YYYY-MM-DD>`
-- **body**: A structured Markdown report following this structure:
+- **body**:
 
   ```markdown
   ### Global Summary
