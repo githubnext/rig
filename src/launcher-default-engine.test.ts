@@ -1,6 +1,6 @@
 import { dirname, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
-import { expect, it, vi } from "vitest";
+import { beforeEach, expect, it, vi } from "vitest";
 
 const mocks = vi.hoisted(() => {
   const approveAll = vi.fn();
@@ -13,7 +13,45 @@ const mocks = vi.hoisted(() => {
     copilotClientCtor(options);
     return { createSession, stop: stopClient };
   };
-  return { approveAll, createSession, stopClient, copilotClientCtor, defaultForUri, forUri, CopilotClient };
+
+  const anthropicConstructor = vi.fn();
+  const anthropicToolRunner = vi.fn(() => ({
+    async runUntilDone() {
+      return { content: [{ type: "text", text: JSON.stringify("anthropic-mounted") }] };
+    },
+    params: { messages: [] },
+  }));
+  const Anthropic = function (this: unknown, options: unknown) {
+    anthropicConstructor(options);
+    return { beta: { messages: { toolRunner: anthropicToolRunner } } };
+  };
+  const betaTool = vi.fn((tool) => tool);
+
+  const codexConstructor = vi.fn();
+  const codexRun = vi.fn(async () => ({ finalResponse: JSON.stringify("codex-mounted") }));
+  const codexStartThread = vi.fn(() => ({ run: codexRun }));
+  const Codex = function (this: unknown, options: unknown) {
+    codexConstructor(options);
+    return { startThread: codexStartThread };
+  };
+
+  return {
+    approveAll,
+    createSession,
+    stopClient,
+    copilotClientCtor,
+    defaultForUri,
+    forUri,
+    CopilotClient,
+    anthropicConstructor,
+    anthropicToolRunner,
+    Anthropic,
+    betaTool,
+    codexConstructor,
+    codexRun,
+    codexStartThread,
+    Codex,
+  };
 });
 
 vi.mock("@github/copilot-sdk", () => ({
@@ -21,8 +59,25 @@ vi.mock("@github/copilot-sdk", () => ({
   CopilotClient: mocks.CopilotClient,
   RuntimeConnection: { forUri: mocks.forUri, forStdio: vi.fn() },
 }));
+vi.mock("@anthropic-ai/sdk", () => ({ default: mocks.Anthropic }));
+vi.mock("@anthropic-ai/sdk/helpers/beta/json-schema", () => ({ betaTool: mocks.betaTool }));
+vi.mock("@openai/codex-sdk", () => ({ Codex: mocks.Codex }));
 
 import { agent, launchRigProgram, s } from "rig";
+
+beforeEach(() => {
+  mocks.copilotClientCtor.mockClear();
+  mocks.createSession.mockReset();
+  mocks.anthropicConstructor.mockClear();
+  mocks.anthropicToolRunner.mockClear();
+  mocks.betaTool.mockClear();
+  mocks.codexConstructor.mockClear();
+  mocks.codexRun.mockClear();
+  mocks.codexStartThread.mockClear();
+  delete process.env["COPILOT_SDK_URI"];
+  delete process.env["ANTHROPIC_API_KEY"];
+  delete process.env["OPENAI_API_KEY"];
+});
 
 it("uses the launcher cwd when mounting the default copilot engine", async () => {
   const sendAndWait = vi.fn().mockResolvedValue(JSON.stringify("default-mounted"));
@@ -69,4 +124,37 @@ it("uses COPILOT_SDK_URI when mounting the default copilot engine", async () => 
     delete process.env["COPILOT_SDK_URI"];
     mocks.forUri.mockImplementation(mocks.defaultForUri);
   }
+});
+
+it("automatically mounts anthropicEngine when ANTHROPIC_API_KEY is set", async () => {
+  process.env["ANTHROPIC_API_KEY"] = "test-key";
+  const fixturePath = resolve(dirname(fileURLToPath(import.meta.url)), "./launcher.fixture.ts");
+
+  await launchRigProgram(fixturePath);
+
+  const call = agent({
+    name: "launcher-default-engine-anthropic-test",
+    input: s.object({}),
+  });
+  const result = await call({});
+  expect(result).toBe("anthropic-mounted");
+  expect(mocks.anthropicConstructor).toHaveBeenCalledWith({});
+  expect(mocks.copilotClientCtor).not.toHaveBeenCalled();
+});
+
+it("automatically mounts codexEngine when OPENAI_API_KEY is set", async () => {
+  process.env["OPENAI_API_KEY"] = "test-key";
+  const fixturePath = resolve(dirname(fileURLToPath(import.meta.url)), "./launcher.fixture.ts");
+
+  await launchRigProgram(fixturePath);
+
+  const call = agent({
+    name: "launcher-default-engine-codex-test",
+    input: s.object({}),
+  });
+  const result = await call({});
+  expect(result).toBe("codex-mounted");
+  expect(mocks.codexConstructor).toHaveBeenCalledWith({});
+  expect(mocks.codexStartThread).toHaveBeenCalledWith(expect.objectContaining({ model: "small" }));
+  expect(mocks.copilotClientCtor).not.toHaveBeenCalled();
 });

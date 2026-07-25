@@ -441,6 +441,63 @@ function resolveDefaultCopilotUri(): string {
   return process.env["COPILOT_SDK_URI"] ?? "localhost:7777";
 }
 
+type DefaultEngineKind = "copilot" | "anthropic" | "codex" | "gemini";
+
+type DefaultEngineOptions = {
+  cwd?: string;
+  startServer?: boolean;
+};
+
+function hasNonEmptyEnv(name: string): boolean {
+  const value = process.env[name];
+  return typeof value === "string" && value.trim().length > 0;
+}
+
+function resolveDefaultEngineKind(options: DefaultEngineOptions = {}): DefaultEngineKind {
+  if (options.startServer) {
+    return "copilot";
+  }
+  const configuredEngine = process.env["RIG_ENGINE"]?.trim().toLowerCase();
+  if (configuredEngine === "copilot" || configuredEngine === "anthropic" || configuredEngine === "codex" || configuredEngine === "gemini") {
+    return configuredEngine;
+  }
+  if (hasNonEmptyEnv("COPILOT_SDK_URI")) {
+    return "copilot";
+  }
+  if (hasNonEmptyEnv("ANTHROPIC_API_KEY")) {
+    return "anthropic";
+  }
+  if (hasNonEmptyEnv("OPENAI_API_KEY")) {
+    return "codex";
+  }
+  if (hasNonEmptyEnv("GEMINI_API_KEY") || hasNonEmptyEnv("GOOGLE_API_KEY")) {
+    return "gemini";
+  }
+  return "copilot";
+}
+
+function defaultAgentFactory(options: DefaultEngineOptions = {}): AgentFactory {
+  return async (agentOptions) => {
+    const kind = resolveDefaultEngineKind(options);
+    if (kind === "anthropic") {
+      const { anthropicEngine } = await import("./engines/anthropic.ts");
+      return anthropicEngine()(agentOptions);
+    }
+    if (kind === "codex") {
+      const { codexEngine } = await import("./engines/codex.ts");
+      return codexEngine(options.cwd ? { thread: { workingDirectory: options.cwd } } : {})(agentOptions);
+    }
+    if (kind === "gemini") {
+      const { geminiEngine } = await import("./engines/gemini.ts");
+      return geminiEngine(options.cwd ? { cwd: options.cwd } : {})(agentOptions);
+    }
+    const copilotOptions = options.cwd
+      ? resolveCopilotOptions(options.cwd, options.startServer ? { startServer: true } : {})
+      : options.startServer ? { server: true } : {};
+    return copilotEngine(copilotOptions)(agentOptions);
+  };
+}
+
 export function copilotEngine(options: CopilotEngineOptions = {}): AgentFactory {
   const { server, connection, ...clientOptions } = options;
   return async (agentOptions) => {
@@ -1176,7 +1233,7 @@ export class AgentError extends Error {
   }
 }
 
-let currentAgentFactory: AgentFactory = copilotEngine();
+let currentAgentFactory: AgentFactory = defaultAgentFactory();
 
 /**
  * Mounts an engine and executes a rig program file.
@@ -1186,7 +1243,7 @@ export async function launchRigProgram(programPath: string, options: LaunchOptio
   const cwd = options.cwd ?? process.cwd();
   const resolvedPath = isAbsolute(programPath) ? programPath : resolve(cwd, programPath);
 
-  configureAgent(copilotEngine(resolveCopilotOptions(cwd, options)));
+  configureAgent(defaultAgentFactory({ cwd, ...(options.startServer ? { startServer: true } : {}) }));
   await import(pathToFileURL(resolvedPath).href);
 }
 
@@ -1426,7 +1483,7 @@ async function runRootAgentFromStdin(
     throw new Error(`Usage: ${scriptName} <program-file>`);
   }
 
-  configureAgent(copilotEngine(resolveCopilotOptions(cwd, options)));
+  configureAgent(defaultAgentFactory({ cwd, ...(options.startServer ? { startServer: true } : {}) }));
   const mod = await import(pathToFileURL(resolvedPath).href);
   const rootAgent = asRootProgram(mod.default, "launcher-root");
   if (!rootAgent) {
@@ -1460,7 +1517,7 @@ async function runProgramCodeFromStdin(
       io.stdout.write("typecheck passed\n");
       return;
     }
-    configureAgent(copilotEngine(resolveCopilotOptions(cwd, options)));
+    configureAgent(defaultAgentFactory({ cwd, ...(options.startServer ? { startServer: true } : {}) }));
     const mod = await import(pathToFileURL(tempProgramPath).href);
     const rootAgent = asRootProgram(mod.default, "launcher-inline-root");
     if (!rootAgent) {
@@ -1502,7 +1559,7 @@ function renderLauncherUsage(scriptName: string): string {
 }
 
 /**
- * Entry-point CLI that parses `argv`, wires a `copilotEngine`, and runs the
+ * Entry-point CLI that parses `argv`, wires the default engine selection, and runs the
  * agent program.  Two modes are supported:
  *
  * - **File mode** (`runLauncherCli(["path/to/prog.ts"])`): reads the agent
