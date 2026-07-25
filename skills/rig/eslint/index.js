@@ -1,4 +1,5 @@
 import noObjectLiteralRecord from "./rules/no-object-literal-record.js";
+import repairNoArgs from "./rules/repair-no-args.js";
 
 export default {
   meta: {
@@ -6,5 +7,6 @@ export default {
   },
   rules: {
     "no-object-literal-record": noObjectLiteralRecord,
+    "repair-no-args": repairNoArgs,
   },
 };

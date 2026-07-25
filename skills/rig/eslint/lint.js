@@ -96,19 +96,62 @@ export function lintSource(source) {
     }
   }
 
+  for (let index = 0; index <= tokens.length - 3; index += 1) {
+    const [fn, openParen] = tokens.slice(index, index + 2);
+    if (
+      tokens[index - 1]?.value === "."
+      || fn.value !== "repair"
+      || openParen.value !== "("
+    ) {
+      continue;
+    }
+
+    const closeIndex = closingParen(tokens, index + 1);
+    if (closeIndex === undefined) continue;
+    const hasArgs = tokens
+      .slice(index + 2, closeIndex)
+      .some((t) => !/^\s*$/.test(t.value));
+    if (hasArgs) {
+      problems.push({
+        start: openParen.end,
+        end: tokens[closeIndex].start,
+        message: "repair() takes no arguments. Set maxTurns on the agent spec instead.",
+        kind: "repair-no-args",
+      });
+    }
+  }
+
   return problems;
+}
+
+function closingParen(tokens, openingIndex) {
+  let depth = 0;
+  for (let index = openingIndex; index < tokens.length; index += 1) {
+    if (tokens[index].value === "(") depth += 1;
+    if (tokens[index].value === ")") depth -= 1;
+    if (depth === 0) return index;
+  }
+  return undefined;
 }
 
 export function fixSource(source, problems = lintSource(source)) {
   let fixed = source;
-  const edits = problems
-    .flatMap(({ start, end }) => [
-      { index: start, text: "s.object(" },
-      { index: end, text: ")" },
-    ])
-    .sort((left, right) => right.index - left.index);
+  const edits = [];
+  for (const problem of problems) {
+    if (problem.kind === "repair-no-args") {
+      edits.push({ index: problem.start, end: problem.end, text: "" });
+    } else {
+      edits.push({ index: problem.start, text: "s.object(" });
+      edits.push({ index: problem.end, text: ")" });
+    }
+  }
+  edits.sort((left, right) => right.index - left.index);
   for (const edit of edits) {
-    fixed = `${fixed.slice(0, edit.index)}${edit.text}${fixed.slice(edit.index)}`;
+    if (edit.end !== undefined) {
+      fixed = `${fixed.slice(0, edit.index)}${edit.text}${fixed.slice(edit.end)}`;
+    } else {
+      fixed = `${fixed.slice(0, edit.index)}${edit.text}${fixed.slice(edit.index)}`;
+    }
   }
   return fixed;
 }
