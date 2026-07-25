@@ -78,6 +78,7 @@ Descriptions go first for scalar helpers, second after the shape for containers,
 | Known required/optional file | `p.read(path)` / `p.readOptional(path, fallback?)` |
 | Several known files | `p.readAll(paths)` |
 | Single path supplied in an input field | `p.readInput(field)` |
+| Array of paths supplied in an input field | `p.readAllInput(field)` |
 | Workspace discovery | `p.glob(pattern)` |
 | Environment or structured inline data | `p.env(name, fallback?)` / `p.json(value)` |
 | Reference an input field value in prose | `p.inputField(field)` |
@@ -90,7 +91,7 @@ Prefer:
 instructions: p`Review ${p.read("README.md")} against ${p.bash("git status --short")}.`
 ```
 
-Do not replace file intents with `cat` commands or large in-memory strings. `p.readOptional(path, fallback?)` injects the fallback text directly into prompt context when the file is absent. `p.write` does not return a path; `p.writeOutput` requires a matching output-schema field. `p.readAll(paths)` accepts a known path list, not a glob pattern. `p.readInput(field)` reads the file at a **single** path held in the named input field; for an array of paths use a coordinator + subagent pattern (see [Prompt intents](references/prompt-intents.md)). `p.bash` and `p.bashRaw` accept only static strings; to run a command that depends on a caller-supplied value, describe it in the instructions prose and reference `input.<field>` by name — use `p.inputField(field)` to reference a non-path input value explicitly in prose instead of the opaque `${"input.field"}` literal.
+Do not replace file intents with `cat` commands or large in-memory strings. `p.readOptional(path, fallback?)` injects the fallback text directly into prompt context when the file is absent. `p.write` does not return a path; `p.writeOutput` requires a matching output-schema field. `p.readAll(paths)` accepts a known path list, not a glob pattern. `p.readInput(field)` reads the file at a **single** path held in the named input field; `p.readAllInput(field)` reads all files at the paths in an input array field and concatenates their contents — use it instead of prose-based iteration instructions when the input is a `s.array(s.path)` field. `p.bash` and `p.bashRaw` accept only static strings; to run a command that depends on a caller-supplied value, describe it in the instructions prose and reference `input.<field>` by name — use `p.inputField(field)` to reference a non-path input value explicitly in prose instead of the opaque `${"input.field"}` literal.
 
 ## Tools, composition, and reliability
 

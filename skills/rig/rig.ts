@@ -48,6 +48,7 @@
  * p.glob(pattern,opts?) PromptIntent glob file-list declaration (not run in-process)
  * p.readAll(paths,opts?) PromptIntent multi-file read declaration; reads all listed paths and concatenates their contents
  * p.readInput(field,opts?) PromptIntent file read declaration using a runtime input field as the path; reads the file at the single path given by input.<field> [NEW]
+ * p.readAllInput(field,opts?) PromptIntent multi-file read declaration using a runtime input array field; reads all paths in input.<field> and concatenates their contents [NEW]
  * p.env(name,fallback?,opts?) PromptIntent env var read declaration; returns fallback (default "") if not set
  * p.json(value) string JSON.stringify helper for inlining structured values in prompt templates
  * p.inputField(field) string returns "input.<field>" for explicit, documented reference to a caller-supplied input field in prompt prose [NEW]
@@ -657,7 +658,7 @@ export type PromptIntentOptions = {
 export type PromptIntent = {
   __rig: "prompt";
   id: string;
-  mode: "prompt.text" | "prompt.read" | "prompt.write" | "prompt.glob" | "prompt.readOptional" | "prompt.env" | "prompt.writeOutput" | "prompt.readAll" | "prompt.readInput";
+  mode: "prompt.text" | "prompt.read" | "prompt.write" | "prompt.glob" | "prompt.readOptional" | "prompt.env" | "prompt.writeOutput" | "prompt.readAll" | "prompt.readInput" | "prompt.readAllInput";
   command?: string;
   path?: string;
   paths?: string[];
@@ -807,6 +808,23 @@ type PromptHelpers = {
    * });
    */
   readInput(field: string, options?: PromptIntentOptions): PromptIntent;
+  /**
+   * Declarative intent that instructs the LLM to read all files at the paths
+   * provided by the named input field (an array of paths) and concatenate their
+   * contents into a single prompt block.  Use this when a subagent receives an
+   * array of file paths as an input field and needs to read all of them —
+   * `p.readAll(...)` requires a literal array, but `p.readAllInput("field")`
+   * defers path resolution to the value of `input.<field>` at runtime.
+   *
+   * @example
+   * // Subagent that reads all file paths supplied by its caller:
+   * const fileAnnotator = agent({
+   *   input: s.object({ files: s.array(s.path) }),
+   *   instructions: p`Annotate all files: ${p.readAllInput("files")}`,
+   *   output: s.object({ annotations: s.array(s.string) }),
+   * });
+   */
+  readAllInput(field: string, options?: PromptIntentOptions): PromptIntent;
   /**
    * Serializes `value` to a pretty-printed JSON string for inline use inside
    * prompt templates.  Equivalent to `JSON.stringify(value, null, 2)`.
@@ -969,6 +987,9 @@ export const p: PromptHelpers = Object.assign(
     },
     readInput(field: string, options?: PromptIntentOptions): PromptIntent {
       return createPromptIntent("prompt.readInput", withOptions({ field }, options));
+    },
+    readAllInput(field: string, options?: PromptIntentOptions): PromptIntent {
+      return createPromptIntent("prompt.readAllInput", withOptions({ field }, options));
     },
     json(value: unknown): string {
       return json(value);
@@ -1953,6 +1974,8 @@ function renderPromptIntentInstruction(intent: PromptIntent): string {
     }
     case "prompt.readInput":
       return `Read the file at the path provided by input field ${JSON.stringify(intent.field ?? "")} and return its contents as text${promptExecutionContext()}${options}`;
+    case "prompt.readAllInput":
+      return `Read all files at the paths provided by input field ${JSON.stringify(intent.field ?? "")} and concatenate their contents in order${promptExecutionContext()}${options}`;
     default:
       throw new Error(`Unsupported prompt intent mode: ${(intent as { mode?: string }).mode ?? "unknown"}`);
   }

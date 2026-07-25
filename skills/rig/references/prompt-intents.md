@@ -36,6 +36,7 @@ Intent values are also accepted in agent inputs, but prefer template expressions
 | `p.readOptional(path, fallback?)` | Literal path that may be absent; default fallback is `""` and is injected as prompt text |
 | `p.readAll(paths)` | Concatenated contents of several known files (path list only; no glob overload) |
 | `p.readInput(field)` | File contents at the **single** path held in `input.<field>` at runtime |
+| `p.readAllInput(field)` | Concatenated contents of all files at the paths in `input.<field>` (array) at runtime |
 | `p.write(path, content)` | Prompt instruction to write content already known |
 | `p.writeOutput(field, path)` | Post-generation write of an output field |
 | `p.glob(pattern)` | Runtime workspace path discovery |
@@ -54,6 +55,7 @@ p.readOptional("Dockerfile")
 p.readOptional(".eslintrc.json", "{}")
 p.readAll(["src/index.ts", "src/utils.ts"])
 p.readInput("path")
+p.readAllInput("files")               // reads all files at the paths in input.files (array)
 p.write("README.md", "# Hello\n")
 p.writeOutput("report", "todo-report.md")
 p.glob("src/**/*.ts")
@@ -129,7 +131,7 @@ const fileAnalyzer = agent({
 export default fileAnalyzer;
 ```
 
-`p.readInput(field)` reads the file at the **single** path held in the named input field.  It cannot accept an array field.  For an array of caller-supplied paths, use the coordinator + subagent pattern described in "Runtime lists of file paths" below.
+`p.readInput(field)` reads the file at the **single** path held in the named input field.  It cannot accept an array field.  For an array of caller-supplied paths, use `p.readAllInput(field)` described in "Runtime lists of file paths" below.
 
 The argument is the input field name, not the path itself. Passing full contents remains reasonable for small payloads; pass a path for larger files to reduce prompt size.
 
@@ -155,7 +157,23 @@ export default configMerger;
 
 ## Runtime lists of file paths
 
-When input contains an array of paths, there is no `p.readInputAll(...)` helper. Use a coordinator + subagent pattern: let the coordinator iterate and delegate one file at a time to a subagent that uses `p.readInput("path")`. Likewise, there is no `p.readAll(globPattern)` helper: use `p.glob(...)` for discovery, then delegate per path.
+When input contains an array of paths, use `p.readAllInput(field)` to read all files and concatenate their contents into a single prompt block.  This is the preferred pattern for multi-file inputs — it eliminates the need for prose-based iteration instructions.
+
+```ts
+import { agent, p, s } from "rig";
+
+// Agent role: annotate all caller-supplied source files with JSDoc comments.
+const fileAnnotator = agent({
+  model: "mini",
+  input: s.object({ files: s.array(s.path) }),
+  instructions: p`Add JSDoc comments to each of the following files: ${p.readAllInput("files")}`,
+  output: s.object({ annotations: s.array(s.string) }),
+});
+
+export default fileAnnotator;
+```
+
+When you need to process each file independently (e.g., call a subagent per file), use a coordinator + subagent pattern instead: let the coordinator iterate and delegate one file at a time to a subagent that uses `p.readInput("path")`.
 
 ```ts
 import { agent, p, s } from "rig";
@@ -179,6 +197,8 @@ const analyzeAll = agent({
 
 export default analyzeAll;
 ```
+
+Likewise, there is no `p.readAll(globPattern)` helper: use `p.glob(...)` for discovery, then delegate per path.
 
 ## Dynamic shell commands
 
