@@ -1603,11 +1603,12 @@ describe("s.nonEmptyObject", () => {
     expect(result.ok).toBe(true);
   });
 
-  it("rejects empty objects", () => {
+  it("rejects empty objects with 'empty object' in the message", () => {
     const result = analyzeResponse(JSON.stringify({}), s.nonEmptyObject(s.string), "test", 1);
     expect(result.ok).toBe(false);
     if (!result.ok) {
       expect(result.error.message).toContain("at least 1 key");
+      expect(result.error.message).toContain("empty object");
     }
   });
 
@@ -1616,6 +1617,18 @@ describe("s.nonEmptyObject", () => {
     expect(result.ok).toBe(false);
     if (!result.ok) {
       expect(result.error.message).toContain("string");
+    }
+  });
+
+  it("includes actual key count in error message for non-empty objects below minProperties", () => {
+    // Simulate a record with minProperties: 3 by constructing the schema directly
+    const schema = s.record(s.string);
+    const schemaWith3 = { ...schema, minProperties: 3 } as typeof schema;
+    const result = analyzeResponse(JSON.stringify({ a: "x", b: "y" }), schemaWith3, "test", 1);
+    expect(result.ok).toBe(false);
+    if (!result.ok) {
+      expect(result.error.message).toContain("at least 3 key(s)");
+      expect(result.error.message).toContain("object with 2 key(s)");
     }
   });
 
