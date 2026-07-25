@@ -75,8 +75,11 @@ beforeEach(() => {
   mocks.codexRun.mockClear();
   mocks.codexStartThread.mockClear();
   delete process.env["COPILOT_SDK_URI"];
+  delete process.env["RIG_ENGINE"];
   delete process.env["ANTHROPIC_API_KEY"];
   delete process.env["OPENAI_API_KEY"];
+  delete process.env["GEMINI_API_KEY"];
+  delete process.env["GOOGLE_API_KEY"];
 });
 
 it("uses the launcher cwd when mounting the default copilot engine", async () => {
@@ -122,6 +125,33 @@ it("uses COPILOT_SDK_URI when mounting the default copilot engine", async () => 
     );
   } finally {
     delete process.env["COPILOT_SDK_URI"];
+    mocks.forUri.mockImplementation(mocks.defaultForUri);
+  }
+});
+
+it("prefers COPILOT_SDK_URI over RIG_ENGINE when mounting the default engine", async () => {
+  const sendAndWait = vi.fn().mockResolvedValue(JSON.stringify("copilot-preferred"));
+  mocks.createSession.mockResolvedValue({ sendAndWait });
+  process.env["COPILOT_SDK_URI"] = "http://127.0.0.1:4242";
+  process.env["RIG_ENGINE"] = "anthropic";
+  process.env["ANTHROPIC_API_KEY"] = "test-key";
+  mocks.forUri.mockImplementation(((url: string) => ({ kind: "uri", url })) as any);
+
+  const fixturePath = resolve(dirname(fileURLToPath(import.meta.url)), "./launcher.fixture.ts");
+
+  try {
+    await launchRigProgram(fixturePath);
+
+    const call = agent({
+      name: "launcher-default-engine-copilot-preferred-test",
+      input: s.object({}),
+    });
+    const result = await call({});
+    expect(result).toBe("copilot-preferred");
+    expect(mocks.forUri).toHaveBeenCalledWith("http://127.0.0.1:4242");
+    expect(mocks.copilotClientCtor).toHaveBeenCalled();
+    expect(mocks.anthropicConstructor).not.toHaveBeenCalled();
+  } finally {
     mocks.forUri.mockImplementation(mocks.defaultForUri);
   }
 });

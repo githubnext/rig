@@ -296,7 +296,7 @@ configureAgent(codexEngine());
 configureAgent(geminiEngine());
 ```
 
-If you do not call `configureAgent(...)`, Rig now auto-selects a default engine from environment variables: `ANTHROPIC_API_KEY` → `anthropicEngine()`, `OPENAI_API_KEY` → `codexEngine()`, `GEMINI_API_KEY`/`GOOGLE_API_KEY` → `geminiEngine()`, otherwise `copilotEngine()`. Set `RIG_ENGINE` to `copilot`, `anthropic`, `codex`, or `gemini` to force one explicitly.
+If you do not call `configureAgent(...)`, Rig now auto-selects a default engine from environment variables: `COPILOT_SDK_URI` → `copilotEngine()`, then `RIG_ENGINE` (`copilot` | `anthropic` | `codex` | `gemini`) if set, then `ANTHROPIC_API_KEY` → `anthropicEngine()`, `OPENAI_API_KEY` → `codexEngine()`, `GEMINI_API_KEY`/`GOOGLE_API_KEY` → `geminiEngine()`, otherwise `copilotEngine()`.
 
 `piEngine()` uses the maintained `@earendil-works/pi-agent-core` package and requires the provider for model lookup. `anthropicEngine()` uses `@anthropic-ai/sdk`. Both adapters preserve conversation state across repair turns and map Rig tools to their SDK tool runners.
 

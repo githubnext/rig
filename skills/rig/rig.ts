@@ -457,12 +457,12 @@ function resolveDefaultEngineKind(options: DefaultEngineOptions = {}): DefaultEn
   if (options.startServer) {
     return "copilot";
   }
+  if (hasNonEmptyEnv("COPILOT_SDK_URI")) {
+    return "copilot";
+  }
   const configuredEngine = process.env["RIG_ENGINE"]?.trim().toLowerCase();
   if (configuredEngine === "copilot" || configuredEngine === "anthropic" || configuredEngine === "codex" || configuredEngine === "gemini") {
     return configuredEngine;
-  }
-  if (hasNonEmptyEnv("COPILOT_SDK_URI")) {
-    return "copilot";
   }
   if (hasNonEmptyEnv("ANTHROPIC_API_KEY")) {
     return "anthropic";
