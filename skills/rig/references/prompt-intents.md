@@ -32,13 +32,15 @@ Intent values are also accepted in agent inputs, but prefer template expressions
 |--------|-----|
 | `p.bash(command)` | Shell command written as a normal TypeScript string |
 | ``p.bashRaw`command` `` | Verbatim shell command with no TypeScript backslash escaping |
+| `p.bashEach(template, inputArrayField)` | Run `template` once per element in `input.<field>`, substituting `{}` with each element |
 | `p.read(path)` | Required file at a literal path |
 | `p.readOptional(path, fallback?)` | Literal path that may be absent; default fallback is `""` and is injected as prompt text |
 | `p.readAll(paths)` | Concatenated contents of several known files (path list only; no glob overload) |
 | `p.readInput(field)` | File contents at the **single** path held in `input.<field>` at runtime |
 | `p.readAllInput(field)` | Concatenated contents of all files at the paths in `input.<field>` (array) at runtime |
 | `p.write(path, content)` | Prompt instruction to write content already known |
-| `p.writeOutput(field, path)` | Post-generation write of an output field |
+| `p.writeOutput(field, path)` | Post-generation write of an output field to a **static** path |
+| `p.writeInput(inputPathField, contentOutputField)` | Post-generation write of an output field to a **dynamic** path from an input field |
 | `p.glob(pattern)` | Runtime workspace path discovery |
 | `p.env(name, fallback?)` | Environment variable; default fallback is `""` |
 | `p.json(value)` | Immediate pretty-printed JSON for inline structured context |
@@ -50,6 +52,7 @@ Examples:
 p.bash("git diff -- .")
 p.bash("npm test")
 p.bashRaw`grep -rn 'app\.get\|app\.post' src/`
+p.bashEach("curl -s -o /dev/null -w '%{http_code}' {} --max-time 5", "endpoints")
 p.read("README.md")
 p.readOptional("Dockerfile")
 p.readOptional(".eslintrc.json", "{}")
@@ -58,6 +61,7 @@ p.readInput("path")
 p.readAllInput("files")               // reads all files at the paths in input.files (array)
 p.write("README.md", "# Hello\n")
 p.writeOutput("report", "todo-report.md")
+p.writeInput("outputPath", "rendered")  // writes output field "rendered" to path in input.outputPath
 p.glob("src/**/*.ts")
 p.env("GITHUB_TOKEN")
 p.env("GITHUB_TOKEN", "unset")
@@ -83,17 +87,18 @@ Do not:
 - shell out through `cat` when `p.read` or `p.readAll` expresses the intent
 - construct large in-memory strings when the context already lives in files
 
-## `p.write` versus `p.writeOutput`
+## `p.write`, `p.writeOutput`, and `p.writeInput`
 
 | Situation | Use |
 |-----------|-----|
 | Content is known while building the prompt | `p.write(path, content)` |
-| Content is generated into an output field | `p.writeOutput(field, path)` |
-| TypeScript needs the written path as a value | Use the literal path; neither helper returns it |
+| Content is generated into an output field; path is static | `p.writeOutput(field, path)` |
+| Content is generated into an output field; path comes from an input field | `p.writeInput(inputPathField, contentOutputField)` |
+| TypeScript needs the written path as a value | Use the literal path; no helper returns it |
 
 `p.write` is an instruction embedded in the prompt. It does not return the path, contents, or subsequently written file. Use a separate `p.read(path)` expression if later prompt context must read that file.
 
-`p.writeOutput` runs after valid structured output is produced. Its field must exist in the output schema:
+`p.writeOutput` runs after valid structured output is produced. Its field must exist in the output schema. The `path` argument is a **static string** fixed at definition time:
 
 ```ts
 import { agent, p, s } from "rig";
@@ -109,6 +114,22 @@ export default report;
 ```
 
 Do not rely on `p.writeOutput` to create an output field.
+
+`p.writeInput` is like `p.writeOutput` but accepts a **dynamic destination path** from a caller-supplied input field.  Use it when the path to write to is not known at definition time:
+
+```ts
+import { agent, p, s } from "rig";
+
+// Agent role: render a changelog and write it to the caller-supplied path.
+const renderer = agent({
+  model: "mini",
+  input: s.object({ outputPath: s.path }),
+  instructions: p`Generate a changelog entry. ${p.writeInput("outputPath", "rendered")}`,
+  output: s.object({ rendered: s.string }),
+});
+
+export default renderer;
+```
 
 ## Dynamic path reads
 
@@ -220,6 +241,24 @@ export default diffAnalyzer;
 ```
 
 Do not use `p.bash("git diff " + input.base)` — `input` is not in scope at definition time. The correct pattern is prose instructions that reference `input.<field>` by name.
+
+When the **same command must run once per element** in a caller-supplied array, use `p.bashEach(template, inputArrayField)`.  Write `{}` in the template as the element placeholder:
+
+```ts
+import { agent, p, s } from "rig";
+
+// Agent role: probe each caller-supplied URL and report its HTTP status.
+const healthProbe = agent({
+  model: "mini",
+  input: s.object({ endpoints: s.array(s.url) }),
+  instructions: p`${p.bashEach("curl -s -o /dev/null -w '%{http_code}' {} --max-time 5", "endpoints")}`,
+  output: s.object({ results: s.array(s.object({ url: s.url, status: s.string })) }),
+});
+
+export default healthProbe;
+```
+
+`p.bashEach` is the correct choice when every element receives the same command template.  For commands that depend on multiple input fields or require branching logic, describe the full iteration strategy in prose instead.
 
 ## Failures
 

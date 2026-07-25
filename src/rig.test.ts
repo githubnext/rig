@@ -1027,6 +1027,40 @@ describe("prompt intents", () => {
     expect(intent.field).toBe("sources");
     expect(intent.options).toEqual({ cwd: "/workspace" });
   });
+
+  it("p.bashEach stores template and input array field with mode prompt.bashEach", () => {
+    const intent = p.bashEach("curl -s -o /dev/null -w '%{http_code}' {} --max-time 5", "endpoints");
+
+    expect(intent.mode).toBe("prompt.bashEach");
+    expect(intent.command).toBe("curl -s -o /dev/null -w '%{http_code}' {} --max-time 5");
+    expect(intent.field).toBe("endpoints");
+  });
+
+  it("p.bashEach supports options", () => {
+    const intent = p.bashEach("ping -c 1 {}", "hosts", { cwd: "/workspace" });
+
+    expect(intent.mode).toBe("prompt.bashEach");
+    expect(intent.command).toBe("ping -c 1 {}");
+    expect(intent.field).toBe("hosts");
+    expect(intent.options).toEqual({ cwd: "/workspace" });
+  });
+
+  it("p.writeInput stores inputPathField and contentOutputField with mode prompt.writeInput", () => {
+    const intent = p.writeInput("outputPath", "rendered");
+
+    expect(intent.mode).toBe("prompt.writeInput");
+    expect(intent.pathField).toBe("outputPath");
+    expect(intent.field).toBe("rendered");
+  });
+
+  it("p.writeInput supports options", () => {
+    const intent = p.writeInput("destPath", "content", { cwd: "/workspace" });
+
+    expect(intent.mode).toBe("prompt.writeInput");
+    expect(intent.pathField).toBe("destPath");
+    expect(intent.field).toBe("content");
+    expect(intent.options).toEqual({ cwd: "/workspace" });
+  });
 });
 
 describe("prompt builder", () => {

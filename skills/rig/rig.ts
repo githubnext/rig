@@ -19,7 +19,7 @@
  * T:AgentError class error carrying turn,agentName,rawOutput,parseError fields
  * T:Tool<TArgs> type ToolConfig+name; created by defineTool
  * T:ToolConfig<TArgs> type {description,parameters,handler}
- * T:PromptIntent type declarative placeholder {kind:'bash'|'read'|'readAll'|'write'|'writeOutput'|'glob'|'env',…} resolved into prompt text
+ * T:PromptIntent type declarative placeholder {kind:'bash'|'bashEach'|'read'|'readAll'|'write'|'writeOutput'|'writeInput'|'glob'|'env',…} resolved into prompt text
  * T:PromptBuilder class template-tag result; composes intents+strings into a prompt fragment
  * T:PromptHelpers type shape of exported p object
  * T:PromptVariable<T> type {__rig:'prompt.var';name:string;value:T} named prompt variable [NEW]
@@ -45,10 +45,12 @@
  * p.readOptional(path,fallback?,opts?) PromptIntent file read declaration; returns fallback (default "") if file absent
  * p.write(path,content,opts?) PromptIntent file write declaration; does NOT expand to path in template — hard-code path in output schema
  * p.writeOutput(field,path,opts?) PromptIntent post-generation write declaration; writes output field value to path
+ * p.writeInput(inputPathField,contentOutputField,opts?) PromptIntent post-generation write declaration; writes output field value to the path given by input.<inputPathField> [NEW]
  * p.glob(pattern,opts?) PromptIntent glob file-list declaration (not run in-process)
  * p.readAll(paths,opts?) PromptIntent multi-file read declaration; reads all listed paths and concatenates their contents
  * p.readInput(field,opts?) PromptIntent file read declaration using a runtime input field as the path; reads the file at the single path given by input.<field> [NEW]
  * p.readAllInput(field,opts?) PromptIntent multi-file read declaration using a runtime input array field; reads all paths in input.<field> and concatenates their contents [NEW]
+ * p.bashEach(template,inputArrayField,opts?) PromptIntent bash-per-element declaration; runs template once per element in input.<inputArrayField>, substituting {} with each element [NEW]
  * p.env(name,fallback?,opts?) PromptIntent env var read declaration; returns fallback (default "") if not set
  * p.json(value) string JSON.stringify helper for inlining structured values in prompt templates
  * p.inputField(field) string returns "input.<field>" for explicit, documented reference to a caller-supplied input field in prompt prose [NEW]
@@ -658,9 +660,10 @@ export type PromptIntentOptions = {
 export type PromptIntent = {
   __rig: "prompt";
   id: string;
-  mode: "prompt.text" | "prompt.read" | "prompt.write" | "prompt.glob" | "prompt.readOptional" | "prompt.env" | "prompt.writeOutput" | "prompt.readAll" | "prompt.readInput" | "prompt.readAllInput";
+  mode: "prompt.text" | "prompt.read" | "prompt.write" | "prompt.glob" | "prompt.readOptional" | "prompt.env" | "prompt.writeOutput" | "prompt.writeInput" | "prompt.readAll" | "prompt.readInput" | "prompt.readAllInput" | "prompt.bashEach";
   command?: string;
   path?: string;
+  pathField?: string;
   paths?: string[];
   contents?: string;
   pattern?: string;
@@ -826,6 +829,42 @@ type PromptHelpers = {
    */
   readAllInput(field: string, options?: PromptIntentOptions): PromptIntent;
   /**
+   * Declarative intent that instructs the LLM to run `template` once per
+   * element in the array at input field `inputArrayField`, substituting `{}`
+   * with each element, and to collect all results.  Neither the template nor
+   * the iteration is executed in-process; the harness expands this into a
+   * natural-language instruction resolved by the Copilot runtime.
+   *
+   * Use this when a uniform shell command must be run for every element in a
+   * caller-supplied string array — for example, probing each URL in a list.
+   * Use `{}` as the element placeholder inside the template string.
+   *
+   * @example
+   * // Run curl once per URL in input.endpoints:
+   * const healthProbe = agent({
+   *   input: s.object({ endpoints: s.array(s.url) }),
+   *   instructions: p`Probe each endpoint: ${p.bashEach("curl -s -o /dev/null -w '%{http_code}' {} --max-time 5", "endpoints")}`,
+   *   output: s.object({ results: s.array(s.object({ url: s.url, status: s.string })) }),
+   * });
+   */
+  bashEach(template: string, inputArrayField: string, options?: PromptIntentOptions): PromptIntent;
+  /**
+   * Declarative intent that instructs the LLM to write the value of output
+   * field `contentOutputField` to the file at the path provided by input field
+   * `inputPathField` after generating the response.  Use this instead of
+   * `p.writeOutput(field, path)` when the destination path is caller-supplied
+   * rather than a static string known at definition time.
+   *
+   * @example
+   * // Write the generated report to the path supplied by the caller:
+   * const renderer = agent({
+   *   input: s.object({ outputPath: s.path }),
+   *   instructions: p`Render the changelog. ${p.writeInput("outputPath", "rendered")}`,
+   *   output: s.object({ rendered: s.string }),
+   * });
+   */
+  writeInput(inputPathField: string, contentOutputField: string, options?: PromptIntentOptions): PromptIntent;
+  /**
    * Serializes `value` to a pretty-printed JSON string for inline use inside
    * prompt templates.  Equivalent to `JSON.stringify(value, null, 2)`.
    *
@@ -990,6 +1029,12 @@ export const p: PromptHelpers = Object.assign(
     },
     readAllInput(field: string, options?: PromptIntentOptions): PromptIntent {
       return createPromptIntent("prompt.readAllInput", withOptions({ field }, options));
+    },
+    bashEach(template: string, inputArrayField: string, options?: PromptIntentOptions): PromptIntent {
+      return createPromptIntent("prompt.bashEach", withOptions({ command: template, field: inputArrayField }, options));
+    },
+    writeInput(inputPathField: string, contentOutputField: string, options?: PromptIntentOptions): PromptIntent {
+      return createPromptIntent("prompt.writeInput", withOptions({ pathField: inputPathField, field: contentOutputField }, options));
     },
     json(value: unknown): string {
       return json(value);
@@ -1976,6 +2021,10 @@ function renderPromptIntentInstruction(intent: PromptIntent): string {
       return `Read the file at the path provided by input field ${JSON.stringify(intent.field ?? "")} and return its contents as text${promptExecutionContext()}${options}`;
     case "prompt.readAllInput":
       return `Read all files at the paths provided by input field ${JSON.stringify(intent.field ?? "")} and concatenate their contents in order${promptExecutionContext()}${options}`;
+    case "prompt.bashEach":
+      return `For each element in the array at input field ${JSON.stringify(intent.field ?? "")}, run the command ${JSON.stringify(intent.command ?? "")} with {} replaced by the element, and collect all results${promptExecutionContext()}${options}`;
+    case "prompt.writeInput":
+      return `After generating the response, write the value of output field ${JSON.stringify(intent.field ?? "")} to the file at the path provided by input field ${JSON.stringify(intent.pathField ?? "")}${promptExecutionContext()}${options}`;
     default:
       throw new Error(`Unsupported prompt intent mode: ${(intent as { mode?: string }).mode ?? "unknown"}`);
   }
