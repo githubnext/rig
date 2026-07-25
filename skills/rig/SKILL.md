@@ -45,12 +45,12 @@ export default reviewDiff;
 
 ## Put settings in the right place
 
-| Concern | Location |
-|---------|----------|
-| `name`, `instructions`, `input`, `output`, tools, stable `model`/`maxTurns` | `agent({ ... })` |
-| Per-run `model`, `maxTurns`, `timeout`, `signal` | `myAgent(input, { ... })` |
-| Stable addons | `addons` in the spec |
-| Additional addons | `agent.use(addon)` |
+| Concern | Location | Addon args |
+|---------|----------|------------|
+| `name`, `instructions`, `input`, `output`, tools, stable `model`/`maxTurns` | `agent({ ... })` | n/a |
+| Per-run `model`, `maxTurns`, `timeout`, `signal` | `myAgent(input, { ... })` | n/a |
+| Stable addons | `addons` in the spec | `steering({ message? })`, `timeout({ timeout })`, `repair()` (no args) |
+| Additional addons | `agent.use(addon)` | Same signatures as spec addons |
 
 Defaults are model `small`, `maxTurns: 4`, no addons, and name `"agent"`. `agent.use()` accepts only addons.
 
@@ -105,7 +105,7 @@ For `p.readOptional` fallbacks, pass a value the model can parse in context (for
 
 ## Tools, composition, and reliability
 
-- Define tools with `defineTool(name, { description, parameters: s.object(...), handler })`; schema-based handler arguments are inferred and tools default to `skipPermission: true`. `s.unknown` is valid in tool parameters when the tool needs to compare or echo arbitrary JSON-like values, for example `parameters: s.object({ currentValue: s.unknown, recommendedValue: s.unknown })`. Handlers can be sync or async and return a string or any JSON-serializable value; async handlers may import Node built-ins with `await import("node:child_process")`. Destructure only handler fields you use. Use `defineTool` for external operations and deterministic transforms that support reasoning — not to replace the core classification or judgment step with in-process TypeScript logic.
+- Define tools with `defineTool(name, { description, parameters: s.object(...), handler })`; schema-based handler arguments are inferred and tools default to `skipPermission: true`. `s.unknown` is valid in tool parameters when the tool needs to compare or echo arbitrary JSON-like values, for example `parameters: s.object({ currentValue: s.unknown, recommendedValue: s.unknown })`. Handlers can be sync or async and return a string or any JSON-serializable value; return plain JS values (do not `JSON.stringify`) because Rig serializes non-string results automatically. Async handlers may import Node built-ins with `await import("node:child_process")`. Destructure only handler fields you use. Use `defineTool` for external operations and deterministic transforms that support reasoning — not to replace the core classification or judgment step with in-process TypeScript logic.
 - `agents` must be a named object — `agents: { extractor }` — never an array (`agents: [extractor]` is a type error). Attach every declared subagent to the exported root's graph.
 - There is no chain or loop primitive; give the coordinator explicit delegation instructions and require one combined output.
 - Automatic parse/schema repair requires `repair()` from `rig/addons`; `repair()` takes no arguments — do not pass `maxTurns` to it. Write `maxTurns: 3, addons: repair()`, not `addons: repair({ maxTurns: 3 })`.
