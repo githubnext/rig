@@ -1,7 +1,9 @@
 # 140 - File Summarizer
 
 ```rig
-import { agent, p, s } from "rig";
+import { agent, configureAgent, copilotEngine, p, s } from "rig";
+
+configureAgent(copilotEngine());
 
 const FileSummary = s.object({ path: s.path, summary: s.string });
 
