@@ -32,12 +32,7 @@ safe-outputs:
 
 ## Task
 
-Install dependencies, run the rig program below, and post a `create-issue` safe output
-with the results.
-
-```bash
-npm install 2>&1
-```
+Run this rig
 
 ```rig
 import { agent, configureAgent, copilotEngine, p, s } from "rig";
