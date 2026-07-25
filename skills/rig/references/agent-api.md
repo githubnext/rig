@@ -157,6 +157,7 @@ Async handlers can import Node built-ins directly:
 ```ts
 import { defineTool, s } from "rig";
 
+// Using node:child_process
 const countLines = defineTool("count_lines", {
   description: "Count file lines with wc.",
   parameters: s.object({ path: s.path }),
@@ -164,6 +165,17 @@ const countLines = defineTool("count_lines", {
     const { execSync } = await import("node:child_process");
     const output = execSync(`wc -l ${JSON.stringify(path)}`, { encoding: "utf8" });
     return { lineCount: Number(output.trim().split(/\s+/)[0] ?? "0") };
+  },
+});
+
+// Using node:fs/promises
+const readFileSize = defineTool("read_file_size", {
+  description: "Return the byte size of a file.",
+  parameters: s.object({ path: s.path }),
+  handler: async ({ path }) => {
+    const { stat } = await import("node:fs/promises");
+    const info = await stat(path);
+    return { bytes: info.size };
   },
 });
 ```

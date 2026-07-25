@@ -99,9 +99,28 @@ Do not:
 
 `p.write` is an instruction embedded in the prompt. It does not return the path, contents, or subsequently written file. Use a separate `p.read(path)` expression if later prompt context must read that file.
 
-`p.writeOutput` runs after valid structured output is produced. Its field must exist in the output schema. The `path` argument is a **static string** fixed at definition time:
+`p.writeOutput` runs after valid structured output is produced. Its field must exist in the output schema. The `path` argument is a **static string** fixed at definition time.
+
+Side-by-side comparison:
 
 ```ts
+// p.write — content is known at build time (e.g., a template or config)
+import { agent, p, s } from "rig";
+const draft = "# Changelog\n\n- Initial release";
+
+// Agent role: verify a pre-written changelog.
+const verify = agent({
+  model: "mini",
+  instructions: p`Write this content to CHANGELOG.md: ${p.write("CHANGELOG.md", draft)}
+    Then confirm the file was written.`,
+  output: s.object({ confirmed: s.boolean }),
+});
+
+export default verify;
+```
+
+```ts
+// p.writeOutput — content is LLM-generated; write it to a static path after generation
 import { agent, p, s } from "rig";
 
 // Agent role: generate and persist a concise report.
@@ -266,3 +285,13 @@ export default healthProbe;
 Shell and dynamic-read intents are instructions to the runtime/model. If a command exits non-zero or a dynamic file cannot be read, the resulting stderr or error message enters prompt context so the model can surface or recover from it.
 
 Use `p.readOptional` for a literal path that may be absent; its fallback is inserted into prompt context as provided. Choose a fallback the model can parse in context (for example, `"{}"` for JSON). For a dynamic path, tell the agent how to handle a missing file.
+
+When a shell command may exit non-zero in expected cases, append a `||` fallback so prompt context always receives a usable value:
+
+```ts
+p.bash("madge --circular . 2>&1 || echo '[]'")
+p.bash("git diff HEAD~1 -- . 2>&1 || echo 'no diff'")
+p.bash("cat package-lock.json 2>/dev/null || echo '{}'")
+```
+
+Choose a fallback that the model can parse in context — `'[]'` for a missing list, `'no diff'` for an absent diff, `'{}'` for missing JSON. This is preferable to letting a non-zero exit code surface raw stderr as the only context.
