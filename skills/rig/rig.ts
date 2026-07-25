@@ -887,7 +887,34 @@ type PromptHelpers = {
    * instructions: p`Merge the JSON config files listed in ${p.inputField("files")}.`
    */
   inputField(field: string): string;
+  /**
+   * Creates a named prompt variable binding.  The variable's value is
+   * rendered into the prompt at the interpolation site, and the `name` is
+   * stored in `PromptBuilder.vars` for later retrieval with `.get(name)`.
+   *
+   * Useful when you want to pass a computed value into a template and also
+   * access it by name from an addon or post-processing step.
+   *
+   * @example
+   * const builder = p`Summarize: ${p.var("content", p.read("README.md"))}`;
+   * // builder.get("content") returns the PromptIntent for README.md
+   */
   var<T>(name: string, value: T): PromptVariable<T>;
+  /**
+   * Wraps `body` in a fenced Markdown code block for `language`.  If `body`
+   * is a `PromptIntent` or `PromptBuilder`, it is rendered to text first.
+   *
+   * Use this to present source code, shell output, or structured data to the
+   * model in a clearly delimited block that highlights the language.
+   *
+   * @example
+   * instructions: p`Review this TypeScript: ${p.region("typescript", p.read("src/index.ts"))}`
+   * // expands to:
+   * // Review this TypeScript:
+   * // ```typescript
+   * // <file contents>
+   * // ```
+   */
   region(language: string, body: unknown): string;
 };
 
