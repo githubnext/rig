@@ -68,6 +68,7 @@ Defaults are model `small`, `maxTurns: 4`, no addons, and name `"agent"`. `agent
 Descriptions go first for scalar helpers, second after the shape for containers, and last for enums/literals. Schemas serialize directly as JSON Schema; do not invent alternate schema syntax.
 
 Use `s.int`/`s.integer` for integer-valued fields (counts, indices, line numbers); `s.number` for floats or measured values. Use `s.path` for file-system paths — especially input fields read with `p.readInput` — rather than `s.string`.
+Use `s.optional(shape)` when a field may be omitted and `s.nullable(shape)` when the field should be present but can be `null`. Use `s.record(value)` for string-keyed maps such as `s.record(s.number)` for per-file or per-symbol counters.
 
 ## Choose prompt intents by data source
 
@@ -96,6 +97,7 @@ instructions: p`Review ${p.read("README.md")} against ${p.bash("git status --sho
 ```
 
 Do not replace file intents with `cat` commands or large in-memory strings. `p.readOptional(path, fallback?)` injects the fallback text directly into prompt context when the file is absent — for example, `p.readOptional(".nvmrc", "20")` injects `"20"` when the file is missing. `p.write` does not return a path; `p.writeOutput(field, path)` writes the named output field to a static path after generation — the first argument must exactly match an output schema field name (e.g., `p.writeOutput("report", "out.md")` paired with `output: s.object({ report: s.string })`); `p.writeInput(inputPathField, contentOutputField)` is the alternative when the destination path comes from an input field. `p.readAll(paths)` accepts a known path list, not a glob pattern. `p.readInput(field)` reads the file at a **single** path held in the named input field; `p.readAllInput(field)` reads all files at the paths in an input array field and concatenates their contents — use it instead of prose-based iteration instructions when the input is a `s.array(s.path)` field. `p.bash` and `p.bashRaw` accept only static strings; when the **same command must run once per element** in a caller-supplied array, use `p.bashEach(template, field)` with `{}` as the element placeholder; for commands that depend on multiple fields or require branching, describe the iteration in prose and reference `input.<field>` by name — use `p.inputField(field)` to reference a non-path input value explicitly in prose instead of the opaque `${"input.field"}` literal.
+For `p.readOptional` fallbacks, pass a value the model can parse in context (for example `"{}"` when downstream instructions expect JSON). Multiple shell intents can be composed in one template expression, such as `p\`Check ${p.bash("node -v")} and ${p.bash("npm -v")}.\``.
 
 ## Tools, composition, and reliability
 
@@ -103,7 +105,7 @@ Do not replace file intents with `cat` commands or large in-memory strings. `p.r
 - `agents` must be a named object — `agents: { extractor }` — never an array (`agents: [extractor]` is a type error). Attach every declared subagent to the exported root's graph.
 - There is no chain or loop primitive; give the coordinator explicit delegation instructions and require one combined output.
 - Automatic parse/schema repair requires `repair()` from `rig/addons`; `repair()` takes no arguments — do not pass `maxTurns` to it. Set `maxTurns` on the agent spec instead; it covers the initial attempt plus all retries.
-- `addons` accepts a single addon or an array; prefer the array form when combining. Use `steering()` (default warning) or `steering({ message: "..." })` (custom text) before `repair()` to append a last-chance instruction on the final retry: `addons: [steering(), repair()]`. `oncePerAgent(callback)` invokes the callback once per runtime agent instance — its internal `WeakSet` already deduplicates, so no external tracking is needed.
+- `addons` accepts a single addon or an array. Use `addons: repair()` for one addon, and `addons: [steering(), repair()]` when combining. `steering()` (default warning) or `steering({ message: "..." })` (custom text) should run before `repair()` to append a last-chance instruction on the final retry. `oncePerAgent(callback)` invokes the callback once per runtime agent instance — its internal `WeakSet` already deduplicates, so no external tracking is needed.
 
 ## Runnable markdown
 

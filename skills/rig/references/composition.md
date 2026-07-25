@@ -33,6 +33,13 @@ export default reviewer;
 
 Every declared agent must remain reachable from the exported root. A detached `const extractor = agent(...)` is both unavailable to the harness and likely to trigger TS6133 as an unused variable.
 
+```ts
+// wrong: agents must be an object, not an array
+const invalid = agent({
+  agents: [summarizeDiff],
+});
+```
+
 ## Sequential composition
 
 There is no built-in chain primitive. Attach the upstream agent to the downstream root and describe the sequence:
@@ -55,6 +62,37 @@ const assessor = agent({
 });
 
 export default assessor;
+```
+
+Two-phase coordinator patterns can pass structured output from one subagent into the next:
+
+```ts
+import { agent, p, s } from "rig";
+
+// Agent role: extract per-function line counts.
+const extractor = agent({
+  model: "nano",
+  instructions: p`Run ${p.bash("rg -n '^function|^const .*=>|^export function' src --glob '*.ts'")} and return per-function line counts.`,
+  output: s.record(s.number),
+});
+
+// Agent role: classify complexity from extracted counts.
+const reviewer = agent({
+  model: "nano",
+  input: s.object({ counts: s.record(s.number) }),
+  instructions: "Rate each function in input.counts as simple, moderate, complex, or critical.",
+  output: s.record(s.enum("simple", "moderate", "complex", "critical")),
+});
+
+// Agent role: orchestrate extraction then review.
+const coordinator = agent({
+  model: "mini",
+  agents: { extractor, reviewer },
+  instructions: "Call extractor first, then call reviewer with { counts: extractor output }, and return the review result.",
+  output: s.record(s.enum("simple", "moderate", "complex", "critical")),
+});
+
+export default coordinator;
 ```
 
 ## Coordinator over a dynamic list
