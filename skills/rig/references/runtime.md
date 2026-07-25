@@ -85,6 +85,13 @@ configureAgent(codexEngine());
 configureAgent(geminiEngine());
 ```
 
+- If you do not call `configureAgent(...)`, Rig auto-selects an engine from env vars:
+  - `COPILOT_SDK_URI` → `copilotEngine()`
+  - `RIG_ENGINE` (`copilot` | `anthropic` | `codex` | `gemini`) to force a specific default when Copilot URI is not set.
+  - `ANTHROPIC_API_KEY` → `anthropicEngine()`
+  - `OPENAI_API_KEY` → `codexEngine()`
+  - `GEMINI_API_KEY` or `GOOGLE_API_KEY` → `geminiEngine()`
+  - otherwise → `copilotEngine()`
 - `copilotEngine()` uses the Copilot SDK HTTP transport by default; launcher `--server` selects stdio.
 - `piEngine({ provider })` uses `@earendil-works/pi-agent-core` and requires a provider for model lookup.
 - `anthropicEngine()` uses `@anthropic-ai/sdk` and reads `ANTHROPIC_API_KEY`.
