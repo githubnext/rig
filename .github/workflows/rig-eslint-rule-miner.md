@@ -28,7 +28,7 @@ safe-outputs:
     draft: true
     reviewers: [copilot]
     max-patch-size: 256
-    max-patch-files: 4
+    max-patch-files: 100
     allowed-files:
       - "skills/rig/eslint/rules/*.js"
       - "skills/rig/eslint/index.js"
