@@ -1885,7 +1885,8 @@ function validateSchema(value: unknown, schema: Schema, path: string, optional: 
     const minProperties = (schema as RecordSchema).minProperties;
     const keyCount = Object.keys(value as object).length;
     if (minProperties !== undefined && keyCount < minProperties) {
-      return { ok: false, error: `${path}: expected object with at least ${minProperties} key(s), got empty object` };
+      const gotDesc = keyCount === 0 ? "empty object" : `object with ${keyCount} key(s)`;
+      return { ok: false, error: `${path}: expected object with at least ${minProperties} key(s), got ${gotDesc}` };
     }
     for (const [key, item] of Object.entries(value as object)) {
       const result = validateSchema(item, schema.additionalProperties, `${path}.${key}`, false);
