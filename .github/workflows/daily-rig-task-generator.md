@@ -1,10 +1,10 @@
 ---
 name: Daily Rig Task Generator
 description: >
-  Each day, generates 5 unique agentic tasks (60% reused from cache, 40% new,
-  mining samples for inspiration), expands each into a rig TypeScript program
-  via a subagent, evaluates/typechecks each program, then creates an issue
-  reporting problems and improvement opportunities for the rig harness.
+  Each day, generates 10 unique agentic tasks (60% reused from cache, 40% new,
+  mining samples for inspiration), expands each into a rig sample markdown file
+  via a subagent, typechecks each program, then creates a draft PR adding the
+  passing sample files to skills/rig/samples/.
 on:
   schedule: daily
   workflow_dispatch:
@@ -15,32 +15,34 @@ permissions:
   copilot-requests: write
 engine: copilot
 strict: true
-timeout-minutes: 45
+timeout-minutes: 60
 tools:
   github:
     mode: gh-proxy
     toolsets: [default]
   bash: ["*"]
+  edit:
   cache-memory: true
 network:
   allowed: [defaults, github, node]
 safe-outputs:
-  create-issue:
+  create-pull-request:
     title-prefix: "[rig-tasks] "
     labels: [automation, ai-agent]
-    close-older-issues: true
-    max: 1
+    draft: true
+    reviewers: [copilot]
+    allowed-files:
+      - "skills/rig/samples/*.md"
 ---
 
 ## Task
 
 You are an agentic harness evaluator. Each day you:
 
-1. Select 5 tasks — 60% (3) reused from a cached task pool, 40% (2) freshly generated.
-2. Expand each task into a rig TypeScript program using the `rig-expander` subagent.
+1. Select 10 tasks — 60% (6) reused from a cached task pool, 40% (4) freshly generated.
+2. Expand each task into a rig sample markdown file using the `rig-expander` subagent.
 3. Typecheck each generated program.
-4. Analyze the results and create a GitHub issue reporting problems and improvement
-   opportunities that would make the rig harness more agentic-friendly and expressive.
+4. Create a draft PR adding the passing sample files to `skills/rig/samples/`.
 
 ---
 
@@ -63,21 +65,25 @@ Read the filenames (without extensions) to understand what task categories alrea
 (e.g., `02-review-git-diff`, `09-classify-issue`, `47-prompt-intents`). Use these as
 inspiration — not as tasks to repeat verbatim — when generating new tasks.
 
+Determine the highest existing sample number from the filenames (e.g. `67` from
+`67-glob-file-summarizer.md`). New samples will be numbered starting from that value plus 1,
+incremented for each task (e.g. 68, 69, 70 …).
+
 ---
 
-### Step 3 — Select 5 tasks
+### Step 3 — Select 10 tasks
 
-**Reused tasks (3 — 60%):**
+**Reused tasks (6 — 60%):**
 
-If the pool has 3 or more entries, pick the 3 oldest entries not run today (if all have
-been run today, pick any 3). Record their `id` and `description`.
+If the pool has 6 or more entries, pick the 6 oldest entries not run today (if all have
+been run today, pick any 6). Record their `id` and `description`.
 
-If the pool has fewer than 3 entries, take all entries from the pool and generate enough
-new tasks to reach 5 total (see below).
+If the pool has fewer than 6 entries, take all entries from the pool and generate enough
+new tasks to reach 10 total (see below).
 
-**New tasks (2 — 40%):**
+**New tasks (4 — 40%):**
 
-Use the `task-generator` subagent to propose exactly `(5 - count_of_reused)` new task
+Use the `task-generator` subagent to propose exactly `(10 - count_of_reused)` new task
 descriptions. Pass it:
 
 - The list of sample filenames from Step 2 (to mine for inspiration and avoid duplication).
@@ -99,7 +105,7 @@ npm install 2>&1
 
 ### Step 5 — Expand and evaluate each task
 
-For each of the 5 selected tasks (reused and new), perform the following steps:
+For each of the 10 selected tasks (reused and new), perform the following steps:
 
 **5a. Generate a detailed prompt.**
 
@@ -109,16 +115,17 @@ Write a one-paragraph prompt that tells the `rig-expander` subagent:
 - What input schema it should expect (if any).
 - What output schema it should produce.
 - Which rig primitives to exercise (`p.bash`, `p.read`, `s.object`, subagents, tools, etc.).
+- The sample number `<NN>` and a short kebab-case title slug for the filename.
 
 **5b. Ask the `rig-expander` subagent to write the program.**
 
 Invoke the `rig-expander` subagent with the prompt from 5a. It will return the TypeScript
 program wrapped in a single ` ```typescript ` fence.
 
-**5c. Write the program to a temp file.**
+**5c. Write the program to a temp file for typechecking.**
 
 Extract the code inside the ` ```typescript ` ... ` ``` ` fence markers from the subagent
-response and write it (fence markers excluded) to the file:
+response and write it (fence markers excluded) to:
 
 ```bash
 cat > /tmp/gh-aw/agent/rig-task-<N>.ts << 'EOF'
@@ -126,23 +133,33 @@ cat > /tmp/gh-aw/agent/rig-task-<N>.ts << 'EOF'
 EOF
 ```
 
-(Replace `<N>` with the task index 1–5 and `<code-extracted-from-fence>` with the inner
-TypeScript code, stripped of the surrounding fence markers.)
+(Replace `<N>` with the task index 1–10.)
 
-**5d. Typecheck and evaluate the program.**
+**5d. Typecheck the program.**
 
 ```bash
 node skills/rig/rig.ts /tmp/gh-aw/agent/rig-task-<N>.ts --typecheck 2>&1
 ```
 
-Record the full output. Note:
+Record whether typecheck passed or failed, and any error messages.
 
-- Did typecheck pass or fail?
-- What error messages appeared?
-- Were error messages clear and actionable?
-- Was there any schema shape that was hard to express?
-- Did the generated code feel idiomatic given the SKILL.md guidelines?
-- Any missing helpers on `s.*` or `p.*` that would have simplified the code?
+**5e. Write the sample file (only if typecheck passed).**
+
+If typecheck passed, write a markdown sample file to the repository:
+
+```bash
+cat > skills/rig/samples/<NN>-<slug>.md << 'EOF'
+# <NN> - <Title>
+
+```rig
+<code-extracted-from-fence>
+```
+EOF
+```
+
+Where `<NN>` is the sample number assigned in Step 2 (zero-padded to two digits),
+`<slug>` is a 2–4 word kebab-case summary of the task, and `<Title>` is a title-case
+version of the slug. If typecheck failed, skip writing the file.
 
 ---
 
@@ -151,52 +168,43 @@ Record the full output. Note:
 Merge new tasks into the pool. For each new task, append
 `{ "id": "<short-uuid-8>", "description": "<description>" }` to `pool`.
 
-Trim `pool` to the most recent 30 entries. Write the updated object back to
+Trim `pool` to the most recent 50 entries. Write the updated object back to
 `/tmp/gh-aw/cache-memory/task-pool.json`.
 
 ---
 
-### Step 7 — Create a findings issue
+### Step 7 — Create a pull request
 
-Emit a `create-issue` safe output with:
+Emit a `create-pull-request` safe output with:
 
-- **title**: `Daily rig evaluation — <YYYY-MM-DD> — <N_pass>/<5> passed`
-- **body**: A structured report covering:
+- **title**: `Add <N_written> rig samples — <YYYY-MM-DD>`
+- **body**: A structured summary:
 
   ```markdown
   ## Summary
 
-  | Task | Description | Typecheck | Key finding |
-  |------|-------------|-----------|-------------|
-  | 1    | …           | pass/fail | …           |
+  Added <N_written> new rig sample files to `skills/rig/samples/`.
+
+  | # | File | Description | Typecheck |
+  |---|------|-------------|-----------|
+  | 1 | 68-... | … | pass |
   …
 
-  ## Problems encountered
+  ## Typecheck failures
 
-  For each failure or awkwardness, describe:
-  - What the generated code tried to do.
-  - What went wrong (error message, missing helper, confusing API surface, etc.).
-  - A minimal reproduction sketch.
+  For each task that failed typecheck, describe what the generated code tried to do
+  and what error appeared.
 
-  ## Improvement opportunities
+  ## Tasks run
 
-  List concrete suggestions to make rig more agentic-friendly and expressive,
-  grouped by category:
-
-  - **Missing schema helpers** (`s.*`): helpers that would eliminate boilerplate.
-  - **Missing prompt helpers** (`p.*`): intents or template utilities that are absent.
-  - **Error message quality**: unclear or unhelpful error messages encountered.
-  - **API ergonomics**: patterns that are awkward or verbose to express.
-  - **Documentation gaps**: anything the SKILL.md does not cover clearly.
-
-  ## Tasks run today
-
-  - (new) Task 1: <description>
-  - (reused) Task 2: <description>
+  - (new) <description>
+  - (reused) <description>
   …
   ```
 
-If all 5 tasks passed without any findings, emit `noop` instead of creating an issue.
+- **branch**: `rig-tasks/<YYYY-MM-DD>`
+
+If all 10 tasks failed typecheck and no sample files were written, emit `noop` instead.
 
 ---
 
@@ -236,7 +244,7 @@ cat skills/rig/SKILL.md
 ```
 
 You will receive a one-paragraph prompt describing an agentic task, the desired input/output
-schema, and which rig primitives to use.
+schema, which rig primitives to use, and a sample number with kebab-case slug.
 
 Your job: write a complete, idiomatic rig TypeScript program that implements the task,
 following the API patterns shown in the SKILL.md you just read.
@@ -246,7 +254,7 @@ Rules:
 - Use `s.object(...)` and explicit `s.*` helpers for all schemas.
 - Use `p\`...\`` template tag with `${p.bash(...)}` or `${p.read(...)}` for context.
 - Add a `// Agent role: ...` comment above each agent declaration.
-- Set `model` explicitly to `"large"`, `"mini"`, or `"nano"`.
+- Set `model` explicitly to `"large"`, `"mini"`, or `"small"`.
 - `export default` the root agent. Do NOT call it directly.
 - Do not use `console.log`.
 - Keep the program under 60 lines.
