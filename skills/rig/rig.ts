@@ -2306,14 +2306,15 @@ function describeSchemaType(schema: Schema): string {
   if ("nullable" in schema && schema.nullable === true) {
     return `${describeSchemaType((schema as NullableSchema).inner)} | null`;
   }
+  if ("items" in schema) {
+    const itemType = describeSchemaType((schema as ArraySchema).items);
+    return `array of ${itemType}`;
+  }
   if ("type" in schema) {
     return (schema as { type: string }).type;
   }
   if ("enum" in schema) {
     return (schema as EnumSchema).enum.map((v: Json) => JSON.stringify(v)).join(" | ");
-  }
-  if ("items" in schema) {
-    return "array";
   }
   if ("properties" in schema || "additionalProperties" in schema) {
     return "object";

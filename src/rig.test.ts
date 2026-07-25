@@ -1684,14 +1684,25 @@ describe("missing required field error message", () => {
     }
   });
 
-  it("reports a missing required array field with type 'array'", () => {
+  it("reports a missing required array field with item type 'array of string'", () => {
     const schema = s.object({ items: s.array(s.string), name: s.string });
     const result = analyzeResponse(JSON.stringify({ name: "x" }), schema, "test", 1);
     expect(result.ok).toBe(false);
     if (!result.ok) {
       expect(result.error.message).toContain("missing required field");
       expect(result.error.message).toContain("$.items");
-      expect(result.error.message).toContain("array");
+      expect(result.error.message).toContain("array of string");
+    }
+  });
+
+  it("reports a missing required array-of-numbers field with item type 'array of number'", () => {
+    const schema = s.object({ scores: s.array(s.number), name: s.string });
+    const result = analyzeResponse(JSON.stringify({ name: "x" }), schema, "test", 1);
+    expect(result.ok).toBe(false);
+    if (!result.ok) {
+      expect(result.error.message).toContain("missing required field");
+      expect(result.error.message).toContain("$.scores");
+      expect(result.error.message).toContain("array of number");
     }
   });
 
