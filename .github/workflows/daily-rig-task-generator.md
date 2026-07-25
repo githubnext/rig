@@ -33,6 +33,11 @@ safe-outputs:
     reviewers: [copilot]
     allowed-files:
       - "skills/rig/samples/*.md"
+  create-issue:
+    title-prefix: "[rig-tasks] "
+    labels: [automation, ai-agent]
+    assignees: [copilot]
+    close-older-issues: true
 ---
 
 ## Task
@@ -43,6 +48,7 @@ You are an agentic harness evaluator. Each day you:
 2. Expand each task into a rig sample markdown file using the `rig-expander` subagent.
 3. Typecheck each generated program.
 4. Create a draft PR adding the passing sample files to `skills/rig/samples/`.
+5. Create an analysis issue summarizing generation results and rig API improvement opportunities.
 
 ---
 
@@ -141,7 +147,9 @@ EOF
 node skills/rig/rig.ts /tmp/gh-aw/agent/rig-task-<N>.ts --typecheck 2>&1
 ```
 
-Record whether typecheck passed or failed, and any error messages.
+Record whether typecheck passed or failed, any error messages, and a one-line **key finding**
+describing what the generated code did well or what went wrong (e.g., unused import, wrong
+schema helper, awkward `p.*` usage).
 
 **5e. Write the sample file (only if typecheck passed).**
 
@@ -205,6 +213,68 @@ Emit a `create-pull-request` safe output with:
 - **branch**: `rig-tasks/<YYYY-MM-DD>`
 
 If all 10 tasks failed typecheck and no sample files were written, emit `noop` instead.
+
+---
+
+### Step 8 — Create analysis issue
+
+Emit a `create-issue` safe output with:
+
+- **title**: `Daily rig evaluation — <YYYY-MM-DD> — <N_passed>/<N_total> passed`
+- **body**: A structured analysis:
+
+  ```markdown
+  ## Summary
+
+  | Task | Description | Typecheck | Key finding |
+  |------|-------------|-----------|-------------|
+  | 1 (new/reused) | … | ✅ pass / ❌ fail | … |
+  …
+
+  ---
+
+  ## Problems encountered
+
+  For each typecheck failure, include:
+  - What the generated code tried to do and which rig primitives it used.
+  - The exact error message(s) from `--typecheck`.
+  - Root cause analysis and the fix applied (if any).
+
+  If there were no failures, write "No failures this run."
+
+  ---
+
+  ## Improvement opportunities
+
+  Based on patterns observed across all 10 tasks, identify concrete API improvements:
+
+  ### Missing or undiscoverable schema helpers (`s.*`)
+  List cases where a missing `s.*` helper made code verbose, caused typecheck failures,
+  or was hard to find in SKILL.md.
+
+  ### Missing or undiscoverable prompt helpers (`p.*`)
+  List cases where a missing `p.*` primitive led to verbose workarounds or was commonly
+  misused.
+
+  ### Error message quality
+  Note any error messages (from `--typecheck` or the harness) that were unclear,
+  misleading, or unhelpful for diagnosing the problem.
+
+  ### API ergonomics
+  Identify API patterns that were awkward, frequently confused, or required extra
+  boilerplate that a helper could eliminate.
+
+  ### Documentation gaps
+  Note anything in SKILL.md or the references that was underdocumented, missing an
+  example, or frequently led to wrong usage.
+
+  ---
+
+  ## Tasks run today
+
+  - (new/reused) <description>
+  …
+  ```
 
 ---
 
