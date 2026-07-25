@@ -122,6 +122,7 @@ Prompt intents for shell and file operations are optimized for sandboxed agentic
 p.bash("git status --short")
 p.bash("npm test")
 p.bashRaw`grep -rn 'app\.get\|app\.post' src/`  // tagged template: no TypeScript escape needed
+p.bashEach("curl -s -o /dev/null -w '%{http_code}' {} --max-time 5", "endpoints")  // run once per element in input.endpoints
 p.read("README.md")
 p.readOptional("Dockerfile")           // returns "" if file is absent
 p.readOptional(".eslintrc.json", "{}") // returns "{}" if file is absent
@@ -130,6 +131,7 @@ p.readInput("path")                    // reads the file at the single path held
 p.readAllInput("files")               // reads all files at the paths in input.files (array field)
 p.write("README.md", "# Updated\n")   // write-file instruction; does NOT return the path
 p.writeOutput("report", "todo-report.md")  // after generation, write output field "report" to file
+p.writeInput("outputPath", "rendered")     // after generation, write output field "rendered" to the path in input.outputPath
 p.glob("src/**/*.ts")
 p.env("GITHUB_TOKEN")                  // returns "" if variable is not set
 p.env("GITHUB_TOKEN", "unset")         // returns "unset" if variable is not set
@@ -143,9 +145,13 @@ const reviewWorkspace = agent({
 
 `p.bash(cmd)` requires backslashes to be escaped as in any TypeScript string literal. When a command contains regex patterns (e.g. `grep 'foo\|bar'`), use `p.bashRaw\`...\`` instead — it takes the command verbatim with no TypeScript escaping.
 
+`p.bashEach(template, inputArrayField)` runs the template once per element in a caller-supplied string array, substituting `{}` with each element.  Use it instead of prose-based iteration when the same command applies to every element.
+
 `p.write(path, contents)` contributes a write-file instruction to the prompt; it does **not** return the file path or contents as a string. When used in a template expression the result is a prompt instruction, not the path. If the output schema includes the written file path, hard-code the path string in the agent's output.
 
-`p.writeOutput(field, path)` instructs the harness to write the value of output field `field` to the file at `path` after the agent generates its response. Use this instead of `p.write` when the content to be written is LLM-generated — e.g. `p.writeOutput("report", "todo-report.md")` wires the `report` output field to `todo-report.md` automatically.
+`p.writeOutput(field, path)` instructs the harness to write the value of output field `field` to the **static** file path `path` after the agent generates its response. Use this instead of `p.write` when the content to be written is LLM-generated.
+
+`p.writeInput(inputPathField, contentOutputField)` is like `p.writeOutput` but accepts a **dynamic destination path** from an input field.  Use it when the caller supplies the path to write to — e.g. `p.writeInput("outputPath", "rendered")` writes the `rendered` output field to the path held in `input.outputPath`.
 
 `p.readAll(paths)` reads all files in the array and concatenates their contents into a single block. Use it instead of repeated `p.read(...)` calls or `p.bash("cat ...")` when you need the full contents of a known set of files as one context block.
 
