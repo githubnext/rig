@@ -1,5 +1,5 @@
 /**
- * @file skills/rig/rig.ts @last-analyzed e0ba58a @edit-time 2026-07-23T20:31:00Z
+ * @file skills/rig/rig.ts @last-analyzed b88e1d6 @edit-time 2026-07-25T03:20:42Z
  * @purpose Minimal TypeScript multi-agent harness: typed input/output schemas, prompt intents, sub-agent delegation, Copilot SDK runtime
  * @deps @github/copilot-sdk (CopilotClient,RuntimeConnection,approveAll); node:path,url,fs/promises,child_process,util
  * T:Json type null|bool|num|str|Json[]|{[k]:Json}
