@@ -181,42 +181,7 @@ Trim `pool` to the most recent 50 entries. Write the updated object back to
 
 ---
 
-### Step 7 — Create a pull request
-
-Emit a `create-pull-request` safe output with:
-
-- **title**: `Add <N_written> rig samples — <YYYY-MM-DD>`
-- **body**: A structured summary:
-
-  ```markdown
-  ## Summary
-
-  Added <N_written> new rig sample files to `skills/rig/samples/`.
-
-  | # | File | Description | Typecheck |
-  |---|------|-------------|-----------|
-  | 1 | 68-... | … | pass |
-  …
-
-  ## Typecheck failures
-
-  For each task that failed typecheck, describe what the generated code tried to do
-  and what error appeared.
-
-  ## Tasks run
-
-  - (new) <description>
-  - (reused) <description>
-  …
-  ```
-
-- **branch**: `rig-tasks/<YYYY-MM-DD>`
-
-If all 10 tasks failed typecheck and no sample files were written, emit `noop` instead.
-
----
-
-### Step 8 — Create analysis issue
+### Step 7 — Create analysis issue
 
 Emit a `create-issue` safe output with:
 
@@ -275,6 +240,41 @@ Emit a `create-issue` safe output with:
   - (new/reused) <description>
   …
   ```
+
+---
+
+### Step 8 — Create a pull request
+
+Emit a `create-pull-request` safe output with:
+
+- **title**: `Add <N_written> rig samples — <YYYY-MM-DD>`
+- **body**: A structured summary:
+
+  ```markdown
+  ## Summary
+
+  Added <N_written> new rig sample files to `skills/rig/samples/`.
+
+  | # | File | Description | Typecheck |
+  |---|------|-------------|-----------|
+  | 1 | 68-... | … | pass |
+  …
+
+  ## Typecheck failures
+
+  For each task that failed typecheck, describe what the generated code tried to do
+  and what error appeared.
+
+  ## Tasks run
+
+  - (new) <description>
+  - (reused) <description>
+  …
+  ```
+
+- **branch**: `rig-tasks/<YYYY-MM-DD>`
+
+If all 10 tasks failed typecheck and no sample files were written, emit `noop` instead.
 
 ---
 
