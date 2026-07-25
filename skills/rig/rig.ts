@@ -1474,6 +1474,31 @@ function renderLauncherUsage(scriptName: string): string {
   ].join("\n");
 }
 
+/**
+ * Entry-point CLI that parses `argv`, wires a `copilotEngine`, and runs the
+ * agent program.  Two modes are supported:
+ *
+ * - **File mode** (`runLauncherCli(["path/to/prog.ts"])`): reads the agent
+ *   input from stdin and invokes the root agent exported from the program file.
+ * - **Stdin mode** (`runLauncherCli([])`): reads a full rig program from stdin,
+ *   compiles it in a temp directory, and runs its default export.
+ *
+ * Recognized flags:
+ * - `--server`     — use stdio transport instead of the default URI connection.
+ * - `--typecheck`  — run `tsc --noEmit` before executing the program.
+ * - `--help` / `-h` / `help` / `/help` / `/?` — print usage and return.
+ *
+ * Structured JSONL events (prefixed `rig.*`) are written to stderr; the final
+ * agent output is written to stdout as JSON.
+ *
+ * @example
+ * // In the rig.ts shebang entrypoint:
+ * await runLauncherCli();
+ *
+ * @example
+ * // With a custom working directory for tests:
+ * await runLauncherCli(["src/my-agent.ts"], { cwd: "/repo" }, { stdin: process.stdin, stdout: process.stdout });
+ */
 export async function runLauncherCli(
   argv: string[] = process.argv.slice(2),
   options: LaunchOptions = {},
