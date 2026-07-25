@@ -1360,7 +1360,6 @@ describe("s.nonEmptyString", () => {
 
   it("rejects short non-empty strings with actual length in message", () => {
     // s.object with a string field that has minLength 5 via s.string-based shape
-    const schema = s.object({ code: s.nonEmptyString });
     // Provide a non-empty but 2-char value to trigger the too-short branch
     // We need a schema with minLength > 2; build one from scratch via toJsonSchema round-trip isn't possible,
     // so verify via analyzeResponse with a direct schema literal accepted by the public API.
