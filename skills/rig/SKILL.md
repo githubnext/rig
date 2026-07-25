@@ -68,7 +68,7 @@ Defaults are model `small`, `maxTurns: 4`, no addons, and name `"agent"`. `agent
 Descriptions go first for scalar helpers, second after the shape for containers, and last for enums/literals. Schemas serialize directly as JSON Schema; do not invent alternate schema syntax.
 
 Use `s.int`/`s.integer` for integer-valued fields (counts, indices, line numbers); `s.number` for floats or measured values. Use `s.path` for file-system paths — especially input fields read with `p.readInput` — rather than `s.string`.
-Use `s.optional(shape)` when a field may be omitted and `s.nullable(shape)` when the field should be present but can be `null`. Use `s.record(value)` for string-keyed maps such as `s.record(s.number)` for per-file or per-symbol counters. `s.record(...)` is also valid as the root `output` — `output: s.record(s.number)` is correct when the agent returns a map; wrapping it in `s.object` is unnecessary.
+Use `s.optional(shape)` when a field may be omitted and `s.nullable(shape)` when the field should be present but can be `null`. Use `s.record(value)` for string-keyed maps such as `s.record(s.number)` for per-file or per-symbol counters. `s.record(...)` is also valid as the root `output` — `output: s.record(s.number)` is correct when the agent returns a map; wrapping it in `s.object` is unnecessary. `s.record(...)` is also valid as a nested field, for example `output: s.object({ files: s.record(s.object({ owner: s.string })), categorySummary: s.record(s.int) })`.
 For link/file lists, keep the scalar helpers inside the item object — for example `s.array(s.object({ url: s.url, file: s.optional(s.path), httpCode: s.optional(s.int) }))`.
 
 ## Choose prompt intents by data source
@@ -102,13 +102,14 @@ For `p.readOptional` fallbacks, pass a value the model can parse in context (for
 
 - Use `p.readOptional("tsconfig.json", "{}")` when later instructions expect JSON rather than free-form text.
 - Use `p.writeOutput("report", "out.md")` only when `output` declares a `report` field with that exact name.
+- Anti-example: `instructions: p\`${p.writeOutput("summary", "out.md")}\`` is invalid when `output` is `s.object({ report: s.string })`; the field name must match exactly.
 
 ## Tools, composition, and reliability
 
 - Define tools with `defineTool(name, { description, parameters: s.object(...), handler })`; schema-based handler arguments are inferred and tools default to `skipPermission: true`. `s.unknown` is valid in tool parameters when the tool needs to compare or echo arbitrary JSON-like values, for example `parameters: s.object({ currentValue: s.unknown, recommendedValue: s.unknown })`. Handlers can be sync or async and return a string or any JSON-serializable value; return plain JS values (do not `JSON.stringify`) because Rig serializes non-string results automatically. Async handlers may import Node built-ins with `await import("node:child_process")`. Destructure only handler fields you use. Use `defineTool` for external operations and deterministic transforms that support reasoning — not to replace the core classification or judgment step with in-process TypeScript logic.
 - `agents` must be a named object — `agents: { extractor }` — never an array (`agents: [extractor]` is a type error). Attach every declared subagent to the exported root's graph.
 - There is no chain or loop primitive; give the coordinator explicit delegation instructions and require one combined output.
-- Automatic parse/schema repair requires `repair()` from `rig/addons`; `repair()` takes no arguments — do not pass `maxTurns` to it. Write `maxTurns: 3, addons: repair()`, not `addons: repair({ maxTurns: 3 })`.
+- Automatic parse/schema repair requires `repair()` from `rig/addons`; `repair()` takes no arguments. Put retries on the agent spec: `maxTurns: 3, addons: repair()`. Do not pass retries to `repair()` (`addons: repair({ maxTurns: 3 })` is invalid).
 - `addons` accepts a single addon or an array. Use `addons: repair()` for one addon, and `addons: [steering(), repair()]` when combining. **`steering()` must come before `repair()` in the array** — write `[steering(), repair()]`, not `[repair(), steering()]`. `steering()` (default warning) or `steering({ message: "..." })` (custom text) should run before `repair()` to append a last-chance instruction on the final retry. `oncePerAgent(callback)` invokes the callback once per runtime agent instance — its internal `WeakSet` already deduplicates, so no external tracking is needed.
 
 ## Runnable markdown
