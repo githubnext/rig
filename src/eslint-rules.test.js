@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { fixSource, lintSource } from "../skills/rig/eslint/lint.js";
 import rule from "../skills/rig/eslint/rules/no-object-literal-record.js";
+import repairNoArgsRule from "../skills/rig/eslint/rules/repair-no-args.js";
 
 describe("no-object-literal-record", () => {
   it.each([
@@ -56,5 +57,80 @@ describe("no-object-literal-record", () => {
     expect(reports[0].messageId).toBe("wrapObject");
     expect(reports[0].fix({ replaceText: (_node, text) => text }))
       .toBe("s.object({ count: s.number })");
+  });
+});
+
+describe("repair-no-args", () => {
+  it.each([
+    "addons: repair()",
+    "addons: [repair()]",
+    "addons: [steering(), repair()]",
+    "const text = 'repair({ maxTurns: 3 })';",
+    "foo.repair({ maxTurns: 3 })",
+  ])("accepts %s", (source) => {
+    const problems = lintSource(source).filter((p) => p.kind === "repair-no-args");
+    expect(problems).toEqual([]);
+  });
+
+  it.each([
+    [
+      "addons: repair({ maxTurns: 3 })",
+      "addons: repair()",
+    ],
+    [
+      "addons: [steering(), repair({ maxTurns: 2 })]",
+      "addons: [steering(), repair()]",
+    ],
+    [
+      "addons: repair({ message: 'retry', maxTurns: 5 })",
+      "addons: repair()",
+    ],
+  ])("fixes %s", (source, expected) => {
+    const problems = lintSource(source).filter((p) => p.kind === "repair-no-args");
+    expect(problems).toHaveLength(1);
+    expect(fixSource(source, problems)).toBe(expected);
+  });
+
+  it("is idempotent", () => {
+    const source = "addons: repair({ maxTurns: 3 })";
+    const once = fixSource(source);
+    const twice = fixSource(once);
+    expect(twice).toBe(once);
+    expect(lintSource(once).filter((p) => p.kind === "repair-no-args")).toEqual([]);
+  });
+
+  it("keeps the ESLint rule aligned", () => {
+    const reports = [];
+    const visitor = repairNoArgsRule.create({
+      sourceCode: {},
+      report: (problem) => reports.push(problem),
+    });
+
+    visitor.CallExpression({
+      type: "CallExpression",
+      callee: { type: "Identifier", name: "repair" },
+      arguments: [{ type: "ObjectExpression" }],
+    });
+
+    expect(reports).toHaveLength(1);
+    expect(reports[0].messageId).toBe("noArgs");
+    expect(reports[0].fix({ replaceText: (_node, text) => text }))
+      .toBe("repair()");
+  });
+
+  it("does not flag repair() with no args", () => {
+    const reports = [];
+    const visitor = repairNoArgsRule.create({
+      sourceCode: {},
+      report: (problem) => reports.push(problem),
+    });
+
+    visitor.CallExpression({
+      type: "CallExpression",
+      callee: { type: "Identifier", name: "repair" },
+      arguments: [],
+    });
+
+    expect(reports).toHaveLength(0);
   });
 });
