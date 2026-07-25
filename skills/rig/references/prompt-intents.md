@@ -34,7 +34,7 @@ Intent values are also accepted in agent inputs, but prefer template expressions
 | ``p.bashRaw`command` `` | Verbatim shell command with no TypeScript backslash escaping |
 | `p.bashEach(template, inputArrayField)` | Run `template` once per element in `input.<field>`, substituting `{}` with each element |
 | `p.read(path)` | Required file at a literal path |
-| `p.readOptional(path, fallback?)` | Literal path that may be absent; default fallback is `""` and is injected as prompt text |
+| `p.readOptional(path, fallback?)` | Literal path that may be absent; default fallback is `""` and is injected as prompt text (use a context-valid fallback such as `"{}"` for expected JSON) |
 | `p.readAll(paths)` | Concatenated contents of several known files (path list only; no glob overload) |
 | `p.readInput(field)` | File contents at the **single** path held in `input.<field>` at runtime |
 | `p.readAllInput(field)` | Concatenated contents of all files at the paths in `input.<field>` (array) at runtime |
@@ -51,6 +51,7 @@ Examples:
 ```ts
 p.bash("git diff -- .")
 p.bash("npm test")
+p`Check ${p.bash("node -v")} and ${p.bash("npm -v")}.`
 p.bashRaw`grep -rn 'app\.get\|app\.post' src/`
 p.bashEach("curl -s -o /dev/null -w '%{http_code}' {} --max-time 5", "endpoints")
 p.read("README.md")
@@ -264,4 +265,4 @@ export default healthProbe;
 
 Shell and dynamic-read intents are instructions to the runtime/model. If a command exits non-zero or a dynamic file cannot be read, the resulting stderr or error message enters prompt context so the model can surface or recover from it.
 
-Use `p.readOptional` for a literal path that may be absent; its fallback is inserted into prompt context as provided. For a dynamic path, tell the agent how to handle a missing file.
+Use `p.readOptional` for a literal path that may be absent; its fallback is inserted into prompt context as provided. Choose a fallback the model can parse in context (for example, `"{}"` for JSON). For a dynamic path, tell the agent how to handle a missing file.

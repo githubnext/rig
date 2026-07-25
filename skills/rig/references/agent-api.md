@@ -86,6 +86,21 @@ Helper constraints:
 - `s.nonEmptyObject(value)` describes `Record<string, V>` with `minProperties: 1`.
 - `s.optional(shape)` allows omission; `s.nullable(shape)` allows `null`.
 
+Use `s.optional` when absence is valid and `s.nullable` when the field should still be present but may be `null`:
+
+```ts
+const output = s.object({
+  lastFile: s.optional(s.path),
+  archivedAt: s.nullable(s.string),
+});
+```
+
+Use `s.record(value)` for string-keyed maps when keys are not fixed ahead of time:
+
+```ts
+s.record(s.number) // e.g. churn score keyed by filename
+```
+
 Description placement:
 
 | Helper family | Description argument |
@@ -136,6 +151,22 @@ export default triage;
 ```
 
 For plain JSON Schema parameters, provide a generic such as `defineTool<{ issue: string }>(...)`. A handler may return a string or any JSON-serializable value; Rig serializes non-string values, so do not call `JSON.stringify` in the handler. Tools default to `skipPermission: true`.
+
+Async handlers can import Node built-ins directly:
+
+```ts
+import { defineTool, s } from "rig";
+
+const countLines = defineTool("count_lines", {
+  description: "Count file lines with wc.",
+  parameters: s.object({ path: s.path }),
+  handler: async ({ path }) => {
+    const { execSync } = await import("node:child_process");
+    const output = execSync(`wc -l ${JSON.stringify(path)}`, { encoding: "utf8" });
+    return { lineCount: Number(output.trim().split(/\s+/)[0] ?? "0") };
+  },
+});
+```
 
 Strict TypeScript compilation reports unused handler bindings. Destructure only the keys the handler uses, or rename an unavoidable binding with a leading underscore, such as `{ filename: _filename, content }`.
 
