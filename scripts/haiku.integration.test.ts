@@ -4,7 +4,8 @@ import { fileURLToPath } from "node:url";
 import { describe, expect, it } from "vitest";
 
 const token = process.env["COPILOT_GITHUB_TOKEN"];
-const itWithToken = token ? it : it.skip;
+const sdkUri = process.env["COPILOT_SDK_URI"];
+const itWithToken = token || sdkUri ? it : it.skip;
 const repoRoot = resolve(dirname(fileURLToPath(import.meta.url)), "..");
 const haikuSamplePath = resolve(repoRoot, "src/samples/01-single-agent-haiku.ts");
 const sonnetSamplePath = resolve(repoRoot, "src/samples/56-single-agent-sonnet.ts");
@@ -14,14 +15,14 @@ const INTEGRATION_TIMEOUT_MS = 120_000;
 
 async function runIntegrationSample(samplePath: string, input: string): Promise<string> {
   return new Promise((resolve, reject) => {
-    const child = spawn(
-      process.execPath,
-      [launcherPath, samplePath, "--server"],
-      {
-        cwd: repoRoot,
-        env: { ...process.env, COPILOT_GITHUB_TOKEN: token },
-      },
-    );
+    // Use --server (stdio transport) when running with a personal token.
+    // In agentic workflow context, COPILOT_SDK_URI is provided by the engine
+    // and the URI-based connection is used without --server.
+    const args = sdkUri ? [launcherPath, samplePath] : [launcherPath, samplePath, "--server"];
+    const child = spawn(process.execPath, args, {
+      cwd: repoRoot,
+      env: { ...process.env, ...(token ? { COPILOT_GITHUB_TOKEN: token } : {}) },
+    });
 
     let stdout = "";
     let stderr = "";
