@@ -1,0 +1,18 @@
+# 99 - Bash Each
+
+```rig
+import { agent, p, s } from "rig";
+
+// Agent role: probe each endpoint and report its HTTP status code.
+const healthProbe = agent({
+  model: "small",
+  input: s.object({ endpoints: s.array(s.url) }),
+  instructions: p`${p.bashEach("curl -s -o /dev/null -w '%{http_code}' {} --max-time 5", "endpoints")}`,
+  output: s.object({
+    results: s.array(s.object({ url: s.url, status: s.string })),
+    allHealthy: s.boolean,
+  }),
+});
+
+export default healthProbe;
+```
