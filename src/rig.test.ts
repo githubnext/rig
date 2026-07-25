@@ -1012,6 +1012,21 @@ describe("prompt intents", () => {
     expect(intent.field).toBe("filePath");
     expect(intent.options).toEqual({ cwd: "/workspace" });
   });
+
+  it("p.readAllInput stores field name with mode prompt.readAllInput", () => {
+    const intent = p.readAllInput("files");
+
+    expect(intent.mode).toBe("prompt.readAllInput");
+    expect(intent.field).toBe("files");
+  });
+
+  it("p.readAllInput supports options", () => {
+    const intent = p.readAllInput("sources", { cwd: "/workspace" });
+
+    expect(intent.mode).toBe("prompt.readAllInput");
+    expect(intent.field).toBe("sources");
+    expect(intent.options).toEqual({ cwd: "/workspace" });
+  });
 });
 
 describe("prompt builder", () => {
