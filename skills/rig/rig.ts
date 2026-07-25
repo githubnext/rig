@@ -30,6 +30,7 @@
  * T:JsonSchemaObject type {[key:string]:unknown} plain JSON Schema object
  * s.string/number/integer/boolean/null SchemaHelperFactory primitives; call as value or fn(desc)
  * s.int alias for s.integer; s.nonEmptyString string with minLength:1; s.url string with format:"uri"; s.path string with format:"path"
+ * s.positiveInt integer with minimum:1; s.nonNegativeInt integer with minimum:0; NumberSchema/IntegerSchema support minimum/maximum constraints
  * s.array(items,desc?) ArraySchema; use for homogeneous lists, e.g. s.array(s.string)
  * s.nonEmptyArray(items,desc?) ArraySchema with minItems:1; validates array has at least one element
  * s.object(props,desc?) ObjectSchema; s.optional(inner) marks field optional; s.nullable(inner) accepts inner|null; use for fixed-key shapes
@@ -86,8 +87,8 @@ export type Json = null | boolean | number | string | Json[] | { [key: string]: 
 export type ValidationResult = { ok: true } | { ok: false; error: string };
 
 export type StringSchema = { type: "string"; description?: string; minLength?: number; format?: string };
-export type NumberSchema = { type: "number"; description?: string };
-export type IntegerSchema = { type: "integer"; description?: string };
+export type NumberSchema = { type: "number"; description?: string; minimum?: number; maximum?: number };
+export type IntegerSchema = { type: "integer"; description?: string; minimum?: number; maximum?: number };
 export type BooleanSchema = { type: "boolean"; description?: string };
 export type NullSchema = { type: "null"; description?: string };
 export type UnknownSchema = { description?: string };
@@ -169,6 +170,15 @@ function createConstrainedStringSchema(constraint: Omit<StringSchema, "type" | "
   return factory;
 }
 
+function createConstrainedNumberSchema<T extends NumberSchema | IntegerSchema>(constraint: Omit<T, "description">): SchemaHelperFactory<T> {
+  const base = markAsSchema({ ...constraint } as T);
+  const factory = Object.assign(
+    markAsSchema(((description?: string) => (description === undefined ? base : markAsSchema({ ...constraint, description } as T))) as SchemaHelperFactory<T>),
+    base,
+  );
+  return factory;
+}
+
 function createUnknownSchema(): SchemaHelperFactory<UnknownSchema> {
   const base: UnknownSchema = markAsSchema({});
   const factory = Object.assign(
@@ -237,6 +247,10 @@ export const s = {
   integer: createTypedPrimitiveSchema<IntegerSchema>("integer"),
   /** Schema for an integer value. Alias for `s.integer`. Call as `s.int` or `s.int("description")`. */
   int: createTypedPrimitiveSchema<IntegerSchema>("integer"),
+  /** Schema for a positive integer (minimum: 1). Call as `s.positiveInt` or `s.positiveInt("description")`. */
+  positiveInt: createConstrainedNumberSchema<IntegerSchema>({ type: "integer", minimum: 1 }),
+  /** Schema for a non-negative integer (minimum: 0). Call as `s.nonNegativeInt` or `s.nonNegativeInt("description")`. */
+  nonNegativeInt: createConstrainedNumberSchema<IntegerSchema>({ type: "integer", minimum: 0 }),
   /** Schema for a `boolean` value. Call as `s.boolean` or `s.boolean("description")`. */
   boolean: createTypedPrimitiveSchema<BooleanSchema>("boolean"),
   /** Schema for the JSON `null` literal. Call as `s.null` or `s.null("description")`. */
@@ -405,6 +419,13 @@ function serializeSchema(schema: Schema): JsonSchemaObject {
       const base: JsonSchemaObject = { type: "string" };
       if (minLength !== undefined) base["minLength"] = minLength;
       if (format !== undefined) base["format"] = format;
+      return withDescription(base);
+    }
+    if (schema.type === "number" || schema.type === "integer") {
+      const { minimum, maximum } = schema as NumberSchema | IntegerSchema;
+      const base: JsonSchemaObject = { type: schema.type };
+      if (minimum !== undefined) base["minimum"] = minimum;
+      if (maximum !== undefined) base["maximum"] = maximum;
       return withDescription(base);
     }
     return withDescription({ type: schema.type });
@@ -1983,8 +2004,20 @@ function validateSchema(value: unknown, schema: Schema, path: string, optional: 
       }
       return ok();
     }
-    if (schema.type === "number") return typeof value === "number" ? ok() : bad(path, "number", value);
-    if (schema.type === "integer") return (typeof value === "number" && Number.isInteger(value)) ? ok() : bad(path, "integer", value);
+    if (schema.type === "number") {
+      if (typeof value !== "number") return bad(path, "number", value);
+      const { minimum, maximum } = schema as NumberSchema;
+      if (minimum !== undefined && value < minimum) return { ok: false, error: `${path}: expected number >= ${minimum}, got ${value}` };
+      if (maximum !== undefined && value > maximum) return { ok: false, error: `${path}: expected number <= ${maximum}, got ${value}` };
+      return ok();
+    }
+    if (schema.type === "integer") {
+      if (typeof value !== "number" || !Number.isInteger(value)) return bad(path, "integer", value);
+      const { minimum, maximum } = schema as IntegerSchema;
+      if (minimum !== undefined && value < minimum) return { ok: false, error: `${path}: expected integer >= ${minimum}, got ${value}` };
+      if (maximum !== undefined && value > maximum) return { ok: false, error: `${path}: expected integer <= ${maximum}, got ${value}` };
+      return ok();
+    }
     if (schema.type === "boolean") return typeof value === "boolean" ? ok() : bad(path, "boolean", value);
     if (schema.type === "null") return value === null ? ok() : bad(path, "null", value);
   }

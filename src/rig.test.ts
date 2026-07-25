@@ -1466,6 +1466,54 @@ describe("s.path", () => {
   });
 });
 
+describe("s.positiveInt", () => {
+  it("serializes to {type:'integer', minimum:1}", () => {
+    expect(toJsonSchema(s.positiveInt)).toEqual({ type: "integer", minimum: 1 });
+    expect(toJsonSchema(s.positiveInt("count of items"))).toEqual({ type: "integer", minimum: 1, description: "count of items" });
+  });
+
+  it("accepts integers >= 1", () => {
+    const result = analyzeResponse(JSON.stringify(5), s.positiveInt, "test", 1);
+    expect(result.ok).toBe(true);
+  });
+
+  it("rejects zero and negative integers", () => {
+    const zero = analyzeResponse(JSON.stringify(0), s.positiveInt, "test", 1);
+    expect(zero.ok).toBe(false);
+    const neg = analyzeResponse(JSON.stringify(-1), s.positiveInt, "test", 1);
+    expect(neg.ok).toBe(false);
+  });
+});
+
+describe("s.nonNegativeInt", () => {
+  it("serializes to {type:'integer', minimum:0}", () => {
+    expect(toJsonSchema(s.nonNegativeInt)).toEqual({ type: "integer", minimum: 0 });
+    expect(toJsonSchema(s.nonNegativeInt("node major version"))).toEqual({ type: "integer", minimum: 0, description: "node major version" });
+  });
+
+  it("accepts zero and positive integers", () => {
+    expect(analyzeResponse(JSON.stringify(0), s.nonNegativeInt, "test", 1).ok).toBe(true);
+    expect(analyzeResponse(JSON.stringify(22), s.nonNegativeInt, "test", 1).ok).toBe(true);
+  });
+
+  it("rejects negative integers", () => {
+    const result = analyzeResponse(JSON.stringify(-1), s.nonNegativeInt, "test", 1);
+    expect(result.ok).toBe(false);
+  });
+});
+
+describe("NumberSchema and IntegerSchema minimum/maximum", () => {
+  it("serializes minimum and maximum on number schema", () => {
+    const schema: import("rig").NumberSchema = { type: "number", minimum: 0, maximum: 1 };
+    expect(toJsonSchema(schema)).toEqual({ type: "number", minimum: 0, maximum: 1 });
+  });
+
+  it("serializes minimum and maximum on integer schema", () => {
+    const schema: import("rig").IntegerSchema = { type: "integer", minimum: 1, maximum: 10 };
+    expect(toJsonSchema(schema)).toEqual({ type: "integer", minimum: 1, maximum: 10 });
+  });
+});
+
 describe("s.null", () => {
   it("serializes to {type:'null'}", () => {
     expect(toJsonSchema(s.null)).toEqual({ type: "null" });
