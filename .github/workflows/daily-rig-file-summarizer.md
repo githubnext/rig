@@ -12,6 +12,8 @@ permissions:
   issues: read
   copilot-requests: write
 engine: copilot
+features:
+  copilot-sdk: true
 strict: true
 timeout-minutes: 30
 tools:
