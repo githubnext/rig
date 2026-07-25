@@ -11,8 +11,8 @@ permissions:
   contents: read
   issues: read
   copilot-requests: write
-engine: copilot
-features:
+engine:
+  id: copilot
   copilot-sdk: true
 strict: true
 timeout-minutes: 30
