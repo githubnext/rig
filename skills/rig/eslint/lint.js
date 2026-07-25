@@ -3,9 +3,11 @@
 import { readFile, readdir, writeFile } from "node:fs/promises";
 import { extname, resolve } from "node:path";
 import { pathToFileURL } from "node:url";
+import { scanTokens as scanNoObjectLiteralRecord } from "./rules/no-object-literal-record.js";
+import { scanTokens as scanRepairNoArgs } from "./rules/repair-no-args.js";
 
-const methods = new Set(["record", "nonEmptyObject"]);
 const ignoredDirectories = new Set([".git", "node_modules"]);
+const tokenRules = [scanNoObjectLiteralRecord, scanRepairNoArgs];
 
 function tokenize(source) {
   const tokens = [];
@@ -50,107 +52,20 @@ function tokenize(source) {
   return tokens;
 }
 
-function closingBrace(tokens, openingIndex) {
-  let depth = 0;
-  for (let index = openingIndex; index < tokens.length; index += 1) {
-    if (tokens[index].value === "{") depth += 1;
-    if (tokens[index].value === "}") depth -= 1;
-    if (depth === 0) return index;
-  }
-  return undefined;
-}
-
 export function lintSource(source) {
   const tokens = tokenize(source);
-  const problems = [];
-
-  for (let index = 0; index <= tokens.length - 5; index += 1) {
-    const [schema, dot, method, openCall] = tokens.slice(index, index + 4);
-    if (
-      tokens[index - 1]?.value === "."
-      || schema.value !== "s"
-      || dot.value !== "."
-      || !methods.has(method.value)
-      || openCall.value !== "("
-    ) {
-      continue;
-    }
-
-    let objectIndex = index + 4;
-    while (tokens[objectIndex]?.value === "(") objectIndex += 1;
-    const object = tokens[objectIndex];
-    if (object?.value !== "{") continue;
-
-    const closingIndex = closingBrace(tokens, objectIndex);
-    const wrapperCount = objectIndex - (index + 4);
-    const wrappersClose = Array.from(
-      { length: wrapperCount },
-      (_, offset) => tokens[(closingIndex ?? tokens.length) + offset + 1]?.value,
-    ).every((value) => value === ")");
-    if (closingIndex !== undefined && wrappersClose) {
-      problems.push({
-        start: object.start,
-        end: tokens[closingIndex].end,
-        message: `Wrap object-valued record fields with s.object(...).`,
-      });
-    }
-  }
-
-  for (let index = 0; index <= tokens.length - 3; index += 1) {
-    const [fn, openParen] = tokens.slice(index, index + 2);
-    if (
-      tokens[index - 1]?.value === "."
-      || fn.value !== "repair"
-      || openParen.value !== "("
-    ) {
-      continue;
-    }
-
-    const closeIndex = closingParen(tokens, index + 1);
-    if (closeIndex === undefined) continue;
-    const hasArgs = tokens
-      .slice(index + 2, closeIndex)
-      .some((t) => !/^\s*$/.test(t.value));
-    if (hasArgs) {
-      problems.push({
-        start: openParen.end,
-        end: tokens[closeIndex].start,
-        message: "repair() takes no arguments. Set maxTurns on the agent spec instead.",
-        kind: "repair-no-args",
-      });
-    }
-  }
-
-  return problems;
-}
-
-function closingParen(tokens, openingIndex) {
-  let depth = 0;
-  for (let index = openingIndex; index < tokens.length; index += 1) {
-    if (tokens[index].value === "(") depth += 1;
-    if (tokens[index].value === ")") depth -= 1;
-    if (depth === 0) return index;
-  }
-  return undefined;
+  return tokenRules.flatMap((scan) => scan(tokens));
 }
 
 export function fixSource(source, problems = lintSource(source)) {
   let fixed = source;
-  const edits = [];
-  for (const problem of problems) {
-    if (problem.kind === "repair-no-args") {
-      edits.push({ index: problem.start, end: problem.end, text: "" });
-    } else {
-      edits.push({ index: problem.start, text: "s.object(" });
-      edits.push({ index: problem.end, text: ")" });
-    }
-  }
-  edits.sort((left, right) => right.index - left.index);
+  const edits = problems.flatMap((problem) => problem.edits ?? []);
+  edits.sort((left, right) => right.start - left.start);
   for (const edit of edits) {
     if (edit.end !== undefined) {
-      fixed = `${fixed.slice(0, edit.index)}${edit.text}${fixed.slice(edit.end)}`;
+      fixed = `${fixed.slice(0, edit.start)}${edit.text}${fixed.slice(edit.end)}`;
     } else {
-      fixed = `${fixed.slice(0, edit.index)}${edit.text}${fixed.slice(edit.index)}`;
+      fixed = `${fixed.slice(0, edit.start)}${edit.text}${fixed.slice(edit.start)}`;
     }
   }
   return fixed;
