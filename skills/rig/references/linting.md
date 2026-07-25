@@ -1,17 +1,17 @@
 # Linting Rig programs
 
-Rig exports an ESLint plugin from `rig/eslint`. The repository flat config enables its project rules for TypeScript files.
+Rig includes a dependency-free linter in the skill folder and exports an ESLint plugin from `rig/eslint`.
 
 Run the linter after generating or changing a Rig program:
 
 ```bash
-npm run lint -- path/to/program.ts
+node skills/rig/eslint/lint.js path/to/program.ts
 ```
 
 Use `--fix` to apply safe fixes:
 
 ```bash
-npm run lint -- --fix path/to/program.ts
+node skills/rig/eslint/lint.js --fix path/to/program.ts
 ```
 
 ## Rules
@@ -32,4 +32,4 @@ The rule fixes the invalid form automatically.
 
 ## Adding rules
 
-Put rule implementations in `skills/rig/eslint/rules/`, export them from `skills/rig/eslint/index.js`, enable them in `eslint.config.js`, and add RuleTester coverage in `src/eslint-rules.test.js`.
+Put rule implementations in `skills/rig/eslint/rules/`, export them from `skills/rig/eslint/index.js`, add the equivalent skill-local check to `skills/rig/eslint/lint.js`, and cover both in `src/eslint-rules.test.js`.

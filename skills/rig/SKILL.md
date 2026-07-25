@@ -117,10 +117,10 @@ Typecheck without executing:
 cat program.ts | node skills/rig/rig.ts --typecheck
 ```
 
-When working in this repository, lint a generated program before running it:
+Lint a generated program before running it:
 
 ```bash
-npm run lint -- program.ts
+node skills/rig/eslint/lint.js program.ts
 ```
 
 Run inline input or a program file with `node skills/rig/rig.ts`; add `--server` to start the Copilot server. Assume Node.js 24, prefer native APIs, and use `google/zx` for shell-style TypeScript automation.
@@ -130,7 +130,7 @@ Run inline input or a program file with `node skills/rig/rig.ts`; add `--server`
 - Known context uses `p.*`; true runtime data uses `input`.
 - Important outputs are explicitly typed and constrained.
 - Every helper and import uses the current `rig` or `rig/addons` API.
-- Generated TypeScript passes `npm run lint -- <program.ts>` and typechecking.
+- Generated TypeScript passes `node skills/rig/eslint/lint.js <program.ts>` and typechecking.
 - Every subagent is named, reachable, and narrowly scoped.
 - Snippets have one default export and no `console.log`.
 - No deprecated hooks or compatibility layers were introduced.
