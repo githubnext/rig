@@ -933,6 +933,17 @@ describe("prompt intents", () => {
     expect(p.json("hello")).toBe('"hello"');
   });
 
+  it("p.inputField returns input.<field> string for use in prompt prose", () => {
+    expect(p.inputField("files")).toBe("input.files");
+    expect(p.inputField("path")).toBe("input.path");
+    expect(p.inputField("repoName")).toBe("input.repoName");
+  });
+
+  it("p.inputField can be used inline in a prompt template", () => {
+    const builder = p`Merge the config files listed in ${p.inputField("files")}.`;
+    expect(String(builder)).toContain("input.files");
+  });
+
   it("strips AbortSignal from intent options", () => {
     const controller = new AbortController();
     const intent = p.bash("echo hi", { cwd: "/tmp", signal: controller.signal });

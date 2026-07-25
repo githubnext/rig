@@ -141,6 +141,17 @@ Strict TypeScript compilation reports unused handler bindings. Destructure only 
 
 Use `defineTool` for I/O operations and external calls the LLM should be able to invoke — fetching a URL, running a query, reading a dynamic path. Do not use it to replace LLM inference: if the handler implements the classification or reasoning logic entirely in TypeScript, the model is never exercised for that step. Express classification rules as prompt instructions instead, and use a tool only when a discrete external operation is needed to support the model's reasoning.
 
+### `defineTool` vs `p.bash` decision table
+
+| Situation | Use |
+|-----------|-----|
+| Static shell command known at definition time | `p.bash(command)` |
+| Command contains literal backslashes or regex | ``p.bashRaw`command` `` |
+| External I/O the model should invoke conditionally (fetch URL, read dynamic path, query DB) | `defineTool` |
+| Deterministic transform that gives the model intermediate data to reason about | `defineTool` |
+| Full classification or judgment logic implemented in TypeScript | Neither — use prompt instructions |
+| Command depends on a caller-supplied value | Prose description in instructions; reference field with `p.inputField(field)` |
+
 ## Call-time options
 
 Use call-time options only for per-run changes:

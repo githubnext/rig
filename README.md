@@ -126,12 +126,14 @@ p.read("README.md")
 p.readOptional("Dockerfile")           // returns "" if file is absent
 p.readOptional(".eslintrc.json", "{}") // returns "{}" if file is absent
 p.readAll(["src/index.ts", "src/utils.ts"])  // reads all files and concatenates their contents
+p.readInput("path")                    // reads the file at the single path held in input.path
 p.write("README.md", "# Updated\n")   // write-file instruction; does NOT return the path
 p.writeOutput("report", "todo-report.md")  // after generation, write output field "report" to file
 p.glob("src/**/*.ts")
 p.env("GITHUB_TOKEN")                  // returns "" if variable is not set
 p.env("GITHUB_TOKEN", "unset")         // returns "unset" if variable is not set
 p.json({ repo: "rig", stars: 42 })
+p.inputField("files")                  // returns "input.files" for use in prompt prose
 
 const reviewWorkspace = agent({
   instructions: p`Review ${p.read("README.md")} against ${p.bash("git status --short")}.`,
@@ -145,6 +147,8 @@ const reviewWorkspace = agent({
 `p.writeOutput(field, path)` instructs the harness to write the value of output field `field` to the file at `path` after the agent generates its response. Use this instead of `p.write` when the content to be written is LLM-generated — e.g. `p.writeOutput("report", "todo-report.md")` wires the `report` output field to `todo-report.md` automatically.
 
 `p.readAll(paths)` reads all files in the array and concatenates their contents into a single block. Use it instead of repeated `p.read(...)` calls or `p.bash("cat ...")` when you need the full contents of a known set of files as one context block.
+
+`p.readInput(field)` reads the file at the **single** path held in the named input field.  Use `p.inputField(field)` when the input field is not a file path but you still need to reference its value (array, string, etc.) in the prompt prose.  `p.inputField("files")` returns `"input.files"` for use in template expressions — an explicit, documented alternative to the opaque `${"input.files"}` literal.
 
 ```ts
 const b = p();

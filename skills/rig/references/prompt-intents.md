@@ -35,12 +35,13 @@ Intent values are also accepted in agent inputs, but prefer template expressions
 | `p.read(path)` | Required file at a literal path |
 | `p.readOptional(path, fallback?)` | Literal path that may be absent; default fallback is `""` and is injected as prompt text |
 | `p.readAll(paths)` | Concatenated contents of several known files (path list only; no glob overload) |
-| `p.readInput(field)` | File path taken from `input.<field>` at runtime |
+| `p.readInput(field)` | File contents at the **single** path held in `input.<field>` at runtime |
 | `p.write(path, content)` | Prompt instruction to write content already known |
 | `p.writeOutput(field, path)` | Post-generation write of an output field |
 | `p.glob(pattern)` | Runtime workspace path discovery |
 | `p.env(name, fallback?)` | Environment variable; default fallback is `""` |
 | `p.json(value)` | Immediate pretty-printed JSON for inline structured context |
+| `p.inputField(field)` | Returns `"input.<field>"` for explicit reference to a non-path input value in prose |
 
 Examples:
 
@@ -59,6 +60,7 @@ p.glob("src/**/*.ts")
 p.env("GITHUB_TOKEN")
 p.env("GITHUB_TOKEN", "unset")
 p.json({ repo: "rig", stars: 42 })
+p.inputField("files")
 ```
 
 Use ``p.bashRaw`...` `` when regex or shell syntax contains sequences such as `\.`, `\|`, or other backslashes. A normal `p.bash("...")` argument follows TypeScript string escaping rules.
@@ -127,7 +129,29 @@ const fileAnalyzer = agent({
 export default fileAnalyzer;
 ```
 
+`p.readInput(field)` reads the file at the **single** path held in the named input field.  It cannot accept an array field.  For an array of caller-supplied paths, use the coordinator + subagent pattern described in "Runtime lists of file paths" below.
+
 The argument is the input field name, not the path itself. Passing full contents remains reasonable for small payloads; pass a path for larger files to reduce prompt size.
+
+## Referencing non-path input values in prose
+
+When you need to refer to a caller-supplied input value that is **not** a file path — such as an array of paths, a name, or a list — use `p.inputField(field)` to produce an explicit `"input.<field>"` reference in the prompt prose.  This replaces the opaque `${"input.fieldName"}` string literal:
+
+```ts
+import { agent, p, s } from "rig";
+
+// Agent role: merge a caller-supplied list of JSON config files.
+const configMerger = agent({
+  model: "mini",
+  input: s.object({ files: s.array(s.path) }),
+  instructions: p`You are given a list of JSON config file paths: ${p.inputField("files")}\nRead and merge them into one combined config.`,
+  output: s.object({ merged: s.unknown }),
+});
+
+export default configMerger;
+```
+
+`p.inputField("files")` returns the string `"input.files"`, which the model reads as a reference to the caller-supplied `files` field.  Use `p.readInput(field)` when the field holds a **single** file path whose contents the model should read; use `p.inputField(field)` when the field value itself (array, string, number, etc.) should appear in the prompt text.
 
 ## Runtime lists of file paths
 
