@@ -327,7 +327,8 @@ describe("agent invocation", () => {
     expect(mocks.stopClient).toHaveBeenCalledTimes(2);
   });
 
-  it("logs raw Copilot SDK events and rig ask events as JSONL", async () => {
+  it("logs selected Copilot SDK events and asks as JSONL", async () => {
+    process.env["RIG_DEBUG"] = "engine:copilot:event,engine:copilot:ask";
     const stderr = vi.spyOn(process.stderr, "write").mockImplementation(() => true as any);
     mocks.setOnImpl((handler) => {
       handler({ type: "session.idle", data: { done: true } });
@@ -344,9 +345,12 @@ describe("agent invocation", () => {
 
     const logs = stderr.mock.calls.map(([chunk]) => JSON.parse(String(chunk).trim()));
     expect(logs).toHaveLength(2);
-    expect(logs[0]).toEqual({ type: "session.idle", data: { done: true } });
+    expect(logs[0]).toEqual({
+      type: "rig.engine:copilot:event",
+      data: { type: "session.idle", data: { done: true } },
+    });
     expect(logs[1]).toMatchObject({
-      type: "rig.agent.ask",
+      type: "rig.engine:copilot:ask",
       data: { prompt: expect.stringContaining("Hi") },
     });
   });
