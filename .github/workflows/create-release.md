@@ -2,9 +2,9 @@
 emoji: 🚀
 name: Create Release
 description: >
-  On demand, runs the full build (typecheck + tests), computes the next semver
-  version from the latest git tag and the requested bump type (patch/minor/major),
-  then has the AI agent summarize commits and publish a draft GitHub release.
+  On demand, runs the full build (typecheck + tests), then has the AI agent
+  compute the next semver version from the latest git tag and the requested bump
+  type (patch/minor/major), summarize commits, and publish a draft GitHub release.
 on:
   workflow_dispatch:
     inputs:
@@ -36,24 +36,6 @@ steps:
     run: npm run typecheck
   - name: Test
     run: npm test
-  - name: Compute next version
-    id: semver
-    env:
-      BUMP: ${{ github.event.inputs.bump }}
-    run: |
-      git fetch --tags
-      LATEST_TAG=$(git describe --tags --abbrev=0 2>/dev/null || echo "v0.0.0")
-      CURRENT="${LATEST_TAG#v}"
-      IFS='.' read -r MAJOR MINOR PATCH <<< "$CURRENT"
-      MAJOR=${MAJOR:-0}; MINOR=${MINOR:-0}; PATCH=${PATCH:-0}
-      case "$BUMP" in
-        major) MAJOR=$((MAJOR+1)); MINOR=0; PATCH=0 ;;
-        minor) MINOR=$((MINOR+1)); PATCH=0 ;;
-        *)     PATCH=$((PATCH+1)) ;;
-      esac
-      NEXT="${MAJOR}.${MINOR}.${PATCH}"
-      echo "next_version=${NEXT}" >> "$GITHUB_OUTPUT"
-      echo "previous_tag=${LATEST_TAG}" >> "$GITHUB_OUTPUT"
 safe-outputs:
   jobs:
     create-release:
@@ -99,24 +81,36 @@ safe-outputs:
 
 ## Task
 
-You are preparing release **v${{ steps.semver.outputs.next_version }}**
-(a **${{ github.event.inputs.bump }}** bump from `${{ steps.semver.outputs.previous_tag }}`).
+You are preparing a **${{ github.event.inputs.bump }}** release.
 
-The build has already passed. Your job is to summarize what changed since the previous release and create the draft release.
+The build has already passed. Your job is to compute the next version, summarize what changed since the previous release, and create the draft release.
 
-### Step 1 — Gather commits since the previous release
+### Step 1 — Compute the next version
 
 ```bash
-git log ${{ steps.semver.outputs.previous_tag }}..HEAD --oneline
+git fetch --tags
+LATEST_TAG=$(git tag --list 'v[0-9]*.[0-9]*.[0-9]*' --sort=-version:refname | head -n 1)
 ```
 
-If the previous tag was `v0.0.0` (no prior release), list all commits instead:
+Treat an empty `LATEST_TAG` as `v0.0.0`. Parse its major, minor, and patch
+components and apply the requested **${{ github.event.inputs.bump }}** bump to
+compute the next version.
+
+### Step 2 — Gather commits since the previous release
+
+If a previous tag exists, list commits after it:
+
+```bash
+git log "${LATEST_TAG}..HEAD" --oneline
+```
+
+Otherwise, list all commits:
 
 ```bash
 git log --oneline
 ```
 
-### Step 2 — Read package metadata
+### Step 3 — Read package metadata
 
 ```bash
 cat package.json
@@ -124,7 +118,7 @@ cat package.json
 
 Use the package name and description to add context to the release notes.
 
-### Step 3 — Categorize the commits
+### Step 4 — Categorize the commits
 
 Group commits into the following categories (omit empty ones):
 
@@ -135,11 +129,11 @@ Group commits into the following categories (omit empty ones):
 - **Documentation** — commits starting with `docs:`
 - **Internal** — chores, tests, and CI changes (summarize briefly, do not list individually)
 
-### Step 4 — Create the release
+### Step 5 — Create the release
 
 Call the `create_release` tool with:
 
-- `version`: `${{ steps.semver.outputs.next_version }}`
+- `version`: The computed next version without the `v` prefix
 - `draft`: `true`
 - `body`: A GitHub-flavored markdown release description with:
   - A short summary paragraph
@@ -147,4 +141,4 @@ Call the `create_release` tool with:
   - Breaking changes prominently at the top if any exist
   - Upgrade instructions only if the release contains breaking changes
 
-Call `noop` if the commit list is empty or if a tag `v${{ steps.semver.outputs.next_version }}` already exists.
+Call `noop` if the commit list is empty or if the computed next version tag already exists.
