@@ -1962,4 +1962,48 @@ describe("missing required field error message", () => {
       expect(result.error.message).toContain("any");
     }
   });
+
+  it("reports a missing required s.nonEmptyString field as 'non-empty string'", () => {
+    const schema = s.object({ slug: s.nonEmptyString, name: s.string });
+    const result = analyzeResponse(JSON.stringify({ name: "x" }), schema, "test", 1);
+    expect(result.ok).toBe(false);
+    if (!result.ok) {
+      expect(result.error.message).toContain("missing required field");
+      expect(result.error.message).toContain("$.slug");
+      expect(result.error.message).toContain("non-empty string");
+    }
+  });
+
+  it("reports a missing required s.url field as 'URL string'", () => {
+    const schema = s.object({ endpoint: s.url, name: s.string });
+    const result = analyzeResponse(JSON.stringify({ name: "x" }), schema, "test", 1);
+    expect(result.ok).toBe(false);
+    if (!result.ok) {
+      expect(result.error.message).toContain("missing required field");
+      expect(result.error.message).toContain("$.endpoint");
+      expect(result.error.message).toContain("URL string");
+    }
+  });
+
+  it("reports a missing required s.date field as 'date string (YYYY-MM-DD)'", () => {
+    const schema = s.object({ createdAt: s.date, name: s.string });
+    const result = analyzeResponse(JSON.stringify({ name: "x" }), schema, "test", 1);
+    expect(result.ok).toBe(false);
+    if (!result.ok) {
+      expect(result.error.message).toContain("missing required field");
+      expect(result.error.message).toContain("$.createdAt");
+      expect(result.error.message).toContain("date string (YYYY-MM-DD)");
+    }
+  });
+
+  it("reports a missing required s.path field as 'path string'", () => {
+    const schema = s.object({ filePath: s.path, name: s.string });
+    const result = analyzeResponse(JSON.stringify({ name: "x" }), schema, "test", 1);
+    expect(result.ok).toBe(false);
+    if (!result.ok) {
+      expect(result.error.message).toContain("missing required field");
+      expect(result.error.message).toContain("$.filePath");
+      expect(result.error.message).toContain("path string");
+    }
+  });
 });
