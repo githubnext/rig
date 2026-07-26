@@ -49,7 +49,7 @@ const SampleRun = s.object({
 const runSample = agent({
   name: "sample-runner",
   model: "mini",
-  input: { path: s.path },
+  input: s.object({ path: s.path }),
   instructions: p`
 Execute the Rig sample below as a delegated task using the current repository context.
 Follow the root agent's instructions, preserve its final output, and record concise
