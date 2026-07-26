@@ -83,6 +83,9 @@ import { promisify } from "node:util";
 import { CopilotClient, RuntimeConnection, approveAll } from "@github/copilot-sdk";
 import type { CopilotClientOptions } from "@github/copilot-sdk";
 
+export { addons, oncePerAgent, repair, steering, timeout } from "./addons.ts";
+export type { AgentRegistration, SteeringOptions, TimeoutOptions } from "./addons.ts";
+
 export type Json = null | boolean | number | string | Json[] | { [key: string]: Json };
 export type ValidationResult = { ok: true } | { ok: false; error: string };
 

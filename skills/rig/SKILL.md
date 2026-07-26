@@ -35,7 +35,7 @@ export default reviewDiff;
 
 ## Construction rules
 
-1. Use one `import { ... } from "rig"` statement and `agent({ ... })`; add a `// Agent role: ...` comment above every agent.
+1. Use one `import { ... } from "rig"` statement (including addons such as `repair`/`steering`) and `agent({ ... })`; add a `// Agent role: ...` comment above every agent.
 2. Set examples to `model: "large"`, `"mini"`, or `"nano"`.
 3. Omit `input` and `output` when the default free-form `s.string` schemas are enough; otherwise use explicit `s.*` schemas.
 4. Put known workspace context directly in `p\`...\`` with `${p.read(...)}` or `${p.bash(...)}`. Add `input` only for values supplied by the caller.
@@ -109,7 +109,7 @@ For `p.readOptional` fallbacks, pass a value the model can parse in context (for
 - Define tools with `defineTool(name, { description, parameters: s.object(...), handler })`; schema-based handler arguments are inferred and tools default to `skipPermission: true`. `s.unknown` is valid in tool parameters when the tool needs to compare or echo arbitrary JSON-like values, for example `parameters: s.object({ currentValue: s.unknown, recommendedValue: s.unknown })`. Handlers can be sync or async and return a string or any JSON-serializable value; return plain JS values (do not `JSON.stringify`) because Rig serializes non-string results automatically. Async handlers may import Node built-ins with `await import("node:child_process")`. Destructure only handler fields you use. Use `defineTool` for external operations and deterministic transforms that support reasoning — not to replace the core classification or judgment step with in-process TypeScript logic.
 - `agents` must be a named object — `agents: { extractor }` — never an array (`agents: [extractor]` is a type error). Attach every declared subagent to the exported root's graph.
 - There is no chain or loop primitive; give the coordinator explicit delegation instructions and require one combined output.
-- Automatic parse/schema repair requires `repair()` from `rig/addons`; `repair()` takes no arguments. Put retries on the agent spec: `maxTurns: 3, addons: repair()`. Do not pass retries to `repair()` (`addons: repair({ maxTurns: 3 })` is invalid).
+- Automatic parse/schema repair uses `repair()` from `rig`; `repair()` takes no arguments. Put retries on the agent spec: `maxTurns: 3, addons: repair()`. Do not pass retries to `repair()` (`addons: repair({ maxTurns: 3 })` is invalid).
 - `addons` accepts a single addon or an array. Use `addons: repair()` for one addon, and `addons: [steering(), repair()]` when combining. **`steering()` must come before `repair()` in the array** — write `[steering(), repair()]`, not `[repair(), steering()]`. `steering()` (default warning) or `steering({ message: "..." })` (custom text) should run before `repair()` to append a last-chance instruction on the final retry. `oncePerAgent(callback)` invokes the callback once per runtime agent instance — its internal `WeakSet` already deduplicates, so no external tracking is needed.
 
 ## Runnable markdown
