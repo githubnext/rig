@@ -103,10 +103,27 @@ Return the tool result unchanged. Do not run any other sample.`,
   output: SampleRun,
 });
 
-const delegateSample = defineTool("run_sample_subagent", {
-  description: "Delegate one selected sample path to the sample-runner agent.",
-  parameters: s.object({ path: s.path }),
-  handler: ({ path }) => runSample({ path }),
+const runRandomSamples = defineTool("run_random_samples", {
+  description: "Randomly select five Rig samples and delegate each to sample-runner.",
+  parameters: s.object({}),
+  async handler() {
+    const { randomInt } = await import("node:crypto");
+    const { readdir } = await import("node:fs/promises");
+    const names = (await readdir("skills/rig/samples"))
+      .filter((name) => name.endsWith(".md"));
+    if (names.length < 5) {
+      throw new Error(`Expected at least 5 Rig samples, found ${names.length}.`);
+    }
+    for (let index = names.length - 1; index > 0; index -= 1) {
+      const other = randomInt(index + 1);
+      [names[index], names[other]] = [names[other]!, names[index]!];
+    }
+    const runs = [];
+    for (const name of names.slice(0, 5)) {
+      runs.push(await runSample({ path: `skills/rig/samples/${name}` }));
+    }
+    return { runs };
+  },
 });
 
 // Agent role: randomly select five Rig samples, delegate every run, and aggregate the results.
@@ -114,14 +131,8 @@ const sampleCoordinator = agent({
   name: "sample-coordinator",
   model: "small",
   agents: { runSample },
-  tools: [delegateSample],
-  instructions: p`
-These five sample paths were selected randomly:
-${p.bash("find skills/rig/samples -maxdepth 1 -type f -name '*.md' -print | shuf -n 5")}
-
-Call run_sample_subagent exactly once for each listed path. Return one SampleRun
-for every path in the same order. Do not replace, skip, or add samples.
-`,
+  tools: [runRandomSamples],
+  instructions: "Call run_random_samples exactly once with an empty object and return its result unchanged.",
   output: s.object({
     runs: s.array(SampleRun),
   }),
