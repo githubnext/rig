@@ -811,13 +811,28 @@ export type LauncherIo = {
 };
 
 export type AgentFn<Input = unknown, Output = unknown> = ((input: AgentInputValue<Input>, options?: CallOptions) => Promise<Output>) & {
+  /** Resolved name used in logs and error messages. */
   agentName: string;
+  /** The resolved input schema for this agent. Alias of `inputShape`. */
   inputSchema: Schema;
+  /** The resolved output schema for this agent. Alias of `outputShape`. */
   outputSchema: Schema;
+  /** The resolved input schema for this agent. Alias of `inputSchema`. */
   inputShape: Schema;
+  /** The resolved output schema for this agent. Alias of `outputSchema`. */
   outputShape: Schema;
+  /** The fully normalized spec used to construct this agent. */
   spec: NormalizedAgentSpec<any, any>;
   _namespace: string;
+  /**
+   * Appends one or more addon middleware to this agent and returns the same
+   * `AgentFn`.  Addons are applied in the order they are registered and wrap
+   * each turn's ask/response cycle.
+   *
+   * @example
+   * const worker = agent({ model: "mini", instructions: "..." });
+   * worker.use(timeout({ timeout: 5_000 }));
+   */
   use: (addons: AgentAddon | AgentAddon[]) => AgentFn<Input, Output>;
 };
 
