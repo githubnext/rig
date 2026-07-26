@@ -79,6 +79,7 @@
  */
 import { basename, dirname, isAbsolute, resolve } from "node:path";
 import { fileURLToPath, pathToFileURL } from "node:url";
+import { writeSync } from "node:fs";
 import { access, mkdir, mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
 import { execFile } from "node:child_process";
 import { promisify } from "node:util";
@@ -642,7 +643,7 @@ export const debug: DebugLogger = Object.assign(
     }
     try {
       const data = typeof details === "function" ? details() : details;
-      process.stderr.write(`${jsonl(rigEvent(category, data))}\n`);
+      writeSync(process.stderr.fd, `${jsonl(rigEvent(category, data))}\n`);
     } catch {
       // Debugging must not affect rig execution.
     }

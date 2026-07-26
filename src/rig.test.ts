@@ -1,5 +1,9 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
+const fsMocks = vi.hoisted(() => ({
+  writeSync: vi.fn(),
+}));
+
 const mocks = vi.hoisted(() => {
   let sendAndWaitImpl: (request: { prompt: string; signal?: AbortSignal }) => unknown | Promise<unknown> = async () => JSON.stringify("default");
   let onImpl: ((handler: (event: unknown) => void) => void) | undefined;
@@ -45,6 +49,10 @@ const mocks = vi.hoisted(() => {
   };
 });
 
+vi.mock("node:fs", async (importOriginal) => ({
+  ...await importOriginal<typeof import("node:fs")>(),
+  writeSync: fsMocks.writeSync,
+}));
 vi.mock("@github/copilot-sdk", () => ({
   approveAll: mocks.approveAll,
   CopilotClient: mocks.CopilotClient,
@@ -62,6 +70,7 @@ beforeEach(() => {
   mocks.copilotClientCtor.mockClear();
   mocks.disconnectSession.mockClear();
   mocks.stopClient.mockClear();
+  fsMocks.writeSync.mockClear();
   mocks.setOnImpl(undefined);
   mocks.setSendAndWaitImpl(async () => JSON.stringify("default"));
   delete process.env["RIG_DEBUG"];
@@ -72,17 +81,15 @@ beforeEach(() => {
 describe("debug logging", () => {
   it("does not evaluate details or write when its category is disabled", () => {
     const details = vi.fn(() => ({ expensive: true }));
-    const write = vi.spyOn(process.stderr, "write").mockImplementation(() => true);
 
     debug("agent:turn", details);
 
     expect(details).not.toHaveBeenCalled();
-    expect(write).not.toHaveBeenCalled();
+    expect(fsMocks.writeSync).not.toHaveBeenCalled();
   });
 
   it("matches category hierarchies and exclusions", () => {
     process.env["RIG_DEBUG"] = "agent,-agent:prompt";
-    const write = vi.spyOn(process.stderr, "write").mockImplementation(() => true);
 
     expect(debug.enabled("agent")).toBe(true);
     expect(debug.enabled("agent:turn")).toBe(true);
@@ -91,8 +98,8 @@ describe("debug logging", () => {
     debug("agent:turn", () => ({ turn: 1 }));
     debug("agent:prompt", () => ({ prompt: "hidden" }));
 
-    expect(write).toHaveBeenCalledOnce();
-    expect(JSON.parse(String(write.mock.calls[0]?.[0]))).toEqual({
+    expect(fsMocks.writeSync).toHaveBeenCalledOnce();
+    expect(JSON.parse(String(fsMocks.writeSync.mock.calls[0]?.[1]))).toEqual({
       type: "rig.agent:turn",
       data: { turn: 1 },
     });
@@ -107,7 +114,7 @@ describe("debug logging", () => {
 
   it("does not let logging failures affect execution", () => {
     process.env["RIG_DEBUG"] = "*";
-    vi.spyOn(process.stderr, "write").mockImplementation(() => {
+    fsMocks.writeSync.mockImplementation(() => {
       throw new Error("closed");
     });
 
@@ -119,12 +126,11 @@ describe("debug logging", () => {
 
   it("traces the agent lifecycle as JSONL", async () => {
     process.env["RIG_DEBUG"] = "agent";
-    const write = vi.spyOn(process.stderr, "write").mockImplementation(() => true);
     const call = agent({ name: "debug-test" });
 
     await expect(call("go")).resolves.toBe("default");
 
-    const events = write.mock.calls.map(([line]) => JSON.parse(String(line)).type);
+    const events = fsMocks.writeSync.mock.calls.map(([, line]) => JSON.parse(String(line)).type);
     expect(events).toEqual([
       "rig.agent:invoke",
       "rig.agent:turn",
@@ -329,7 +335,6 @@ describe("agent invocation", () => {
 
   it("logs selected Copilot SDK events and asks as JSONL", async () => {
     process.env["RIG_DEBUG"] = "engine:copilot:event,engine:copilot:ask";
-    const stderr = vi.spyOn(process.stderr, "write").mockImplementation(() => true as any);
     mocks.setOnImpl((handler) => {
       handler({ type: "session.idle", data: { done: true } });
     });
@@ -343,7 +348,7 @@ describe("agent invocation", () => {
 
     await expect(greet({ text: "Hi" })).resolves.toEqual({ text: "hello world" });
 
-    const logs = stderr.mock.calls.map(([chunk]) => JSON.parse(String(chunk).trim()));
+    const logs = fsMocks.writeSync.mock.calls.map(([, chunk]) => JSON.parse(String(chunk).trim()));
     expect(logs).toHaveLength(2);
     expect(logs[0]).toEqual({
       type: "rig.engine:copilot:event",
