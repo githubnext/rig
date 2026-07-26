@@ -2652,6 +2652,13 @@ function describeSchemaType(schema: Schema): string {
     return `array of ${itemType}`;
   }
   if ("type" in schema) {
+    if ((schema as { type: string }).type === "string") {
+      const { minLength, format } = schema as StringSchema;
+      if (format === "uri") return "URL string";
+      if (format === "date") return "date string (YYYY-MM-DD)";
+      if (format === "path") return "path string";
+      if (minLength !== undefined && minLength > 0) return "non-empty string";
+    }
     return (schema as { type: string }).type;
   }
   if ("enum" in schema) {
