@@ -3,11 +3,12 @@
 import { readFile, readdir, writeFile } from "node:fs/promises";
 import { extname, resolve } from "node:path";
 import { pathToFileURL } from "node:url";
+import { scanTokens as scanAgentsMustBeObject } from "./rules/agents-must-be-object.js";
 import { scanTokens as scanNoObjectLiteralRecord } from "./rules/no-object-literal-record.js";
 import { scanTokens as scanRepairNoArgs } from "./rules/repair-no-args.js";
 
 const ignoredDirectories = new Set([".git", "node_modules"]);
-const tokenRules = [scanNoObjectLiteralRecord, scanRepairNoArgs];
+const tokenRules = [scanAgentsMustBeObject, scanNoObjectLiteralRecord, scanRepairNoArgs];
 
 function tokenize(source) {
   const tokens = [];
