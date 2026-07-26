@@ -70,7 +70,7 @@ const runRigSample = defineTool("run_rig_sample", {
         cwd: process.cwd(),
         env: {
           ...process.env,
-          RIG_DEBUG: "agent:*,engine:copilot:*,-engine:copilot:event",
+          RIG_DEBUG: "agent:invoke,agent:retry,agent:error,agent:failure,agent:close,engine:copilot:create,engine:copilot:close",
         },
         stdio: ["pipe", "pipe", "pipe"],
       });
@@ -146,10 +146,10 @@ Emit one `create-issue` safe output with:
 - **title**: `Daily Rig sample report — <YYYY-MM-DD>`
 - **body**:
   - List the five selected sample paths and their success status.
-  - Include each sample's final output and exact logs in a separate collapsible
-    `<details>` section.
+  - Include each sample's final output in a separate collapsible `<details>`
+    section.
   - Include the exact `rig.*` JSONL runtime log lines captured while running the
-    Rig program in a final `### Rig Runtime Logs` section. Group lines by sample
-    when attribution is available; otherwise preserve chronological order.
+    Rig program once in a final `### Rig Runtime Logs` section, grouped by
+    sample.
   - Do not invent missing log lines. State clearly when runtime logs were not
     available.
