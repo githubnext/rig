@@ -321,6 +321,32 @@ describe("agent invocation", () => {
     expect(mocks.stopClient).toHaveBeenCalledTimes(1);
   });
 
+  it("propagates the original error even when cleanup hangs (e.g. stuck socket on auth failure)", async () => {
+    mocks.setSendAndWaitImpl(async () => {
+      throw new Error("AUTHENTICATION_FAILED");
+    });
+    // Simulate a hung socket: client.stop() never resolves
+    mocks.stopClient.mockImplementationOnce(() => new Promise<never>(() => {}));
+
+    const greet = agent({
+      name: "auth-fail",
+      input: s.object({ text: s.string }),
+      output: s.object({ text: s.string }),
+    });
+
+    vi.useFakeTimers();
+    try {
+      const callPromise = greet({ text: "Hi" });
+      // Attach the expectation before advancing timers to avoid unhandled-rejection warnings
+      const expectation = expect(callPromise).rejects.toThrow("AUTHENTICATION_FAILED");
+      // Advance past the 5-second cleanup timeout so the stuck close() is abandoned
+      await vi.advanceTimersByTimeAsync(5000);
+      await expectation;
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
   it("creates one SDK agent implementation for each nested agent invocation", async () => {
     const child = agent({
       name: "child",

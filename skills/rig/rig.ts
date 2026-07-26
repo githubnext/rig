@@ -1895,7 +1895,14 @@ export function agent(spec: AgentSpec<any, any>): AgentFn<any, any> {
     } finally {
       try {
         debugAgentClose({ agent: normalizedSpec.name });
-        await runtimeAgent.close();
+        const closePromise = runtimeAgent.close();
+        if (failure !== undefined) {
+          // When there is already a failure, cap cleanup so a hung socket or
+          // unresponsive server does not prevent the error from propagating.
+          await Promise.race([closePromise, new Promise<void>((resolve) => setTimeout(resolve, 5000))]);
+        } else {
+          await closePromise;
+        }
       } catch (cleanupError) {
         if (failure === undefined) {
           throw cleanupError;
@@ -2665,6 +2672,6 @@ if (isMain) {
   runLauncherCli().catch((error: unknown) => {
     const message = error instanceof Error ? error.message : String(error);
     process.stderr.write(`${message}\n`);
-    process.exitCode = 1;
+    process.exit(1);
   });
 }
