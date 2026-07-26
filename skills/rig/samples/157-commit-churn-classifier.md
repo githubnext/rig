@@ -1,8 +1,7 @@
 # 157 - Commit Churn Classifier
 
 ```rig
-import { agent, p, s } from "rig";
-import { steering } from "rig/addons";
+import { agent, p, s, steering } from "rig";
 
 // Agent role: classify files by commit churn frequency and assign a risk level.
 const commitChurnClassifier = agent({

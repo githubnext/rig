@@ -1,8 +1,7 @@
 # 49 - Timeout Signal Helper
 
 ```rig
-import { agent, s } from "rig";
-import { timeout } from "rig/addons";
+import { agent, s, timeout } from "rig";
 // Agent role: return a short response before the timeout expires.
 const worker = agent({
   model: "mini",

@@ -1,8 +1,7 @@
 # 73 - Git Branch Pruner
 
 ```rig
-import { agent, p, s } from "rig";
-import { repair } from "rig/addons";
+import { agent, p, s, repair } from "rig";
 
 // Agent role: identify git branches that are candidates for pruning based on merge status and last commit date.
 const gitBranchPruner = agent({

@@ -1,8 +1,7 @@
 # 128 - Npm Script Dep Mapper
 
 ```rig
-import { agent, p, s, defineTool } from "rig";
-import { repair } from "rig/addons";
+import { agent, p, s, defineTool, repair } from "rig";
 
 const parseScriptDeps = defineTool("parseScriptDeps", {
   description: "Parse pre/post hooks and npm run references for a script",

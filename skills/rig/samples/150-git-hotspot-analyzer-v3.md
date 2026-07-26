@@ -1,8 +1,7 @@
 # 150 - Git Hotspot Analyzer V3
 
 ```rig
-import { agent, defineTool, p, s } from "rig";
-import { steering } from "rig/addons";
+import { agent, defineTool, p, s, steering } from "rig";
 
 // Agent role: identify hot-spot files by git churn and classify risk level.
 const gitHotspotAnalyzerV3 = agent({

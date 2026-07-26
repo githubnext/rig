@@ -83,9 +83,6 @@ import { promisify } from "node:util";
 import { CopilotClient, RuntimeConnection, approveAll } from "@github/copilot-sdk";
 import type { CopilotClientOptions } from "@github/copilot-sdk";
 
-export { addons, oncePerAgent, repair, steering, timeout } from "./addons.ts";
-export type { AgentRegistration, SteeringOptions, TimeoutOptions } from "./addons.ts";
-
 export type Json = null | boolean | number | string | Json[] | { [key: string]: Json };
 export type ValidationResult = { ok: true } | { ok: false; error: string };
 
@@ -643,6 +640,16 @@ export type AgentAddonContext = {
 export type AgentAddon = (
   context: AgentAddonContext,
   next: () => Promise<void>,
+) => void | Promise<void>;
+export type SteeringOptions = {
+  message?: string;
+};
+export type TimeoutOptions = {
+  timeout: number;
+};
+export type AgentRegistration = (
+  agent: Agent,
+  context: AgentAddonContext,
 ) => void | Promise<void>;
 export type ToolHandler<TArgs = unknown> = (args: TArgs) => unknown | Promise<unknown>;
 export type ToolParameters = Schema | Record<string, unknown>;
@@ -1258,6 +1265,66 @@ export class AgentError extends Error {
     this.schemaText = renderSchema(options.schema);
   }
 }
+
+const DEFAULT_STEERING_WARNING = "You are running out of turns. This is your final attempt before reaching the turn limit. Please correct your output now.";
+
+export function steering(options: SteeringOptions = {}): AgentAddon {
+  const message = options.message ?? DEFAULT_STEERING_WARNING;
+  return async (context, next) => {
+    await next();
+    if (context.nextPrompt && context.turn + 1 === context.maxTurns) {
+      context.nextPrompt = `${context.nextPrompt}\n${message}`;
+    }
+  };
+}
+
+export function repair(): AgentAddon {
+  return async (context, next) => {
+    await next();
+    if (context.completed || context.error !== undefined || context.nextPrompt !== undefined) {
+      return;
+    }
+    if (context.response === undefined) {
+      return;
+    }
+    const analysis = analyzeResponse(context.response, context.outputSchema, context.spec.name, context.turn);
+    if (analysis.ok) {
+      context.completed = true;
+      context.output = analysis.output;
+      return;
+    }
+    if (context.turn >= context.maxTurns) {
+      context.error = analysis.error;
+      return;
+    }
+    context.nextPrompt = defaultRepairPrompt(context.spec, analysis.error);
+  };
+}
+
+export function timeout(options: TimeoutOptions): AgentAddon {
+  return async (context, next) => {
+    context.signal = timeoutSignal(context.signal, options.timeout);
+    await next();
+  };
+}
+
+export function oncePerAgent(register: AgentRegistration): AgentAddon {
+  const seen = new WeakSet<Agent>();
+  return async (context, next) => {
+    if (!seen.has(context.agent)) {
+      await register(context.agent, context);
+      seen.add(context.agent);
+    }
+    await next();
+  };
+}
+
+export const addons = {
+  oncePerAgent,
+  timeout,
+  repair,
+  steering,
+};
 
 let currentAgentFactory: AgentFactory = defaultAgentFactory();
 

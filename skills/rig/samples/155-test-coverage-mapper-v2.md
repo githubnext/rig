@@ -1,8 +1,7 @@
 # 155 - Test Coverage Mapper V2
 
 ```rig
-import { agent, defineTool, p, s } from "rig";
-import { repair } from "rig/addons";
+import { agent, defineTool, p, s, repair } from "rig";
 
 // Agent role: map source files to their test files using filename heuristics.
 const testCoverageMapperV2 = agent({

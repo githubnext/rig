@@ -1,8 +1,7 @@
 # 156 - Regex Pattern Tester
 
 ```rig
-import { agent, defineTool, p, s } from "rig";
-import { repair } from "rig/addons";
+import { agent, defineTool, p, s, repair } from "rig";
 
 // Agent role: run regex patterns against test cases and report pass/fail results.
 const regexPatternTester = agent({

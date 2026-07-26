@@ -1,8 +1,7 @@
 # 86 - Npm Audit Simplifier
 
 ```rig
-import { agent, p, s } from "rig";
-import { repair } from "rig/addons";
+import { agent, p, s, repair } from "rig";
 
 // Agent role: run npm audit, parse the JSON output, and produce a simplified vulnerability report.
 const npmAuditSimplifier = agent({

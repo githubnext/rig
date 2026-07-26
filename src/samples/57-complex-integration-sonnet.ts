@@ -1,5 +1,4 @@
-import { agent, defineTool, p, s } from "rig";
-import { oncePerAgent, steering, timeout } from "rig/addons";
+import { agent, defineTool, p, s, oncePerAgent, steering, timeout } from "rig";
 
 const summarizeText = defineTool<{ text: string }>("summarize_text", {
   description: "Create a concise summary from text.",

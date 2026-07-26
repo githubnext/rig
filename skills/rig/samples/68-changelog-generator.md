@@ -1,8 +1,7 @@
 # 68 - Changelog Generator
 
 ```rig
-import { agent, p, s, defineTool } from "rig";
-import { repair } from "rig/addons";
+import { agent, p, s, defineTool, repair } from "rig";
 
 const validateSemver = defineTool("validateSemver", {
   description: "Validate that a bump type is major, minor, or patch",

@@ -1,8 +1,7 @@
 # 139 - Markdown Frontmatter Checker
 
 ```rig
-import { agent, p, s, defineTool } from "rig";
-import { repair } from "rig/addons";
+import { agent, p, s, defineTool, repair } from "rig";
 import { readFileSync, existsSync } from "node:fs";
 
 const parseFrontmatter = defineTool("parseFrontmatter", {

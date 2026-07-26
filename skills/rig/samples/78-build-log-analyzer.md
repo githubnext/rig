@@ -1,8 +1,7 @@
 # 78 - Build Log Analyzer
 
 ```rig
-import { agent, p, s } from "rig";
-import { repair } from "rig/addons";
+import { agent, p, s, repair } from "rig";
 
 // Agent role: run the build and analyze the output for errors, warnings, and success status.
 const buildLogAnalyzer = agent({

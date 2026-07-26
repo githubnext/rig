@@ -1,8 +1,7 @@
 # 125 - Test Coverage Mapper
 
 ```rig
-import { agent, p, s, defineTool } from "rig";
-import { repair } from "rig/addons";
+import { agent, p, s, defineTool, repair } from "rig";
 
 const findTestFile = defineTool("findTestFile", {
   description: "Find the best matching test file for a given source file using filename heuristics",

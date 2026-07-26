@@ -1,8 +1,7 @@
 # 149 - Dotfile Inventory
 
 ```rig
-import { agent, p, s } from "rig";
-import { repair } from "rig/addons";
+import { agent, p, s, repair } from "rig";
 
 // Agent role: Discover and categorize dotfiles in the workspace root and nearby directories.
 const dotfileInventory = agent({

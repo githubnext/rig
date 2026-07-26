@@ -134,7 +134,7 @@ Run inline input or a program file with `node skills/rig/rig.ts`; add `--server`
 
 - Known context uses `p.*`; true runtime data uses `input`.
 - Important outputs are explicitly typed and constrained.
-- Every helper and import uses the current `rig` or `rig/addons` API.
+- Every helper and import uses the current `rig` API.
 - Generated TypeScript passes `node skills/rig/eslint/lint.js <program.ts>` and typechecking.
 - Every subagent is named, reachable, and narrowly scoped.
 - Snippets have one default export and no `console.log`.

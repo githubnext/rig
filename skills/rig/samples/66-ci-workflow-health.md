@@ -1,8 +1,7 @@
 # 66 - CI Workflow Health Analyzer
 
 ```rig
-import { agent, defineTool, p, s } from "rig";
-import { repair } from "rig/addons";
+import { agent, defineTool, p, s, repair } from "rig";
 
 const parseYamlSteps = defineTool("parse_yaml_steps", {
   description: "Extract step names and uses from a YAML workflow file.",

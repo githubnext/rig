@@ -1,8 +1,7 @@
 # 140 - Git Hotspot Analyzer
 
 ```rig
-import { agent, p, s, defineTool } from "rig";
-import { steering } from "rig/addons";
+import { agent, p, s, defineTool, steering } from "rig";
 
 const scoreFile = defineTool("scoreFile", {
   description: "Compute a churn score from commit count for a file.",

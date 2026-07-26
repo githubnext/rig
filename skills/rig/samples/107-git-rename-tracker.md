@@ -1,8 +1,7 @@
 # 107 - Git Rename Tracker
 
 ```rig
-import { agent, p, s } from "rig";
-import { repair } from "rig/addons";
+import { agent, p, s, repair } from "rig";
 
 // Agent role: track file renames in git history and produce a structured rename log.
 const gitRenameTracker = agent({

@@ -1,8 +1,7 @@
 # 94 - Ts Interface Conflict Checker
 
 ```rig
-import { agent, p, s, defineTool } from "rig";
-import { repair } from "rig/addons";
+import { agent, p, s, defineTool, repair } from "rig";
 
 const scanInterfaces = defineTool("scanInterfaces", {
   description: "Scan a TypeScript file for exported interface names using grep",

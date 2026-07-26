@@ -1,8 +1,7 @@
 # 71 - Package Script Health
 
 ```rig
-import { agent, p, s, defineTool } from "rig";
-import { repair } from "rig/addons";
+import { agent, p, s, defineTool, repair } from "rig";
 
 const validateScriptName = defineTool("validateScriptName", {
   description: "Validate that a package.json script name follows conventional naming (lowercase, hyphens only)",

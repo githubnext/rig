@@ -1,8 +1,7 @@
 # 130 - Git Hotspot Analyzer
 
 ```rig
-import { agent, p, s } from "rig";
-import { steering } from "rig/addons";
+import { agent, p, s, steering } from "rig";
 
 // Agent role: analyze which files are hot-spots by measuring commit churn and top contributors.
 const gitHotspotAnalyzer = agent({
