@@ -227,8 +227,9 @@ Custom integrations can use the same logger. Details are evaluated only when the
 ```ts
 import { debug } from "rig";
 
-debug("my-addon:result", () => ({ result: expensiveResult() }));
-if (debug.enabled("my-addon")) {
+const log = debug("my-addon:result");
+log(() => ({ result: expensiveResult() }));
+if (log.enabled) {
   // Optional setup for debug-only instrumentation.
 }
 ```

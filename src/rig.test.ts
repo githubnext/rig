@@ -81,8 +81,9 @@ beforeEach(() => {
 describe("debug logging", () => {
   it("does not evaluate details or write when its category is disabled", () => {
     const details = vi.fn(() => ({ expensive: true }));
+    const log = debug("agent:turn");
 
-    debug("agent:turn", details);
+    log(details);
 
     expect(details).not.toHaveBeenCalled();
     expect(fsMocks.writeSync).not.toHaveBeenCalled();
@@ -90,13 +91,17 @@ describe("debug logging", () => {
 
   it("matches category hierarchies and exclusions", () => {
     process.env["RIG_DEBUG"] = "agent,-agent:prompt";
+    const agentLog = debug("agent");
+    const turnLog = debug("agent:turn");
+    const promptLog = debug("agent:prompt");
+    const engineLog = debug("engine:copilot");
 
-    expect(debug.enabled("agent")).toBe(true);
-    expect(debug.enabled("agent:turn")).toBe(true);
-    expect(debug.enabled("agent:prompt")).toBe(false);
-    expect(debug.enabled("engine:copilot")).toBe(false);
-    debug("agent:turn", () => ({ turn: 1 }));
-    debug("agent:prompt", () => ({ prompt: "hidden" }));
+    expect(agentLog.enabled).toBe(true);
+    expect(turnLog.enabled).toBe(true);
+    expect(promptLog.enabled).toBe(false);
+    expect(engineLog.enabled).toBe(false);
+    turnLog(() => ({ turn: 1 }));
+    promptLog(() => ({ prompt: "hidden" }));
 
     expect(fsMocks.writeSync).toHaveBeenCalledOnce();
     expect(JSON.parse(String(fsMocks.writeSync.mock.calls[0]?.[1]))).toEqual({
@@ -108,8 +113,8 @@ describe("debug logging", () => {
   it("supports wildcard category filters", () => {
     process.env["RIG_DEBUG"] = "engine:*";
 
-    expect(debug.enabled("engine:copilot:create")).toBe(true);
-    expect(debug.enabled("agent:turn")).toBe(false);
+    expect(debug("engine:copilot:create").enabled).toBe(true);
+    expect(debug("agent:turn").enabled).toBe(false);
   });
 
   it("does not let logging failures affect execution", () => {
@@ -118,10 +123,11 @@ describe("debug logging", () => {
       throw new Error("closed");
     });
 
-    expect(() => debug("agent:test", () => {
+    const log = debug("agent:test");
+    expect(() => log(() => {
       throw new Error("details failed");
     })).not.toThrow();
-    expect(() => debug("agent:test", { ok: true })).not.toThrow();
+    expect(() => log({ ok: true })).not.toThrow();
   });
 
   it("traces the agent lifecycle as JSONL", async () => {

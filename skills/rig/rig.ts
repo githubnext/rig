@@ -28,7 +28,7 @@
  * T:LaunchOptions type options for launchRigProgram (server,token,headers,cwd,args)
  * T:LauncherIo type {stdin,stdout,stderr} override for launcher subprocess
  * T:JsonSchemaObject type {[key:string]:unknown} plain JSON Schema object
- * T:DebugLogger type lazy category logger controlled by RIG_DEBUG
+ * T:DebugLogger type lazy category-bound logger controlled by RIG_DEBUG
  * s.string/number/integer/boolean/null SchemaHelperFactory primitives; call as value or fn(desc)
  * s.int alias for s.integer; s.nonEmptyString string with minLength:1; s.url string with format:"uri"; s.path string with format:"path"; s.date string with format:"date" validated as YYYY-MM-DD
  * s.positiveInt integer with minimum:1; s.nonNegativeInt integer with minimum:0; s.percent number with minimum:0,maximum:100; NumberSchema/IntegerSchema support minimum/maximum constraints
@@ -67,7 +67,7 @@
  * F:analyzeResponse(resp,schema,name,turn) ResponseAnalysisResult parse+validate JSON from raw response text (tries direct parse, then fenced ```json block, then balanced-brace extraction)
  * F:defaultRepairPrompt(spec,err) string re-prompt on parse/validation failure
  * F:toJsonSchema(schema) JsonSchemaObject converts Schema to plain JSON Schema
- * F:debug(category,details?) writes lazy category-filtered JSONL diagnostics to stderr
+ * F:debug(category) creates a lazy category-filtered JSONL logger
  * addon:repair re-prompts on JSON/schema failure up to maxTurns (built-in via defaultRepairPrompt)
  * INV:shape-descriptors JS values promote to schemas ("" → string, 0 → number, [""] → string[])
  * INV:optional-key trailing _ on spec key means optional field
@@ -507,7 +507,7 @@ function resolveDefaultEngineKind(options: DefaultEngineOptions = {}): DefaultEn
 function defaultAgentFactory(options: DefaultEngineOptions = {}): AgentFactory {
   return async (agentOptions) => {
     const kind = resolveDefaultEngineKind(options);
-    debug("engine:select", () => ({ kind, model: agentOptions.model }));
+    debugEngineSelect(() => ({ kind, model: agentOptions.model }));
     if (kind === "anthropic") {
       const { anthropicEngine } = await import("./engines/anthropic.ts");
       return anthropicEngine()(agentOptions);
@@ -530,7 +530,7 @@ function defaultAgentFactory(options: DefaultEngineOptions = {}): AgentFactory {
 export function copilotEngine(options: CopilotEngineOptions = {}): AgentFactory {
   const { server, connection, ...clientOptions } = options;
   return async (agentOptions) => {
-    debug("engine:copilot:create", () => ({ model: agentOptions.model, transport: connection ? "custom" : server ? "stdio" : "uri" }));
+    debugCopilotCreate(() => ({ model: agentOptions.model, transport: connection ? "custom" : server ? "stdio" : "uri" }));
     const client = new CopilotClient({
       ...clientOptions,
       connection: connection ?? (server ? RuntimeConnection.forStdio() : RuntimeConnection.forUri(resolveDefaultCopilotUri())),
@@ -543,21 +543,21 @@ export function copilotEngine(options: CopilotEngineOptions = {}): AgentFactory 
       ...(agentOptions.tools !== undefined && { tools: agentOptions.tools as any }),
     });
     session.on?.((event: unknown) => {
-      debug("engine:copilot:event", () => event);
+      debugCopilotEvent(() => event);
     });
 
     return {
       async ask(prompt, askOptions = {}) {
-        debug("engine:copilot:ask", () => ({ prompt }));
+        debugCopilotAsk(() => ({ prompt }));
         const response = await (session.sendAndWait as any)(
           askOptions.signal ? { prompt, signal: askOptions.signal } : { prompt },
         );
         const text = responseText(response);
-        debug("engine:copilot:response", () => ({ response: text }));
+        debugCopilotResponse(() => ({ response: text }));
         return text;
       },
       async close() {
-        debug("engine:copilot:close");
+        debugCopilotClose();
         const errors: Error[] = [];
         if (session.disconnect) {
           try {
@@ -599,8 +599,8 @@ function rigEvent(type: string, data?: unknown): { type: string; data?: unknown 
 }
 
 export type DebugLogger = {
-  (category: string, details?: unknown | (() => unknown)): void;
-  enabled(category: string): boolean;
+  (details?: unknown | (() => unknown)): void;
+  readonly enabled: boolean;
 };
 
 function debugPatternMatches(pattern: string, category: string): boolean {
@@ -636,8 +636,8 @@ function debugEnabled(category: string): boolean {
     .some((pattern) => debugPatternMatches(pattern, category));
 }
 
-export const debug: DebugLogger = Object.assign(
-  (category: string, details?: unknown | (() => unknown)): void => {
+export function debug(category: string): DebugLogger {
+  const logger = (details?: unknown | (() => unknown)): void => {
     if (!debugEnabled(category)) {
       return;
     }
@@ -647,9 +647,25 @@ export const debug: DebugLogger = Object.assign(
     } catch {
       // Debugging must not affect rig execution.
     }
-  },
-  { enabled: debugEnabled },
-);
+  };
+  Object.defineProperty(logger, "enabled", { get: () => debugEnabled(category) });
+  return logger as DebugLogger;
+}
+
+const debugEngineSelect = debug("engine:select");
+const debugCopilotCreate = debug("engine:copilot:create");
+const debugCopilotEvent = debug("engine:copilot:event");
+const debugCopilotAsk = debug("engine:copilot:ask");
+const debugCopilotResponse = debug("engine:copilot:response");
+const debugCopilotClose = debug("engine:copilot:close");
+const debugAgentInvoke = debug("agent:invoke");
+const debugAgentTurn = debug("agent:turn");
+const debugAgentResponse = debug("agent:response");
+const debugAgentError = debug("agent:error");
+const debugAgentComplete = debug("agent:complete");
+const debugAgentRetry = debug("agent:retry");
+const debugAgentFailure = debug("agent:failure");
+const debugAgentClose = debug("agent:close");
 
 export type AgentAddonContext = {
   spec: NormalizedAgentSpec<any, any>;
@@ -1796,7 +1812,7 @@ export function agent(spec: AgentSpec<any, any>): AgentFn<any, any> {
     const normalizedInput = normalizeInput(input, inputSchema);
     let prompt = renderPrompt(normalizedSpec, normalizedInput);
     let lastResponse = "";
-    debug("agent:invoke", () => ({
+    debugAgentInvoke(() => ({
       agent: normalizedSpec.name,
       input: normalizedInput,
       model: runtime.model,
@@ -1812,7 +1828,7 @@ export function agent(spec: AgentSpec<any, any>): AgentFn<any, any> {
     try {
       for (let turn = 1; turn <= runtime.maxTurns; turn += 1) {
         throwIfAborted(runtime.signal);
-        debug("agent:turn", () => ({ agent: normalizedSpec.name, turn, prompt }));
+        debugAgentTurn(() => ({ agent: normalizedSpec.name, turn, prompt }));
         const context: AgentAddonContext = {
           spec: normalizedSpec,
           agent: runtimeAgent,
@@ -1831,29 +1847,29 @@ export function agent(spec: AgentSpec<any, any>): AgentFn<any, any> {
             context.signal ? { signal: context.signal } : undefined,
           );
           context.response = lastResponse;
-          debug("agent:response", () => ({ agent: normalizedSpec.name, turn, response: lastResponse }));
+          debugAgentResponse(() => ({ agent: normalizedSpec.name, turn, response: lastResponse }));
         });
 
         if (context.error !== undefined) {
-          debug("agent:error", () => ({ agent: normalizedSpec.name, turn, error: context.error }));
+          debugAgentError(() => ({ agent: normalizedSpec.name, turn, error: context.error }));
           throw context.error;
         }
         if (context.completed) {
-          debug("agent:complete", () => ({ agent: normalizedSpec.name, turn, output: context.output }));
+          debugAgentComplete(() => ({ agent: normalizedSpec.name, turn, output: context.output }));
           return context.output;
         }
         if (context.nextPrompt !== undefined) {
-          debug("agent:retry", () => ({ agent: normalizedSpec.name, turn, nextTurn: turn + 1 }));
+          debugAgentRetry(() => ({ agent: normalizedSpec.name, turn, nextTurn: turn + 1 }));
           prompt = context.nextPrompt;
           continue;
         }
         if (context.response !== undefined) {
           const analysis = analyzeResponse(context.response, context.outputSchema, context.spec.name, context.turn);
           if (analysis.ok) {
-            debug("agent:complete", () => ({ agent: normalizedSpec.name, turn, output: analysis.output }));
+            debugAgentComplete(() => ({ agent: normalizedSpec.name, turn, output: analysis.output }));
             return analysis.output;
           }
-          debug("agent:error", () => ({ agent: normalizedSpec.name, turn, error: analysis.error }));
+          debugAgentError(() => ({ agent: normalizedSpec.name, turn, error: analysis.error }));
           throw analysis.error;
         }
         throw new Error(
@@ -1862,11 +1878,11 @@ export function agent(spec: AgentSpec<any, any>): AgentFn<any, any> {
       }
     } catch (error) {
       failure = error;
-      debug("agent:failure", () => ({ agent: normalizedSpec.name, error }));
+      debugAgentFailure(() => ({ agent: normalizedSpec.name, error }));
       throw error;
     } finally {
       try {
-        debug("agent:close", () => ({ agent: normalizedSpec.name }));
+        debugAgentClose(() => ({ agent: normalizedSpec.name }));
         await runtimeAgent.close();
       } catch (cleanupError) {
         if (failure === undefined) {
