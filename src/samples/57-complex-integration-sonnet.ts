@@ -14,7 +14,7 @@ const summarizeText = defineTool<{ text: string }>("summarize_text", {
 
 const planner = agent({
   name: "complex-integration-planner",
-  model: "claude-haiku-4.5",
+  model: "small",
   instructions: "Return 2-3 short plan steps for the provided topic.",
   input: s.object({
     topic: s.string,
@@ -26,7 +26,7 @@ const planner = agent({
 
 const complexIntegration = agent({
   name: "complex-integration-sonnet",
-  model: "claude-sonnet-4.5",
+  model: "large",
   maxTurns: 4,
   input: s.object({
     topic: s.string,

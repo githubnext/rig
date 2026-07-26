@@ -4,7 +4,7 @@ import { agent, s } from "rig";
 // Agent role: write a single haiku about the user's topic.
 const sonnetHaiku = agent({
   name: "single-agent-sonnet-haiku",
-  model: "claude-sonnet-4.5",
+  model: "large",
   output: s.object({
     haiku: s.string,
   }),

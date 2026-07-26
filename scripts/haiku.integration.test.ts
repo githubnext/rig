@@ -3,7 +3,10 @@ import { dirname, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import { describe, expect, it } from "vitest";
 
-const token = process.env["COPILOT_GITHUB_TOKEN"];
+const token =
+  process.env["COPILOT_GITHUB_TOKEN"] ??
+  process.env["GH_TOKEN"] ??
+  process.env["GITHUB_TOKEN"];
 const sdkUri = process.env["COPILOT_SDK_URI"];
 const itWithToken = token || sdkUri ? it : it.skip;
 const repoRoot = resolve(dirname(fileURLToPath(import.meta.url)), "..");
