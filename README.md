@@ -228,6 +228,7 @@ Custom integrations can use the same logger. Details are evaluated only when the
 import { debug } from "rig";
 
 const log = debug("my-addon:result");
+log({ status: "started" });
 log(() => ({ result: expensiveResult() }));
 if (log.enabled) {
   // Optional setup for debug-only instrumentation.

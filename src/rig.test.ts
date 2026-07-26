@@ -101,7 +101,7 @@ describe("debug logging", () => {
     expect(turnLog.enabled).toBe(true);
     expect(promptLog.enabled).toBe(false);
     expect(engineLog.enabled).toBe(false);
-    turnLog(() => ({ turn: 1 }));
+    turnLog({ turn: 1 });
     promptLog(() => ({ prompt: "hidden" }));
 
     expect(fsMocks.writeSync).toHaveBeenCalledOnce();

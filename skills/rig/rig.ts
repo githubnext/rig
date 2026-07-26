@@ -507,7 +507,7 @@ function resolveDefaultEngineKind(options: DefaultEngineOptions = {}): DefaultEn
 function defaultAgentFactory(options: DefaultEngineOptions = {}): AgentFactory {
   return async (agentOptions) => {
     const kind = resolveDefaultEngineKind(options);
-    debugEngineSelect(() => ({ kind, model: agentOptions.model }));
+    debugEngineSelect({ kind, model: agentOptions.model });
     if (kind === "anthropic") {
       const { anthropicEngine } = await import("./engines/anthropic.ts");
       return anthropicEngine()(agentOptions);
@@ -530,7 +530,7 @@ function defaultAgentFactory(options: DefaultEngineOptions = {}): AgentFactory {
 export function copilotEngine(options: CopilotEngineOptions = {}): AgentFactory {
   const { server, connection, ...clientOptions } = options;
   return async (agentOptions) => {
-    debugCopilotCreate(() => ({ model: agentOptions.model, transport: connection ? "custom" : server ? "stdio" : "uri" }));
+    debugCopilotCreate({ model: agentOptions.model, transport: connection ? "custom" : server ? "stdio" : "uri" });
     const client = new CopilotClient({
       ...clientOptions,
       connection: connection ?? (server ? RuntimeConnection.forStdio() : RuntimeConnection.forUri(resolveDefaultCopilotUri())),
@@ -548,12 +548,12 @@ export function copilotEngine(options: CopilotEngineOptions = {}): AgentFactory 
 
     return {
       async ask(prompt, askOptions = {}) {
-        debugCopilotAsk(() => ({ prompt }));
+        debugCopilotAsk({ prompt });
         const response = await (session.sendAndWait as any)(
           askOptions.signal ? { prompt, signal: askOptions.signal } : { prompt },
         );
         const text = responseText(response);
-        debugCopilotResponse(() => ({ response: text }));
+        debugCopilotResponse({ response: text });
         return text;
       },
       async close() {
@@ -1824,12 +1824,12 @@ export function agent(spec: AgentSpec<any, any>): AgentFn<any, any> {
     const normalizedInput = normalizeInput(input, inputSchema);
     let prompt = renderPrompt(normalizedSpec, normalizedInput);
     let lastResponse = "";
-    debugAgentInvoke(() => ({
+    debugAgentInvoke({
       agent: normalizedSpec.name,
       input: normalizedInput,
       model: runtime.model,
       maxTurns: runtime.maxTurns,
-    }));
+    });
     const runtimeAgent = await currentAgentFactory({
       model: runtime.model,
       ...(runtime.systemMessage !== undefined && { systemMessage: runtime.systemMessage }),
@@ -1840,7 +1840,7 @@ export function agent(spec: AgentSpec<any, any>): AgentFn<any, any> {
     try {
       for (let turn = 1; turn <= runtime.maxTurns; turn += 1) {
         throwIfAborted(runtime.signal);
-        debugAgentTurn(() => ({ agent: normalizedSpec.name, turn, prompt }));
+        debugAgentTurn({ agent: normalizedSpec.name, turn, prompt });
         const context: AgentAddonContext = {
           spec: normalizedSpec,
           agent: runtimeAgent,
@@ -1859,29 +1859,29 @@ export function agent(spec: AgentSpec<any, any>): AgentFn<any, any> {
             context.signal ? { signal: context.signal } : undefined,
           );
           context.response = lastResponse;
-          debugAgentResponse(() => ({ agent: normalizedSpec.name, turn, response: lastResponse }));
+          debugAgentResponse({ agent: normalizedSpec.name, turn, response: lastResponse });
         });
 
         if (context.error !== undefined) {
-          debugAgentError(() => ({ agent: normalizedSpec.name, turn, error: context.error }));
+          debugAgentError({ agent: normalizedSpec.name, turn, error: context.error });
           throw context.error;
         }
         if (context.completed) {
-          debugAgentComplete(() => ({ agent: normalizedSpec.name, turn, output: context.output }));
+          debugAgentComplete({ agent: normalizedSpec.name, turn, output: context.output });
           return context.output;
         }
         if (context.nextPrompt !== undefined) {
-          debugAgentRetry(() => ({ agent: normalizedSpec.name, turn, nextTurn: turn + 1 }));
+          debugAgentRetry({ agent: normalizedSpec.name, turn, nextTurn: turn + 1 });
           prompt = context.nextPrompt;
           continue;
         }
         if (context.response !== undefined) {
           const analysis = analyzeResponse(context.response, context.outputSchema, context.spec.name, context.turn);
           if (analysis.ok) {
-            debugAgentComplete(() => ({ agent: normalizedSpec.name, turn, output: analysis.output }));
+            debugAgentComplete({ agent: normalizedSpec.name, turn, output: analysis.output });
             return analysis.output;
           }
-          debugAgentError(() => ({ agent: normalizedSpec.name, turn, error: analysis.error }));
+          debugAgentError({ agent: normalizedSpec.name, turn, error: analysis.error });
           throw analysis.error;
         }
         throw new Error(
@@ -1890,11 +1890,11 @@ export function agent(spec: AgentSpec<any, any>): AgentFn<any, any> {
       }
     } catch (error) {
       failure = error;
-      debugAgentFailure(() => ({ agent: normalizedSpec.name, error }));
+      debugAgentFailure({ agent: normalizedSpec.name, error });
       throw error;
     } finally {
       try {
-        debugAgentClose(() => ({ agent: normalizedSpec.name }));
+        debugAgentClose({ agent: normalizedSpec.name });
         await runtimeAgent.close();
       } catch (cleanupError) {
         if (failure === undefined) {
