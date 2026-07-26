@@ -60,7 +60,7 @@ const runRigSample = defineTool("run_rig_sample", {
     }
 
     const markdown = await readFile(samplePath, "utf8");
-    const program = markdown.match(/```rig\s*\n([\s\S]*?)```/)?.[1];
+    const program = markdown.match(/^```rig[ \t]*\r?\n([\s\S]*?)^```[ \t]*\r?$/m)?.[1];
     if (!program) {
       return { path, status: "failed", output: "", logs: ["No rig fenced block found."] };
     }
@@ -99,17 +99,24 @@ Return the tool result unchanged. Do not run any other sample.`,
   output: SampleRun,
 });
 
+const delegateSample = defineTool("run_sample_subagent", {
+  description: "Delegate one selected sample path to the sample-runner agent.",
+  parameters: s.object({ path: s.path }),
+  handler: ({ path }) => runSample({ path }),
+});
+
 // Agent role: randomly select five Rig samples, delegate every run, and aggregate the results.
 const sampleCoordinator = agent({
   name: "sample-coordinator",
   model: "small",
   agents: { runSample },
+  tools: [delegateSample],
   instructions: p`
 These five sample paths were selected randomly:
 ${p.bash("find skills/rig/samples -maxdepth 1 -type f -name '*.md' -print | shuf -n 5")}
 
-Call runSample exactly once for each listed path. Return one SampleRun for every
-path in the same order. Do not replace, skip, or add samples.
+Call run_sample_subagent exactly once for each listed path. Return one SampleRun
+for every path in the same order. Do not replace, skip, or add samples.
 `,
   output: s.object({
     runs: s.array(SampleRun),
