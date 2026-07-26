@@ -51,7 +51,7 @@ vi.mock("@github/copilot-sdk", () => ({
   RuntimeConnection: { forUri: mocks.forUri, forStdio: mocks.forStdio },
 }));
 
-import { AgentError, PromptBuilder, agent, analyzeResponse, configureAgent, copilotEngine, defineTool, oncePerAgent, p, repair, s, steering, timeout, toJsonSchema } from "rig";
+import { AgentError, PromptBuilder, agent, analyzeResponse, configureAgent, copilotEngine, debug, defineTool, oncePerAgent, p, repair, s, steering, timeout, toJsonSchema } from "rig";
 import type { Tool } from "rig";
 
 beforeEach(() => {
@@ -64,8 +64,75 @@ beforeEach(() => {
   mocks.stopClient.mockClear();
   mocks.setOnImpl(undefined);
   mocks.setSendAndWaitImpl(async () => JSON.stringify("default"));
+  delete process.env["RIG_DEBUG"];
   configureAgent(copilotEngine());
   vi.restoreAllMocks();
+});
+
+describe("debug logging", () => {
+  it("does not evaluate details or write when its category is disabled", () => {
+    const details = vi.fn(() => ({ expensive: true }));
+    const write = vi.spyOn(process.stderr, "write").mockImplementation(() => true);
+
+    debug("agent:turn", details);
+
+    expect(details).not.toHaveBeenCalled();
+    expect(write).not.toHaveBeenCalled();
+  });
+
+  it("matches category hierarchies and exclusions", () => {
+    process.env["RIG_DEBUG"] = "agent,-agent:prompt";
+    const write = vi.spyOn(process.stderr, "write").mockImplementation(() => true);
+
+    expect(debug.enabled("agent")).toBe(true);
+    expect(debug.enabled("agent:turn")).toBe(true);
+    expect(debug.enabled("agent:prompt")).toBe(false);
+    expect(debug.enabled("engine:copilot")).toBe(false);
+    debug("agent:turn", () => ({ turn: 1 }));
+    debug("agent:prompt", () => ({ prompt: "hidden" }));
+
+    expect(write).toHaveBeenCalledOnce();
+    expect(JSON.parse(String(write.mock.calls[0]?.[0]))).toEqual({
+      type: "rig.agent:turn",
+      data: { turn: 1 },
+    });
+  });
+
+  it("supports wildcard category filters", () => {
+    process.env["RIG_DEBUG"] = "engine:*";
+
+    expect(debug.enabled("engine:copilot:create")).toBe(true);
+    expect(debug.enabled("agent:turn")).toBe(false);
+  });
+
+  it("does not let logging failures affect execution", () => {
+    process.env["RIG_DEBUG"] = "*";
+    vi.spyOn(process.stderr, "write").mockImplementation(() => {
+      throw new Error("closed");
+    });
+
+    expect(() => debug("agent:test", () => {
+      throw new Error("details failed");
+    })).not.toThrow();
+    expect(() => debug("agent:test", { ok: true })).not.toThrow();
+  });
+
+  it("traces the agent lifecycle as JSONL", async () => {
+    process.env["RIG_DEBUG"] = "agent";
+    const write = vi.spyOn(process.stderr, "write").mockImplementation(() => true);
+    const call = agent({ name: "debug-test" });
+
+    await expect(call("go")).resolves.toBe("default");
+
+    const events = write.mock.calls.map(([line]) => JSON.parse(String(line)).type);
+    expect(events).toEqual([
+      "rig.agent:invoke",
+      "rig.agent:turn",
+      "rig.agent:response",
+      "rig.agent:complete",
+      "rig.agent:close",
+    ]);
+  });
 });
 
 describe("agent", () => {
