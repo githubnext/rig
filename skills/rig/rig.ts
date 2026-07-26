@@ -598,6 +598,18 @@ function rigEvent(type: string, data?: unknown): { type: string; data?: unknown 
   return { type: `rig.${type}`, data };
 }
 
+function writeDebugLine(line: string): void {
+  const buffer = Buffer.from(line);
+  let offset = 0;
+  while (offset < buffer.length) {
+    const written = writeSync(process.stderr.fd, buffer, offset, buffer.length - offset);
+    if (written === 0) {
+      throw new Error("Unable to write debug event");
+    }
+    offset += written;
+  }
+}
+
 export type DebugLogger = {
   (details?: unknown | (() => unknown)): void;
   readonly enabled: boolean;
@@ -643,7 +655,7 @@ export function debug(category: string): DebugLogger {
     }
     try {
       const data = typeof details === "function" ? details() : details;
-      writeSync(process.stderr.fd, `${jsonl(rigEvent(category, data))}\n`);
+      writeDebugLine(`${jsonl(rigEvent(category, data))}\n`);
     } catch {
       // Debugging must not affect rig execution.
     }

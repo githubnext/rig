@@ -71,6 +71,7 @@ beforeEach(() => {
   mocks.disconnectSession.mockClear();
   mocks.stopClient.mockClear();
   fsMocks.writeSync.mockClear();
+  fsMocks.writeSync.mockImplementation((_fd, data) => Buffer.byteLength(String(data)));
   mocks.setOnImpl(undefined);
   mocks.setSendAndWaitImpl(async () => JSON.stringify("default"));
   delete process.env["RIG_DEBUG"];
@@ -128,6 +129,20 @@ describe("debug logging", () => {
       throw new Error("details failed");
     })).not.toThrow();
     expect(() => log({ ok: true })).not.toThrow();
+  });
+
+  it("retries partial stderr writes", () => {
+    process.env["RIG_DEBUG"] = "agent";
+    fsMocks.writeSync
+      .mockReturnValueOnce(5)
+      .mockImplementation((_fd, _data, _offset, length) => length);
+
+    debug("agent:test")({ ok: true });
+
+    expect(fsMocks.writeSync).toHaveBeenCalledTimes(2);
+    const totalLength = fsMocks.writeSync.mock.calls[0]?.[3];
+    expect(fsMocks.writeSync.mock.calls[0]?.slice(2)).toEqual([0, totalLength]);
+    expect(fsMocks.writeSync.mock.calls[1]?.slice(2)).toEqual([5, totalLength - 5]);
   });
 
   it("traces the agent lifecycle as JSONL", async () => {
