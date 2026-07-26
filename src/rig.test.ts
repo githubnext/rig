@@ -1,5 +1,9 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
+const fsMocks = vi.hoisted(() => ({
+  writeSync: vi.fn(),
+}));
+
 const mocks = vi.hoisted(() => {
   let sendAndWaitImpl: (request: { prompt: string; signal?: AbortSignal }) => unknown | Promise<unknown> = async () => JSON.stringify("default");
   let onImpl: ((handler: (event: unknown) => void) => void) | undefined;
@@ -45,13 +49,17 @@ const mocks = vi.hoisted(() => {
   };
 });
 
+vi.mock("node:fs", async (importOriginal) => ({
+  ...await importOriginal<typeof import("node:fs")>(),
+  writeSync: fsMocks.writeSync,
+}));
 vi.mock("@github/copilot-sdk", () => ({
   approveAll: mocks.approveAll,
   CopilotClient: mocks.CopilotClient,
   RuntimeConnection: { forUri: mocks.forUri, forStdio: mocks.forStdio },
 }));
 
-import { AgentError, PromptBuilder, agent, analyzeResponse, configureAgent, copilotEngine, defineTool, oncePerAgent, p, repair, s, steering, timeout, toJsonSchema } from "rig";
+import { AgentError, PromptBuilder, agent, analyzeResponse, configureAgent, copilotEngine, debug, defineTool, oncePerAgent, p, repair, s, steering, timeout, toJsonSchema } from "rig";
 import type { Tool } from "rig";
 
 beforeEach(() => {
@@ -62,10 +70,96 @@ beforeEach(() => {
   mocks.copilotClientCtor.mockClear();
   mocks.disconnectSession.mockClear();
   mocks.stopClient.mockClear();
+  fsMocks.writeSync.mockClear();
+  fsMocks.writeSync.mockImplementation((_fd, data) => Buffer.byteLength(String(data)));
   mocks.setOnImpl(undefined);
   mocks.setSendAndWaitImpl(async () => JSON.stringify("default"));
+  delete process.env["RIG_DEBUG"];
   configureAgent(copilotEngine());
   vi.restoreAllMocks();
+});
+
+describe("debug logging", () => {
+  it("does not evaluate details or write when its category is disabled", () => {
+    const details = vi.fn(() => ({ expensive: true }));
+    const log = debug("agent:turn");
+
+    log(details);
+
+    expect(details).not.toHaveBeenCalled();
+    expect(fsMocks.writeSync).not.toHaveBeenCalled();
+  });
+
+  it("matches category hierarchies and exclusions", () => {
+    process.env["RIG_DEBUG"] = "agent,-agent:prompt";
+    const agentLog = debug("agent");
+    const turnLog = debug("agent:turn");
+    const promptLog = debug("agent:prompt");
+    const engineLog = debug("engine:copilot");
+
+    expect(agentLog.enabled).toBe(true);
+    expect(turnLog.enabled).toBe(true);
+    expect(promptLog.enabled).toBe(false);
+    expect(engineLog.enabled).toBe(false);
+    turnLog({ turn: 1 });
+    promptLog(() => ({ prompt: "hidden" }));
+
+    expect(fsMocks.writeSync).toHaveBeenCalledOnce();
+    expect(JSON.parse(String(fsMocks.writeSync.mock.calls[0]?.[1]))).toEqual({
+      type: "rig.agent:turn",
+      data: { turn: 1 },
+    });
+  });
+
+  it("supports wildcard category filters", () => {
+    process.env["RIG_DEBUG"] = "engine:*";
+
+    expect(debug("engine:copilot:create").enabled).toBe(true);
+    expect(debug("agent:turn").enabled).toBe(false);
+  });
+
+  it("does not let logging failures affect execution", () => {
+    process.env["RIG_DEBUG"] = "*";
+    fsMocks.writeSync.mockImplementation(() => {
+      throw new Error("closed");
+    });
+
+    const log = debug("agent:test");
+    expect(() => log(() => {
+      throw new Error("details failed");
+    })).not.toThrow();
+    expect(() => log({ ok: true })).not.toThrow();
+  });
+
+  it("retries partial stderr writes", () => {
+    process.env["RIG_DEBUG"] = "agent";
+    fsMocks.writeSync
+      .mockReturnValueOnce(5)
+      .mockImplementation((_fd, _data, _offset, length) => length);
+
+    debug("agent:test")({ ok: true });
+
+    expect(fsMocks.writeSync).toHaveBeenCalledTimes(2);
+    const totalLength = fsMocks.writeSync.mock.calls[0]?.[3];
+    expect(fsMocks.writeSync.mock.calls[0]?.slice(2)).toEqual([0, totalLength]);
+    expect(fsMocks.writeSync.mock.calls[1]?.slice(2)).toEqual([5, totalLength - 5]);
+  });
+
+  it("traces the agent lifecycle as JSONL", async () => {
+    process.env["RIG_DEBUG"] = "agent";
+    const call = agent({ name: "debug-test" });
+
+    await expect(call("go")).resolves.toBe("default");
+
+    const events = fsMocks.writeSync.mock.calls.map(([, line]) => JSON.parse(String(line)).type);
+    expect(events).toEqual([
+      "rig.agent:invoke",
+      "rig.agent:turn",
+      "rig.agent:response",
+      "rig.agent:complete",
+      "rig.agent:close",
+    ]);
+  });
 });
 
 describe("agent", () => {
@@ -286,8 +380,8 @@ describe("agent invocation", () => {
     expect(mocks.stopClient).toHaveBeenCalledTimes(2);
   });
 
-  it("logs raw Copilot SDK events and rig ask events as JSONL", async () => {
-    const stderr = vi.spyOn(process.stderr, "write").mockImplementation(() => true as any);
+  it("logs selected Copilot SDK events and asks as JSONL", async () => {
+    process.env["RIG_DEBUG"] = "engine:copilot:event,engine:copilot:ask";
     mocks.setOnImpl((handler) => {
       handler({ type: "session.idle", data: { done: true } });
     });
@@ -301,11 +395,14 @@ describe("agent invocation", () => {
 
     await expect(greet({ text: "Hi" })).resolves.toEqual({ text: "hello world" });
 
-    const logs = stderr.mock.calls.map(([chunk]) => JSON.parse(String(chunk).trim()));
+    const logs = fsMocks.writeSync.mock.calls.map(([, chunk]) => JSON.parse(String(chunk).trim()));
     expect(logs).toHaveLength(2);
-    expect(logs[0]).toEqual({ type: "session.idle", data: { done: true } });
+    expect(logs[0]).toEqual({
+      type: "rig.engine:copilot:event",
+      data: { type: "session.idle", data: { done: true } },
+    });
     expect(logs[1]).toMatchObject({
-      type: "rig.agent.ask",
+      type: "rig.engine:copilot:ask",
       data: { prompt: expect.stringContaining("Hi") },
     });
   });

@@ -211,6 +211,30 @@ Use these samples to quickly gauge how well `rig` supports increasingly agentic 
 
 Per call, you can override `model`, `timeout`, `maxTurns`, and `signal`.
 
+## Debug logging
+
+Set `RIG_DEBUG` to emit lazy JSONL diagnostics to stderr. A category enables itself and its children, `*` enables everything, and a `-` prefix excludes a category:
+
+```bash
+RIG_DEBUG=agent node skills/rig/rig.ts program.ts
+RIG_DEBUG='engine:copilot:*,-engine:copilot:event' node skills/rig/rig.ts program.ts
+```
+
+Rig uses `agent:*` categories for invocation, turns, responses, retries, completion, failures, and cleanup. Copilot adapter events use `engine:copilot:*`; default adapter selection uses `engine:select`.
+
+Custom integrations can use the same logger. Details are evaluated only when the category is enabled, and logger failures never affect execution:
+
+```ts
+import { debug } from "rig";
+
+const log = debug("my-addon:result");
+log({ status: "started" });
+log(() => ({ result: expensiveResult() }));
+if (log.enabled) {
+  // Optional setup for debug-only instrumentation.
+}
+```
+
 ## Addons
 
 Each agent call runs a per-turn addon chain:

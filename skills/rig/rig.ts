@@ -28,6 +28,7 @@
  * T:LaunchOptions type options for launchRigProgram (server,token,headers,cwd,args)
  * T:LauncherIo type {stdin,stdout,stderr} override for launcher subprocess
  * T:JsonSchemaObject type {[key:string]:unknown} plain JSON Schema object
+ * T:DebugLogger type lazy category-bound logger controlled by RIG_DEBUG
  * s.string/number/integer/boolean/null SchemaHelperFactory primitives; call as value or fn(desc)
  * s.int alias for s.integer; s.nonEmptyString string with minLength:1; s.url string with format:"uri"; s.path string with format:"path"; s.date string with format:"date" validated as YYYY-MM-DD
  * s.positiveInt integer with minimum:1; s.nonNegativeInt integer with minimum:0; s.percent number with minimum:0,maximum:100; NumberSchema/IntegerSchema support minimum/maximum constraints
@@ -66,6 +67,7 @@
  * F:analyzeResponse(resp,schema,name,turn) ResponseAnalysisResult parse+validate JSON from raw response text (tries direct parse, then fenced ```json block, then balanced-brace extraction)
  * F:defaultRepairPrompt(spec,err) string re-prompt on parse/validation failure
  * F:toJsonSchema(schema) JsonSchemaObject converts Schema to plain JSON Schema
+ * F:debug(category) creates a lazy category-filtered JSONL logger
  * addon:repair re-prompts on JSON/schema failure up to maxTurns (built-in via defaultRepairPrompt)
  * INV:shape-descriptors JS values promote to schemas ("" → string, 0 → number, [""] → string[])
  * INV:optional-key trailing _ on spec key means optional field
@@ -77,6 +79,7 @@
  */
 import { basename, dirname, isAbsolute, resolve } from "node:path";
 import { fileURLToPath, pathToFileURL } from "node:url";
+import { writeSync } from "node:fs";
 import { access, mkdir, mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
 import { execFile } from "node:child_process";
 import { promisify } from "node:util";
@@ -504,6 +507,7 @@ function resolveDefaultEngineKind(options: DefaultEngineOptions = {}): DefaultEn
 function defaultAgentFactory(options: DefaultEngineOptions = {}): AgentFactory {
   return async (agentOptions) => {
     const kind = resolveDefaultEngineKind(options);
+    debugEngineSelect({ kind, model: agentOptions.model });
     if (kind === "anthropic") {
       const { anthropicEngine } = await import("./engines/anthropic.ts");
       return anthropicEngine()(agentOptions);
@@ -526,6 +530,7 @@ function defaultAgentFactory(options: DefaultEngineOptions = {}): AgentFactory {
 export function copilotEngine(options: CopilotEngineOptions = {}): AgentFactory {
   const { server, connection, ...clientOptions } = options;
   return async (agentOptions) => {
+    debugCopilotCreate({ model: agentOptions.model, transport: connection ? "custom" : server ? "stdio" : "uri" });
     const client = new CopilotClient({
       ...clientOptions,
       connection: connection ?? (server ? RuntimeConnection.forStdio() : RuntimeConnection.forUri(resolveDefaultCopilotUri())),
@@ -538,18 +543,21 @@ export function copilotEngine(options: CopilotEngineOptions = {}): AgentFactory 
       ...(agentOptions.tools !== undefined && { tools: agentOptions.tools as any }),
     });
     session.on?.((event: unknown) => {
-      writeEvent(event);
+      debugCopilotEvent(() => event);
     });
 
     return {
       async ask(prompt, askOptions = {}) {
-        writeEvent(rigEvent("agent.ask", { prompt }));
+        debugCopilotAsk({ prompt });
         const response = await (session.sendAndWait as any)(
           askOptions.signal ? { prompt, signal: askOptions.signal } : { prompt },
         );
-        return responseText(response);
+        const text = responseText(response);
+        debugCopilotResponse({ response: text });
+        return text;
       },
       async close() {
+        debugCopilotClose();
         const errors: Error[] = [];
         if (session.disconnect) {
           try {
@@ -590,9 +598,86 @@ function rigEvent(type: string, data?: unknown): { type: string; data?: unknown 
   return { type: `rig.${type}`, data };
 }
 
-function writeEvent(event: unknown): void {
-  process.stderr.write(`${jsonl(event)}\n`);
+function writeDebugLine(line: string): void {
+  const buffer = Buffer.from(line);
+  let offset = 0;
+  while (offset < buffer.length) {
+    const written = writeSync(process.stderr.fd, buffer, offset, buffer.length - offset);
+    if (written === 0) {
+      throw new Error("Unable to write debug event");
+    }
+    offset += written;
+  }
 }
+
+export type DebugLogger = {
+  (details?: unknown | (() => unknown)): void;
+  readonly enabled: boolean;
+};
+
+function debugPatternMatches(pattern: string, category: string): boolean {
+  if (pattern === "*") {
+    return true;
+  }
+  if (!pattern.includes("*")) {
+    return category === pattern || category.startsWith(`${pattern}:`);
+  }
+  const expression = pattern
+    .split("*")
+    .map((part) => part.replace(/[.*+?^${}()|[\]\\]/g, "\\$&"))
+    .join(".*");
+  return new RegExp(`^${expression}$`).test(category);
+}
+
+function debugEnabled(category: string): boolean {
+  const patterns = (process.env["RIG_DEBUG"] ?? "")
+    .split(/[\s,]+/)
+    .map((pattern) => pattern.trim())
+    .filter(Boolean);
+  if (!category || patterns.length === 0) {
+    return false;
+  }
+  const excluded = patterns
+    .filter((pattern) => pattern.startsWith("-"))
+    .some((pattern) => debugPatternMatches(pattern.slice(1), category));
+  if (excluded) {
+    return false;
+  }
+  return patterns
+    .filter((pattern) => !pattern.startsWith("-"))
+    .some((pattern) => debugPatternMatches(pattern, category));
+}
+
+export function debug(category: string): DebugLogger {
+  const logger = (details?: unknown | (() => unknown)): void => {
+    if (!debugEnabled(category)) {
+      return;
+    }
+    try {
+      const data = typeof details === "function" ? details() : details;
+      writeDebugLine(`${jsonl(rigEvent(category, data))}\n`);
+    } catch {
+      // Debugging must not affect rig execution.
+    }
+  };
+  Object.defineProperty(logger, "enabled", { get: () => debugEnabled(category) });
+  return logger as DebugLogger;
+}
+
+const debugEngineSelect = debug("engine:select");
+const debugCopilotCreate = debug("engine:copilot:create");
+const debugCopilotEvent = debug("engine:copilot:event");
+const debugCopilotAsk = debug("engine:copilot:ask");
+const debugCopilotResponse = debug("engine:copilot:response");
+const debugCopilotClose = debug("engine:copilot:close");
+const debugAgentInvoke = debug("agent:invoke");
+const debugAgentTurn = debug("agent:turn");
+const debugAgentResponse = debug("agent:response");
+const debugAgentError = debug("agent:error");
+const debugAgentComplete = debug("agent:complete");
+const debugAgentRetry = debug("agent:retry");
+const debugAgentFailure = debug("agent:failure");
+const debugAgentClose = debug("agent:close");
 
 export type AgentAddonContext = {
   spec: NormalizedAgentSpec<any, any>;
@@ -1739,6 +1824,12 @@ export function agent(spec: AgentSpec<any, any>): AgentFn<any, any> {
     const normalizedInput = normalizeInput(input, inputSchema);
     let prompt = renderPrompt(normalizedSpec, normalizedInput);
     let lastResponse = "";
+    debugAgentInvoke({
+      agent: normalizedSpec.name,
+      input: normalizedInput,
+      model: runtime.model,
+      maxTurns: runtime.maxTurns,
+    });
     const runtimeAgent = await currentAgentFactory({
       model: runtime.model,
       ...(runtime.systemMessage !== undefined && { systemMessage: runtime.systemMessage }),
@@ -1749,6 +1840,7 @@ export function agent(spec: AgentSpec<any, any>): AgentFn<any, any> {
     try {
       for (let turn = 1; turn <= runtime.maxTurns; turn += 1) {
         throwIfAborted(runtime.signal);
+        debugAgentTurn({ agent: normalizedSpec.name, turn, prompt });
         const context: AgentAddonContext = {
           spec: normalizedSpec,
           agent: runtimeAgent,
@@ -1767,23 +1859,29 @@ export function agent(spec: AgentSpec<any, any>): AgentFn<any, any> {
             context.signal ? { signal: context.signal } : undefined,
           );
           context.response = lastResponse;
+          debugAgentResponse({ agent: normalizedSpec.name, turn, response: lastResponse });
         });
 
         if (context.error !== undefined) {
+          debugAgentError({ agent: normalizedSpec.name, turn, error: context.error });
           throw context.error;
         }
         if (context.completed) {
+          debugAgentComplete({ agent: normalizedSpec.name, turn, output: context.output });
           return context.output;
         }
         if (context.nextPrompt !== undefined) {
+          debugAgentRetry({ agent: normalizedSpec.name, turn, nextTurn: turn + 1 });
           prompt = context.nextPrompt;
           continue;
         }
         if (context.response !== undefined) {
           const analysis = analyzeResponse(context.response, context.outputSchema, context.spec.name, context.turn);
           if (analysis.ok) {
+            debugAgentComplete({ agent: normalizedSpec.name, turn, output: analysis.output });
             return analysis.output;
           }
+          debugAgentError({ agent: normalizedSpec.name, turn, error: analysis.error });
           throw analysis.error;
         }
         throw new Error(
@@ -1792,9 +1890,11 @@ export function agent(spec: AgentSpec<any, any>): AgentFn<any, any> {
       }
     } catch (error) {
       failure = error;
+      debugAgentFailure({ agent: normalizedSpec.name, error });
       throw error;
     } finally {
       try {
+        debugAgentClose({ agent: normalizedSpec.name });
         const closePromise = runtimeAgent.close();
         if (failure !== undefined) {
           // When there is already a failure, cap cleanup so a hung socket or
