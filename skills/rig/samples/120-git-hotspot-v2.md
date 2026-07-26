@@ -1,8 +1,7 @@
 # 120 - Git Hotspot V2
 
 ```rig
-import { agent, p, s, defineTool } from "rig";
-import { repair } from "rig/addons";
+import { agent, p, s, defineTool, repair } from "rig";
 
 const getFileCommitCount = defineTool("getFileCommitCount", {
   description: "Count how many commits touched a specific file",

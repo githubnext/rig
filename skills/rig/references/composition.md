@@ -141,8 +141,7 @@ When a task asks for runnable markdown:
 Rig starts with no addons. `maxTurns` is only the total budget; automatic parse/schema correction requires `repair()`:
 
 ```ts
-import { agent } from "rig";
-import { repair } from "rig/addons";
+import { agent, repair } from "rig";
 
 // Agent role: return a valid concise summary.
 const summarize = agent({
@@ -170,8 +169,7 @@ addons: repair();
 `steering()` appends a last-chance warning to the final retry prompt produced by `repair`. Put it before `repair` so it can observe the repair prompt as the addon chain unwinds:
 
 ```ts
-import { agent } from "rig";
-import { repair, steering } from "rig/addons";
+import { agent, repair, steering } from "rig";
 
 // Agent role: return a valid concise summary with final-turn steering.
 const summarize = agent({
@@ -198,8 +196,7 @@ Use `repair()` alone when the validation error is enough guidance. Pass custom w
 `oncePerAgent(register)` invokes its callback exactly once per runtime agent instance — not once per turn and not once per retry. The callback receives `(agent: Agent, context: AgentAddonContext)`. Use it for one-time initialization such as registering a tool adapter or constructing a client:
 
 ```ts
-import { agent, s } from "rig";
-import { oncePerAgent, repair } from "rig/addons";
+import { agent, oncePerAgent, repair, s } from "rig";
 
 // Agent role: answer after one-time runtime initialization.
 const qa = agent({

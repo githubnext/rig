@@ -51,9 +51,8 @@ vi.mock("@github/copilot-sdk", () => ({
   RuntimeConnection: { forUri: mocks.forUri, forStdio: mocks.forStdio },
 }));
 
-import { AgentError, PromptBuilder, agent, analyzeResponse, configureAgent, copilotEngine, defineTool, p, s, toJsonSchema } from "rig";
+import { AgentError, PromptBuilder, agent, analyzeResponse, configureAgent, copilotEngine, defineTool, oncePerAgent, p, repair, s, steering, timeout, toJsonSchema } from "rig";
 import type { Tool } from "rig";
-import { oncePerAgent, repair, steering, timeout } from "rig/addons";
 
 beforeEach(() => {
   mocks.createSession.mockClear();

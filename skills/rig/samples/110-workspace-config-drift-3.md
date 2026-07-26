@@ -1,8 +1,7 @@
 # 110 - Workspace Config Drift 3
 
 ```rig
-import { agent, defineTool, p, s } from "rig";
-import { repair } from "rig/addons";
+import { agent, defineTool, p, s, repair } from "rig";
 
 // Agent role: detect drift in workspace config files against a baseline.
 const workspaceConfigDrift = agent({

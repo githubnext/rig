@@ -1,8 +1,7 @@
 # 111 - Conventional Commit Suggester
 
 ```rig
-import { agent, p, s } from "rig";
-import { repair, steering } from "rig/addons";
+import { agent, p, s, repair, steering } from "rig";
 
 // Agent role: suggest conventional-format rewrites for recent git commit messages.
 const conventionalCommitSuggester = agent({

@@ -19,12 +19,16 @@ gh skills clone githubnext/rig
 ```ts
 import {
   agent,
+  addons,
   configureAgent,
   defineTool,
+  oncePerAgent,
   p,
+  repair,
   s,
+  steering,
+  timeout,
 } from "rig";
-import { addons, oncePerAgent, repair, steering, timeout } from "rig/addons";
 ```
 
 - `agent(spec)` creates a typed agent function.
@@ -36,7 +40,7 @@ import { addons, oncePerAgent, repair, steering, timeout } from "rig/addons";
 - `defineTool(name, config)` creates an SDK-neutral tool definition and accepts rig `s.*` schemas for `parameters`.
 - `addons` accepts express-like `(context, next)` turn addons for steering, inline validation, and runtime agent access.
 - `rig` starts with no default addons.
-- `rig/addons` provides optional addon helpers: `oncePerAgent`, `repair`, `steering`, `timeout`, and `addons.{oncePerAgent,repair,steering,timeout}`.
+- `rig` exports addon helpers: `oncePerAgent`, `repair`, `steering`, `timeout`, and `addons.{oncePerAgent,repair,steering,timeout}`.
 - `p\`...\`` returns a prompt builder and renders intent values when coerced to string; prefer `${p.read(...)}` / `${p.bash(...)}` when the context source is already known.
 
 ## Embedding in markdown

@@ -1,8 +1,7 @@
 # 96 - Test Naming Enforcer
 
 ```rig
-import { agent, p, s } from "rig";
-import { steering } from "rig/addons";
+import { agent, p, s, steering } from "rig";
 
 // Agent role: audit test file naming conventions and report files that violate the standard pattern.
 const testNamingEnforcer = agent({

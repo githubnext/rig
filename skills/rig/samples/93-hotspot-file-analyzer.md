@@ -1,8 +1,7 @@
 # 93 - Hotspot File Analyzer
 
 ```rig
-import { agent, p, s } from "rig";
-import { steering } from "rig/addons";
+import { agent, p, s, steering } from "rig";
 
 // Agent role: analyze which source files are hot-spots by measuring churn and top contributors.
 const hotspotFileAnalyzer = agent({

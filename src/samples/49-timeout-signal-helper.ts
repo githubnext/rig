@@ -1,5 +1,4 @@
-import { agent } from "rig";
-import { timeout } from "rig/addons";
+import { agent, timeout } from "rig";
 
 // Agent role: return a short response in output.text.
 

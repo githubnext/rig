@@ -1,8 +1,7 @@
 # 100 - Workspace Config Drift 2
 
 ```rig
-import { agent, p, s, defineTool } from "rig";
-import { repair } from "rig/addons";
+import { agent, p, s, defineTool, repair } from "rig";
 
 const parseJson = defineTool("parseJson", {
   description: "Parse a JSON string and return parsed object or error",

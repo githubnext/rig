@@ -1,8 +1,7 @@
 # 126 - Tsconfig Options Auditor
 
 ```rig
-import { agent, p, s, defineTool } from "rig";
-import { steering, repair } from "rig/addons";
+import { agent, p, s, defineTool, steering, repair } from "rig";
 
 const checkOption = defineTool("checkOption", {
   description: "Check whether a tsconfig compiler option matches the recommended value",

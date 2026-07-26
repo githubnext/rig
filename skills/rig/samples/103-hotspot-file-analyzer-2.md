@@ -1,8 +1,7 @@
 # 103 - Hotspot File Analyzer 2
 
 ```rig
-import { agent, p, s } from "rig";
-import { steering } from "rig/addons";
+import { agent, p, s, steering } from "rig";
 
 // Agent role: identify hot-spot files by measuring commit churn and contributor spread.
 const hotspotFileAnalyzer = agent({

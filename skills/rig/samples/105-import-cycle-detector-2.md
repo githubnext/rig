@@ -1,8 +1,7 @@
 # 105 - Import Cycle Detector 2
 
 ```rig
-import { agent, p, s } from "rig";
-import { repair } from "rig/addons";
+import { agent, p, s, repair } from "rig";
 
 // Agent role: detect circular import cycles in TypeScript source files.
 const importCycleDetector = agent({

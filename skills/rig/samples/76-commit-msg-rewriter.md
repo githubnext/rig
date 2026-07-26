@@ -1,8 +1,7 @@
 # 76 - Commit Msg Rewriter
 
 ```rig
-import { agent, p, s } from "rig";
-import { steering, repair } from "rig/addons";
+import { agent, p, s, steering, repair } from "rig";
 
 // Agent role: rewrite recent git commit messages into conventional commit format with imperative mood.
 const commitMsgRewriter = agent({

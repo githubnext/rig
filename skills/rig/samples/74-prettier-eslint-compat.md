@@ -1,8 +1,7 @@
 # 74 - Prettier Eslint Compat
 
 ```rig
-import { agent, p, s, defineTool } from "rig";
-import { repair } from "rig/addons";
+import { agent, p, s, defineTool, repair } from "rig";
 
 const detectConflicts = defineTool("detectConflicts", {
   description: "Detect rule conflicts between Prettier and ESLint configs",
