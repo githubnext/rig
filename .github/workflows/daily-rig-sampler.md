@@ -34,7 +34,7 @@ safe-outputs:
 Run this Rig program:
 
 ```rig
-import { agent, configureAgent, copilotEngine, p, s } from "rig";
+import { agent, configureAgent, copilotEngine, defineTool, p, s } from "rig";
 
 configureAgent(copilotEngine());
 
@@ -42,7 +42,50 @@ const SampleRun = s.object({
   path: s.path,
   status: s.enum("succeeded", "failed"),
   output: s.string,
-  logNotes: s.array(s.string),
+  logs: s.array(s.string),
+});
+
+const runRigSample = defineTool("run_rig_sample", {
+  description: "Execute one Rig sample and capture its stdout and stderr logs.",
+  parameters: s.object({ path: s.path }),
+  async handler({ path }) {
+    const { spawn } = await import("node:child_process");
+    const { readFile } = await import("node:fs/promises");
+    const { resolve, sep } = await import("node:path");
+
+    const samplesDirectory = resolve("skills/rig/samples");
+    const samplePath = resolve(path);
+    if (!samplePath.startsWith(`${samplesDirectory}${sep}`) || !samplePath.endsWith(".md")) {
+      throw new Error(`Sample path is outside skills/rig/samples: ${path}`);
+    }
+
+    const markdown = await readFile(samplePath, "utf8");
+    const program = markdown.match(/```rig\s*\n([\s\S]*?)```/)?.[1];
+    if (!program) {
+      return { path, status: "failed", output: "", logs: ["No rig fenced block found."] };
+    }
+
+    return await new Promise((resolveRun, rejectRun) => {
+      const child = spawn(process.execPath, ["skills/rig/rig.ts"], {
+        cwd: process.cwd(),
+        stdio: ["pipe", "pipe", "pipe"],
+      });
+      let stdout = "";
+      let stderr = "";
+      child.stdout.on("data", (chunk) => { stdout += String(chunk); });
+      child.stderr.on("data", (chunk) => { stderr += String(chunk); });
+      child.on("error", rejectRun);
+      child.on("close", (code) => {
+        resolveRun({
+          path,
+          status: code === 0 ? "succeeded" : "failed",
+          output: stdout.trim(),
+          logs: stderr.split("\n").filter(Boolean),
+        });
+      });
+      child.stdin.end(program);
+    });
+  },
 });
 
 // Agent role: execute one Rig sample as a delegated task and record its result.
@@ -50,14 +93,9 @@ const runSample = agent({
   name: "sample-runner",
   model: "mini",
   input: s.object({ path: s.path }),
-  instructions: p`
-Execute the Rig sample below as a delegated task using the current repository context.
-Follow the root agent's instructions, preserve its final output, and record concise
-log notes for important tool calls, turns, repairs, or failures. Do not run any
-other sample.
-
-${p.readInput("path")}
-`,
+  tools: [runRigSample],
+  instructions: p`Call run_rig_sample exactly once with ${p.inputField("path")}.
+Return the tool result unchanged. Do not run any other sample.`,
   output: SampleRun,
 });
 
@@ -86,9 +124,9 @@ Emit one `create-issue` safe output with:
 - **title**: `Daily Rig sample report — <YYYY-MM-DD>`
 - **body**:
   - List the five selected sample paths and their success status.
-  - Include each sample's final output and log notes in a separate collapsible
+  - Include each sample's final output and exact logs in a separate collapsible
     `<details>` section.
-  - Include the exact `rig.*` JSONL runtime log lines emitted while running the
+  - Include the exact `rig.*` JSONL runtime log lines captured while running the
     Rig program in a final `### Rig Runtime Logs` section. Group lines by sample
     when attribution is available; otherwise preserve chronological order.
   - Do not invent missing log lines. State clearly when runtime logs were not
