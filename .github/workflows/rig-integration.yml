@@ -1,0 +1,50 @@
+name: Rig Integration Tests
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+permissions:
+  contents: read
+  issues: write
+jobs:
+  integration-test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+
+      - name: Use Node.js
+        uses: actions/setup-node@v7
+        with:
+          node-version: 24
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Run integration tests
+        env:
+          COPILOT_GITHUB_TOKEN: ${{ secrets.COPILOT_GITHUB_TOKEN }}
+        run: npm run test:integration
+
+      - name: Create failure issue
+        if: failure()
+        uses: actions/github-script@v7
+        with:
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          script: |
+            const run_url = `https://github.com/${context.repo.owner}/${context.repo.repo}/actions/runs/${context.runId}`;
+            await github.rest.issues.create({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              title: `[rig-integration] Integration test run: failed`,
+              body: [
+                `## Integration Test Results`,
+                ``,
+                `**Date**: ${new Date().toISOString().split("T")[0]}`,
+                `**Workflow run**: ${context.runId}`,
+                ``,
+                `Some or all integration tests in \`scripts/haiku.integration.test.ts\` failed.`,
+                ``,
+                `See the [workflow run](${run_url}) for full error output and stack traces.`,
+              ].join("\n"),
+            });
