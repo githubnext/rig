@@ -30,7 +30,7 @@
  * T:JsonSchemaObject type {[key:string]:unknown} plain JSON Schema object
  * s.string/number/integer/boolean/null SchemaHelperFactory primitives; call as value or fn(desc)
  * s.int alias for s.integer; s.nonEmptyString string with minLength:1; s.url string with format:"uri"; s.path string with format:"path"; s.date string with format:"date" validated as YYYY-MM-DD
- * s.positiveInt integer with minimum:1; s.nonNegativeInt integer with minimum:0; NumberSchema/IntegerSchema support minimum/maximum constraints
+ * s.positiveInt integer with minimum:1; s.nonNegativeInt integer with minimum:0; s.percent number with minimum:0,maximum:100; NumberSchema/IntegerSchema support minimum/maximum constraints
  * s.array(items,desc?) ArraySchema; use for homogeneous lists, e.g. s.array(s.string)
  * s.nonEmptyArray(items,desc?) ArraySchema with minItems:1; validates array has at least one element
  * s.object(props,desc?) ObjectSchema; s.optional(inner) marks field optional; s.nullable(inner) accepts inner|null; use for fixed-key shapes
@@ -253,6 +253,8 @@ export const s = {
   positiveInt: createConstrainedNumberSchema<IntegerSchema>({ type: "integer", minimum: 1 }),
   /** Schema for a non-negative integer (minimum: 0). Call as `s.nonNegativeInt` or `s.nonNegativeInt("description")`. */
   nonNegativeInt: createConstrainedNumberSchema<IntegerSchema>({ type: "integer", minimum: 0 }),
+  /** Schema for a percentage value (number in the range 0–100, inclusive). Use instead of `s.number` when the value is a percentage; validates that the number is between 0 and 100. Call as `s.percent` or `s.percent("description")`. */
+  percent: createConstrainedNumberSchema<NumberSchema>({ type: "number", minimum: 0, maximum: 100 }),
   /** Schema for a `boolean` value. Call as `s.boolean` or `s.boolean("description")`. */
   boolean: createTypedPrimitiveSchema<BooleanSchema>("boolean"),
   /** Schema for the JSON `null` literal. Call as `s.null` or `s.null("description")`. */

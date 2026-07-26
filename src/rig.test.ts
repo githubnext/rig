@@ -1536,6 +1536,26 @@ describe("s.nonNegativeInt", () => {
   });
 });
 
+describe("s.percent", () => {
+  it("serializes to {type:'number', minimum:0, maximum:100}", () => {
+    expect(toJsonSchema(s.percent)).toEqual({ type: "number", minimum: 0, maximum: 100 });
+    expect(toJsonSchema(s.percent("coverage percentage"))).toEqual({ type: "number", minimum: 0, maximum: 100, description: "coverage percentage" });
+  });
+
+  it("accepts numbers in range [0, 100]", () => {
+    expect(analyzeResponse(JSON.stringify(0), s.percent, "test", 1).ok).toBe(true);
+    expect(analyzeResponse(JSON.stringify(50.5), s.percent, "test", 1).ok).toBe(true);
+    expect(analyzeResponse(JSON.stringify(100), s.percent, "test", 1).ok).toBe(true);
+  });
+
+  it("rejects numbers outside [0, 100]", () => {
+    const below = analyzeResponse(JSON.stringify(-1), s.percent, "test", 1);
+    expect(below.ok).toBe(false);
+    const above = analyzeResponse(JSON.stringify(101), s.percent, "test", 1);
+    expect(above.ok).toBe(false);
+  });
+});
+
 describe("NumberSchema and IntegerSchema minimum/maximum", () => {
   it("serializes minimum and maximum on number schema", () => {
     const schema: import("rig").NumberSchema = { type: "number", minimum: 0, maximum: 1 };
