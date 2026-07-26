@@ -130,6 +130,25 @@ node skills/rig/eslint/lint.js program.ts
 
 Run inline input or a program file with `node skills/rig/rig.ts`; add `--server` to start the Copilot server. Assume Node.js 24, prefer native APIs, and use `google/zx` for shell-style TypeScript automation.
 
+## Agentic Workflows
+
+To run a fenced Rig program in a GitHub Agentic Workflow:
+
+```yaml
+engine:
+  id: copilot
+  copilot-sdk: true
+skills:
+  - githubnext/rig/skills/rig/SKILL.md@<full-commit-sha>
+```
+
+Import `configureAgent` and `copilotEngine` in the fenced program and call
+`configureAgent(copilotEngine())` before defining agents. Pin the skill to an
+immutable commit, grant `copilot-requests: write`, and enable only the tools and
+network access used by the program. Edit workflows with an agent or run
+`gh aw compile --watch` for immediate feedback, then run
+`gh aw compile <workflow-id> --strict` and commit the generated `.lock.yml`.
+
 ## Final checks
 
 - Known context uses `p.*`; true runtime data uses `input`.

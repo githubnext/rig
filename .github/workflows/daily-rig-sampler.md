@@ -1,102 +1,95 @@
 ---
-name: Daily Rig Sampler
+name: Daily Rig Sample Report
 description: >
-  Each day, pick five rig samples (cached round-robin) from src/samples/,
-  run each with the rig skill, analyze harness performance across all five,
-  and apply one focused quick-win improvement to skills/rig/rig.ts in a new draft PR.
+  Randomly selects five Rig samples, delegates each sample to a Rig subagent,
+  and reports the results and Rig runtime logs in a GitHub issue.
 on:
   schedule: daily
   workflow_dispatch:
 permissions:
   contents: read
-  actions: read
   issues: read
-  pull-requests: read
   copilot-requests: write
-engine: copilot
+engine:
+  id: copilot
+  copilot-sdk: true
 strict: true
 timeout-minutes: 30
+skills:
+  - githubnext/rig/skills/rig/SKILL.md@31d2dbdf686db9fa8bcb3fbc1792011faabc0c89
 tools:
-  github:
-    mode: gh-proxy
-    toolsets: [default]
   bash: ["*"]
-  edit:
-  cache-memory: true
 network:
   allowed: [defaults, github, node]
 safe-outputs:
-  create-pull-request:
+  create-issue:
     title-prefix: "[rig-sampler] "
     labels: [automation, ai-agent]
-    draft: true
-    reviewers: [copilot]
-    max-patch-size: 1024
-    allowed-files:
-      - "skills/rig/rig.ts"
-      - "src/rig.test.ts"
+    close-older-issues: true
+    expires: 7
 ---
 
 ## Task
 
-You are improving the rig TypeScript harness one focused change at a time.
+Run this Rig program:
 
-### Step 1 — Pick the next five samples (cached round-robin)
+```rig
+import { agent, configureAgent, copilotEngine, p, s } from "rig";
 
-1. Run `ls src/samples/` to list all sample files sorted alphabetically.
-2. Open the cache-memory file `/tmp/gh-aw/cache-memory/last-sample.json`.
-   - If it does not exist, start from the first file.
-   - Otherwise read the `lastFile` field and advance to the next file in the sorted list (wrapping around).
-3. Select the next **5** consecutive files from that position (wrapping around the list as needed).
-4. Write `{"lastFile": "<fifth-chosen-file>"}` back to `/tmp/gh-aw/cache-memory/last-sample.json`.
-5. Note the five chosen sample file paths, e.g. `src/samples/05-write-readme-intent.ts` through `src/samples/09-*.ts`.
+configureAgent(copilotEngine());
 
-### Step 2 — Install dependencies and run all five samples
+const SampleRun = s.object({
+  path: s.path,
+  status: s.enum("succeeded", "failed"),
+  output: s.string,
+  logNotes: s.array(s.string),
+});
 
-1. Run `npm install` in the repository root to ensure all dependencies are present.
-2. For each of the five chosen samples, run it through the rig skill launcher:
-   ```
-   node skills/rig/rig.ts <sample-path> 2>&1
-   ```
-   Capture both stdout (the agent's structured JSON output) and stderr (JSONL event lines prefixed with `rig.copilot-ask`).
-3. Record the full output for each sample separately for analysis.
+// Agent role: execute one Rig sample as a delegated task and record its result.
+const runSample = agent({
+  name: "sample-runner",
+  model: "mini",
+  input: { path: s.path },
+  instructions: p`
+Execute the Rig sample below as a delegated task using the current repository context.
+Follow the root agent's instructions, preserve its final output, and record concise
+log notes for important tool calls, turns, repairs, or failures. Do not run any
+other sample.
 
-### Step 3 — Analyze harness performance across all five runs
+${p.readInput("path")}
+`,
+  output: SampleRun,
+});
 
-With the captured run outputs, evaluate for each sample:
+// Agent role: randomly select five Rig samples, delegate every run, and aggregate the results.
+const sampleCoordinator = agent({
+  name: "sample-coordinator",
+  model: "small",
+  agents: { runSample },
+  instructions: p`
+These five sample paths were selected randomly:
+${p.bash("find skills/rig/samples -maxdepth 1 -type f -name '*.md' -print | shuf -n 5")}
 
-- **Did it succeed?** Did the agent return valid JSON matching the declared output schema, or did it fail?
-- **Repair turns**: Count how many times the harness had to retry due to invalid JSON or schema violations (`rig.copilot-ask` events with `turns > 1`).
-- **Turn count and latency**: Note total turns from the JSONL events.
-- **Schema fit**: Did the sample's output schema feel too loose (e.g. plain `s.string` where a structured type would help) or too strict (repair loops due to enum mismatches)?
-- **Error messages**: Were any error messages unclear or unhelpful?
-- **API ergonomics**: Was there anything awkward in how the sample had to express its intent — boilerplate that a helper could eliminate, or a missing convenience on `p.*` or `s.*`?
+Call runSample exactly once for each listed path. Return one SampleRun for every
+path in the same order. Do not replace, skip, or add samples.
+`,
+  output: s.object({
+    runs: s.array(SampleRun),
+  }),
+});
 
-### Step 4 — Read rig.ts
+export default sampleCoordinator;
+```
 
-Read `skills/rig/rig.ts` in full to understand the current implementation.
+Emit one `create-issue` safe output with:
 
-### Step 5 — Identify one quick-win improvement
-
-Based on your analysis across all five runs, identify **exactly one** small, self-contained improvement to `skills/rig/rig.ts`.
-
-Good categories (pick the one most directly supported by the run evidence):
-- A missing `s.*` schema helper that would simplify sample code or prevent a repair loop.
-- A clearer error message surfaced during repair or schema validation.
-- A JSDoc comment on a public export that is currently undocumented.
-- A small type-safety improvement (stricter overload, narrower generic).
-- A minor performance or usability tweak with no behaviour change.
-
-Do **not** change the public API in a breaking way. Keep the change small and reviewable.
-
-### Step 6 — Apply the improvement
-
-Edit `skills/rig/rig.ts` to implement the improvement. Use the `edit` tool.
-If the change adds or modifies exported API, also update `src/rig.test.ts` to cover it.
-
-### Step 7 — Create a pull request
-
-Emit a `create-pull-request` output with:
-- `title`: one-line description of the improvement (no prefix needed — it is added automatically).
-- `body`: list the five samples that were run, summarize what each run revealed (repair turns, output quality, etc.), and explain why this change improves the harness.
-- `branch`: `rig-sampler/<first-sample-basename>` (e.g. `rig-sampler/05-write-readme-intent`).
+- **title**: `Daily Rig sample report — <YYYY-MM-DD>`
+- **body**:
+  - List the five selected sample paths and their success status.
+  - Include each sample's final output and log notes in a separate collapsible
+    `<details>` section.
+  - Include the exact `rig.*` JSONL runtime log lines emitted while running the
+    Rig program in a final `### Rig Runtime Logs` section. Group lines by sample
+    when attribution is available; otherwise preserve chronological order.
+  - Do not invent missing log lines. State clearly when runtime logs were not
+    available.
