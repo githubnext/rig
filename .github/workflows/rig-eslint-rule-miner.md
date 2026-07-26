@@ -34,6 +34,7 @@ safe-outputs:
       - "skills/rig/eslint/index.js"
       - "skills/rig/eslint/lint.js"
       - "src/eslint-rules.test.js"
+      - "src/rig.test.ts"
 ---
 
 # Rig ESLint Rule Miner
@@ -91,8 +92,10 @@ Implement exactly one new ESLint rule:
 
 The autofix must preserve comments and surrounding syntax and must be
 idempotent. Do not make unrelated refactors or modify existing rule behavior.
-The final patch must contain exactly these four applicable integration points:
-one new rule module plus the three existing files above.
+The final patch must contain the four core integration points (one new rule
+module plus the three existing files above). When the rule detects a pattern
+that also warrants a Rig unit-test fixture, you may additionally modify
+`src/rig.test.ts`.
 
 ## Validation
 
