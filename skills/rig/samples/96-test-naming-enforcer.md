@@ -1,7 +1,7 @@
 # 96 - Test Naming Enforcer
 
 ```rig
-import { agent, p, s, steering } from "rig";
+import { agent, p, s } from "rig";
 
 // Agent role: audit test file naming conventions and report files that violate the standard pattern.
 const testNamingEnforcer = agent({
@@ -15,7 +15,6 @@ const testNamingEnforcer = agent({
     allConform: s.boolean,
   }),
   maxTurns: 5,
-  addons: steering({ message: "Ensure every discovered test file has an entry in files and allConform is a boolean." }),
 });
 
 export default testNamingEnforcer;

@@ -1,7 +1,7 @@
 # 125 - Test Coverage Mapper
 
 ```rig
-import { agent, p, s, defineTool, repair } from "rig";
+import { agent, p, s, defineTool } from "rig";
 
 const findTestFile = defineTool("findTestFile", {
   description: "Find the best matching test file for a given source file using filename heuristics",
@@ -26,7 +26,6 @@ const testCoverageMapper = agent({
   name: "testCoverageMapper",
   model: "small",
   maxTurns: 2,
-  addons: repair(),
   instructions: p`Map source files to their corresponding test files using filename heuristics.
 
 Source files: ${p.bash("find . -type f -name '*.ts' -not -name '*.test.ts' -not -name '*.spec.ts' -not -path '*/node_modules/*' | head -50")}

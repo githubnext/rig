@@ -2,7 +2,6 @@
 
 ```rig
 import { agent, defineTool, p, s } from "rig";
-import { repair } from "rig/addons";
 
 // Agent role: detect stale npm dependencies by comparing installed versions with latest published versions.
 const staleDependencyDetector = agent({
@@ -30,7 +29,6 @@ Use the classifyDrift tool for each outdated package to classify the version dri
       },
     }),
   ],
-  addons: [repair()],
   output: s.object({
     packages: s.array(s.object({
       name: s.string,

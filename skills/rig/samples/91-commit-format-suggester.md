@@ -1,7 +1,7 @@
 # 91 - Commit Format Suggester
 
 ```rig
-import { agent, p, s, repair, steering } from "rig";
+import { agent, p, s } from "rig";
 
 // Agent role: review recent git commits and suggest conventional-format rewrites for each one.
 const commitFormatSuggester = agent({
@@ -14,7 +14,6 @@ const commitFormatSuggester = agent({
     category: s.enum("feat", "fix", "chore", "docs", "test", "refactor", "style"),
   })),
   maxTurns: 5,
-  addons: [steering(), repair()],
 });
 
 export default commitFormatSuggester;

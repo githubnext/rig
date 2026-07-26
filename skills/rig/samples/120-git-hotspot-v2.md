@@ -1,7 +1,7 @@
 # 120 - Git Hotspot V2
 
 ```rig
-import { agent, p, s, defineTool, repair } from "rig";
+import { agent, p, s, defineTool } from "rig";
 
 const getFileCommitCount = defineTool("getFileCommitCount", {
   description: "Count how many commits touched a specific file",
@@ -22,7 +22,6 @@ const gitHotspotAnalyzer = agent({
   name: "gitHotspotAnalyzer",
   model: "small",
   maxTurns: 3,
-  addons: repair(),
   instructions: p`Analyze the git history to identify file hot-spots.
 
 Changed files: ${p.bash("git log --follow --name-only --format='' -- . 2>/dev/null | sort | uniq -c | sort -rn | head -30")}

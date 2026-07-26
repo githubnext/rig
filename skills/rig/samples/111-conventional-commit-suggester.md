@@ -1,13 +1,12 @@
 # 111 - Conventional Commit Suggester
 
 ```rig
-import { agent, p, s, repair, steering } from "rig";
+import { agent, p, s } from "rig";
 
 // Agent role: suggest conventional-format rewrites for recent git commit messages.
 const conventionalCommitSuggester = agent({
   model: "mini",
   maxTurns: 6,
-  addons: [steering({ message: "Ensure each suggestion follows the conventional commits spec: <type>(<scope>?): <description> using imperative mood." }), repair()],
   instructions: p`Review the recent git log and suggest conventional commit message rewrites:
 ${p.bash("git log --oneline -20")}
 

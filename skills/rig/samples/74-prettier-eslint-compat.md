@@ -1,7 +1,7 @@
 # 74 - Prettier Eslint Compat
 
 ```rig
-import { agent, p, s, defineTool, repair } from "rig";
+import { agent, p, s, defineTool } from "rig";
 
 const detectConflicts = defineTool("detectConflicts", {
   description: "Detect rule conflicts between Prettier and ESLint configs",
@@ -41,7 +41,6 @@ const prettierEslintCompat = agent({
   }),
   tools: [detectConflicts],
   maxTurns: 6,
-  addons: repair(),
 });
 
 export default prettierEslintCompat;

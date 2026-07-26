@@ -1,7 +1,7 @@
 # 130 - Git Hotspot Analyzer
 
 ```rig
-import { agent, p, s, steering } from "rig";
+import { agent, p, s } from "rig";
 
 // Agent role: analyze which files are hot-spots by measuring commit churn and top contributors.
 const gitHotspotAnalyzer = agent({
@@ -12,7 +12,6 @@ const gitHotspotAnalyzer = agent({
     topContributors: s.array(s.string),
   })),
   maxTurns: 5,
-  addons: [steering({ message: "Every file must have a numeric churnScore between 0 and 100 and at least one topContributor entry." })],
 });
 
 export default gitHotspotAnalyzer;

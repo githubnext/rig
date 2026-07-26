@@ -2,7 +2,6 @@
 
 ```rig
 import { agent, defineTool, p, s } from "rig";
-import { steering } from "rig/addons";
 
 // Agent role: parse server uptime logs to extract start/stop/crash events and compute uptime statistics.
 const serverUptimeLogParser = agent({
@@ -26,9 +25,6 @@ Use the parseLogLine tool to classify each log entry as a start, stop, crash, or
         return { event: null };
       },
     }),
-  ],
-  addons: [
-    steering({ message: "If you detect multiple crashes within an hour, flag this as a crash loop anomaly in the output." }),
   ],
   output: s.object({
     uptimeEvents: s.array(s.object({

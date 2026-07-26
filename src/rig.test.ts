@@ -59,7 +59,7 @@ vi.mock("@github/copilot-sdk", () => ({
   RuntimeConnection: { forUri: mocks.forUri, forStdio: mocks.forStdio },
 }));
 
-import { AgentError, PromptBuilder, agent, analyzeResponse, configureAgent, copilotEngine, debug, defineTool, oncePerAgent, p, repair, s, steering, timeout, toJsonSchema } from "rig";
+import { AgentError, PromptBuilder, agent, analyzeResponse, configureAgent, copilotEngine, debug, defineTool, p, s, toJsonSchema } from "rig";
 import type { Tool } from "rig";
 
 beforeEach(() => {
@@ -407,130 +407,6 @@ describe("agent invocation", () => {
     });
   });
 
-  it("exposes the SDK-neutral agent through an addon", async () => {
-    const addon = vi.fn(async (context, next) => {
-      await next();
-      expect(context.agent).toMatchObject({
-        ask: expect.any(Function),
-        close: expect.any(Function),
-      });
-    });
-    mocks.setSendAndWaitImpl(async () => ({ text: "hello world" }));
-
-    const greet = agent({
-      name: "greeter",
-      input: s.object({ text: s.string }),
-      output: s.object({ text: s.string }),
-      addons: addon,
-    });
-
-    await expect(greet({ text: "Hi" })).resolves.toEqual({ text: "hello world" });
-    expect(addon).toHaveBeenCalledTimes(1);
-  });
-
-  it("applies default addons from agent spec", async () => {
-    const addon = vi.fn(async (_context, next) => {
-      await next();
-    });
-    mocks.setSendAndWaitImpl(async () => ({ text: "hello world" }));
-
-    const greet = agent({
-      name: "greeter",
-      input: s.object({ text: s.string }),
-      output: s.object({ text: s.string }),
-      addons: addon,
-    });
-
-    await expect(greet({ text: "Hi" })).resolves.toEqual({ text: "hello world" });
-    expect(addon).toHaveBeenCalledTimes(1);
-  });
-
-  it("supports express-like addon registration with use()", async () => {
-    const order: number[] = [];
-    const first = vi.fn(async (_context, next) => {
-      order.push(1);
-      await next();
-    });
-    const second = vi.fn(async (_context, next) => {
-      order.push(2);
-      await next();
-    });
-    mocks.setSendAndWaitImpl(async () => ({ text: "hello world" }));
-
-    const greet = agent({
-      name: "greeter",
-      input: s.object({ text: s.string }),
-      output: s.object({ text: s.string }),
-    });
-
-    expect(greet.use(first).use(second)).toBe(greet);
-    await expect(greet({ text: "Hi" })).resolves.toEqual({ text: "hello world" });
-    expect(order).toEqual([1, 2]);
-    expect(first).toHaveBeenCalledTimes(1);
-    expect(second).toHaveBeenCalledTimes(1);
-  });
-
-  it("validates addons passed to use()", () => {
-    const greet = agent({
-      name: "greeter",
-      input: s.object({ text: s.string }),
-      output: s.object({ text: s.string }),
-    });
-
-    expect(() => greet.use([null as unknown as any] as any)).toThrow(
-      "Agent addon entries must be functions (entry at index 0 is null).",
-    );
-  });
-
-  it("disconnects the session when an addon throws", async () => {
-    const addon = vi.fn(() => {
-      throw new Error("hook failed");
-    });
-    const greet = agent({
-      name: "greeter",
-      input: s.object({ text: s.string }),
-      output: s.object({ text: s.string }),
-      addons: addon,
-    });
-
-    await expect(greet({ text: "Hi" })).rejects.toThrow("hook failed");
-    expect(mocks.disconnectSession).toHaveBeenCalledTimes(1);
-  });
-
-  it("starts with no repair addon by default", async () => {
-    mocks.setSendAndWaitImpl(async () => "not json");
-
-    const strict = agent({
-      name: "strict",
-      maxTurns: 2,
-    });
-
-    await expect(strict("go")).rejects.toBeInstanceOf(AgentError);
-    await expect(strict("go")).rejects.toMatchObject({ kind: "parse", turn: 1 });
-  });
-
-  it("retries invalid JSON with the repair addon", async () => {
-    const prompts: string[] = [];
-    let calls = 0;
-
-    mocks.setSendAndWaitImpl(async ({ prompt }) => {
-      prompts.push(prompt);
-      calls += 1;
-      return calls === 1 ? "not json" : JSON.stringify("repaired");
-    });
-
-    const repairable = agent({
-      name: "repairable",
-      addons: repair(),
-      maxTurns: 2,
-    });
-
-    await expect(repairable("go")).resolves.toBe("repaired");
-    expect(prompts).toHaveLength(2);
-    expect(prompts[1]).toContain("<repair");
-    expect(prompts[1]).toContain("invalid JSON");
-  });
-
   it("parses JSON wrapped in a fenced markdown block", async () => {
     mocks.setSendAndWaitImpl(async () => "```json\n\"hello\"\n```");
 
@@ -559,34 +435,6 @@ describe("agent invocation", () => {
     });
 
     await expect(lister("go")).resolves.toEqual(["alpha", "beta"]);
-  });
-
-  it("retries validation failures with addon-customized repair prompts", async () => {
-    const prompts: string[] = [];
-    let calls = 0;
-
-    mocks.setSendAndWaitImpl(async ({ prompt }) => {
-      prompts.push(prompt);
-      calls += 1;
-      return calls === 1 ? { wrong: true } : JSON.stringify("fixed");
-    });
-
-    const repairable = agent({
-      name: "repairable",
-      addons: [
-        async (context, next) => {
-          await next();
-          if (context.nextPrompt) {
-            context.nextPrompt = `please fix: ${context.nextPrompt}`;
-          }
-        },
-        repair(),
-      ],
-      maxTurns: 2,
-    });
-
-    await expect(repairable("go")).resolves.toBe("fixed");
-    expect(prompts[1]).toContain("please fix");
   });
 
   it("throws AgentError after the final invalid turn", async () => {
@@ -730,19 +578,6 @@ describe("agent invocation", () => {
     await expect(slow("go", { timeout: 50 })).rejects.toThrow(/Timed out/);
   });
 
-  it("supports timeout as an addon", async () => {
-    mocks.setSendAndWaitImpl(async ({ signal }) => {
-      await new Promise((_, reject) => {
-        signal?.addEventListener("abort", () => reject(signal.reason), { once: true });
-        setTimeout(() => reject(new Error("should have aborted")), 5000);
-      });
-      return "";
-    });
-
-    const slow = agent({ name: "timeout-test", addons: timeout({ timeout: 50 }) });
-    await expect(slow("go")).rejects.toThrow(/Timed out/);
-  });
-
   it("inlines prompt intents and omits top-level prompt metadata", async () => {
     const prompts: string[] = [];
 
@@ -795,136 +630,6 @@ describe("agent invocation", () => {
     expect(prompts[0]).toContain("Options:");
     expect(prompts[0]).toContain("/tmp/workspace");
     expect(prompts[0]).toContain("before answering.");
-  });
-
-  it("supports addons that steer retries near max turns", async () => {
-    const prompts: string[] = [];
-    let calls = 0;
-
-    mocks.setSendAndWaitImpl(async ({ prompt }) => {
-      prompts.push(prompt);
-      calls += 1;
-      if (calls === 1) {
-        return "not json";
-      }
-      return prompt.includes("running out of turns")
-        ? JSON.stringify("recovered")
-        : "still not json";
-    });
-
-    const steerable = agent({
-      name: "steerable",
-      maxTurns: 2,
-      addons: [
-        async (context, next) => {
-          await next();
-          if (context.nextPrompt && context.turn === context.maxTurns - 1) {
-            context.nextPrompt = `${context.nextPrompt}\nAdd a short correction because you are running out of turns.`;
-          }
-        },
-        repair(),
-      ],
-    });
-
-    await expect(steerable("go")).resolves.toBe("recovered");
-    expect(prompts).toHaveLength(2);
-    expect(prompts[1]).toContain("running out of turns");
-  });
-
-  it("exports a steering addon that warns near max turns", async () => {
-    const prompts: string[] = [];
-    let calls = 0;
-
-    mocks.setSendAndWaitImpl(async ({ prompt }) => {
-      prompts.push(prompt);
-      calls += 1;
-      if (calls === 1) {
-        return "not json";
-      }
-      return prompt.includes("final attempt before reaching the turn limit")
-        ? JSON.stringify("recovered")
-        : "still not json";
-    });
-
-    const steerable = agent({
-      name: "steerable",
-      maxTurns: 2,
-      addons: [steering(), repair()],
-    });
-
-    await expect(steerable("go")).resolves.toBe("recovered");
-    expect(prompts).toHaveLength(2);
-    expect(prompts[1]).toContain("final attempt before reaching the turn limit");
-  });
-
-  it("supports addons that validate snippets inline", async () => {
-    let calls = 0;
-    mocks.setSendAndWaitImpl(async () => {
-      calls += 1;
-      return calls === 1
-        ? JSON.stringify({ code: "const x = 1;" })
-        : JSON.stringify({ code: "```ts\nconst x = 1;\n```" });
-    });
-
-    const snippetGuard = agent({
-      name: "snippet-guard",
-      maxTurns: 2,
-      output: s.object({ code: s.string }),
-      addons: [
-        async (context, next) => {
-          await next();
-          if (!context.nextPrompt && context.output && typeof context.output === "object") {
-            const code = (context.output as { code?: unknown }).code;
-            if (typeof code === "string" && !code.includes("```")) {
-              context.completed = false;
-              context.output = undefined;
-              context.nextPrompt = "Return the same payload but wrap code in a fenced markdown block.";
-            }
-          }
-        },
-        repair(),
-      ],
-    });
-
-    await expect(snippetGuard("go")).resolves.toEqual({ code: "```ts\nconst x = 1;\n```" });
-  });
-
-  it("rejects non-function addon entries", async () => {
-    mocks.setSendAndWaitImpl(async () => JSON.stringify("ok"));
-    const guarded = agent({ name: "guarded", addons: [null as unknown as any] as any });
-    await expect(guarded("go")).rejects.toThrow(
-      "Agent addon entries must be functions (entry at index 0 is null).",
-    );
-  });
-
-  it("registers with the runtime agent once per call", async () => {
-    let turns = 0;
-    const register = vi.fn();
-    mocks.setSendAndWaitImpl(async () => {
-      turns += 1;
-      return turns === 1 ? "not json" : JSON.stringify("hello world");
-    });
-
-    const review = agent({
-      name: "review",
-      maxTurns: 2,
-      addons: [
-        oncePerAgent(async (runtimeAgent, context) => {
-          register(runtimeAgent, context.turn);
-        }),
-        repair(),
-      ],
-    });
-
-    await expect(review("go")).resolves.toBe("hello world");
-    expect(register).toHaveBeenCalledTimes(1);
-    expect(register).toHaveBeenCalledWith(
-      expect.objectContaining({
-        ask: expect.any(Function),
-        close: expect.any(Function),
-      }),
-      1,
-    );
   });
 
   it("renders schema descriptions for discovery", async () => {

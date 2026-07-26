@@ -9,12 +9,10 @@
  * T:AgentInputValue<T> type input accepting raw values or PromptIntent/PromptBuilder at any nesting level
  * T:Simplify<T> type flattens intersection types for display
  * T:ValidationResult type {ok:true}|{ok:false;error:string}
- * T:AgentSpec<I,O> type {name,description,input,output,prompt,addons?,maxTurns?,agents?} agent declaration; agents? enables sub-agent delegation
- * T:AgentFn<I,O> type callable agent with .use(addons) and .spec property
+ * T:AgentSpec<I,O> type {name,description,input,output,prompt,maxTurns?,agents?} agent declaration; agents? enables sub-agent delegation
+ * T:AgentFn<I,O> type callable agent with .spec property
  * T:AgentFactory type (options:AgentOptions)=>Agent|Promise<Agent>
  * T:Agent interface {ask(input,opts?):Promise<unknown>,close():Promise<void>}
- * T:AgentAddon type middleware (ctx,next)=>Promise<void>; ctx exposes spec,turn,prompt,output,completed,nextPrompt
- * T:AgentAddonContext type context passed to each addon in the chain
  * T:AgentDefinitionFactory type typeof agent (for passing agent constructor as value)
  * T:AgentError class error carrying kind,agent,turn,response,schema,schemaText fields
  * T:Tool<TArgs> type ToolConfig+name; created by defineTool
@@ -675,74 +673,9 @@ const debugAgentTurn = debug("agent:turn");
 const debugAgentResponse = debug("agent:response");
 const debugAgentError = debug("agent:error");
 const debugAgentComplete = debug("agent:complete");
-const debugAgentRetry = debug("agent:retry");
 const debugAgentFailure = debug("agent:failure");
 const debugAgentClose = debug("agent:close");
 
-export type AgentAddonContext = {
-  spec: NormalizedAgentSpec<any, any>;
-  agent: Agent;
-  input: unknown;
-  outputSchema: Schema;
-  signal: AbortSignal | undefined;
-  turn: number;
-  maxTurns: number;
-  prompt: string;
-  response?: string;
-  completed: boolean;
-  output?: unknown;
-  nextPrompt?: string;
-  error?: unknown;
-};
-/**
- * Middleware function that wraps each agent turn.  Addons are called in
- * declaration order; each must call `await next()` to continue the chain (or
- * the terminal `runtimeAgent.ask`).
- *
- * **Control-flow fields** — set on `context` after `await next()` returns:
- * - `context.completed = true` + `context.output` — short-circuit; return
- *   `output` immediately without further turns.
- * - `context.nextPrompt` — replace the prompt for the next turn; the harness
- *   loops back to turn N+1 with the new prompt.
- * - `context.error` — abort the agent and rethrow this value as the error.
- * - Leave all fields unchanged to let the harness parse and validate
- *   `context.response` with the declared output schema as normal.
- *
- * @example
- * // Custom repair addon: retry up to maxTurns with the schema error appended
- * const repairAddon: AgentAddon = async (ctx, next) => {
- *   await next();
- *   if (ctx.completed || ctx.response === undefined) return;
- *   const analysis = analyzeResponse(ctx.response, ctx.outputSchema, ctx.spec.name, ctx.turn);
- *   if (analysis.ok) {
- *     ctx.completed = true;
- *     ctx.output = analysis.output;
- *   } else if (ctx.turn < ctx.maxTurns) {
- *     ctx.nextPrompt = defaultRepairPrompt(ctx.spec, analysis.error);
- *   } else {
- *     ctx.error = analysis.error;
- *   }
- * };
- */
-export type AgentAddon = (
-  context: AgentAddonContext,
-  next: () => Promise<void>,
-) => void | Promise<void>;
-/** Options for the {@link steering} addon. */
-export type SteeringOptions = {
-  /** Warning message appended to the prompt on the last available turn. Defaults to a generic "you are running out of turns" notice. */
-  message?: string;
-};
-/** Options for the {@link timeout} addon. */
-export type TimeoutOptions = {
-  /** Maximum milliseconds to wait for a single agent turn before raising an `AbortError`. */
-  timeout: number;
-};
-/** Callback invoked once per unique {@link Agent} instance when {@link oncePerAgent} is used. */
-export type AgentRegistration = (
-  agent: Agent,
-  context: AgentAddonContext,
-) => void | Promise<void>;
 export type ToolHandler<TArgs = unknown> = (args: TArgs) => unknown | Promise<unknown>;
 export type ToolParameters = Schema | Record<string, unknown>;
 export type Tool<TArgs = unknown> = ToolConfig<TArgs> & { name: string };
@@ -779,10 +712,8 @@ export type AgentSpec<Input extends Schema = StringSchema, Output extends Schema
   output?: Output;
   /** Model identifier passed to the engine, e.g. `"mini"`, `"gpt-5"`, `"claude-sonnet"`. Defaults to `"small"`. */
   model?: string;
-  /** Maximum number of turns (initial + repair retries). Defaults to `4`. */
+  /** Maximum number of turns. Defaults to `4`. */
   maxTurns?: number;
-  /** Middleware addons that wrap each turn's ask/response cycle, e.g. `repair()`, `steering()`. */
-  addons?: AgentAddon | AgentAddon[];
   /** Named sub-agents available for delegation from this agent's prompt. */
   agents?: Record<string, AgentFn<any, any>>;
   /** Optional system message forwarded to the underlying engine session. */
@@ -829,16 +760,6 @@ export type AgentFn<Input = unknown, Output = unknown> = ((input: AgentInputValu
   /** The fully normalized spec used to construct this agent. */
   spec: NormalizedAgentSpec<any, any>;
   _namespace: string;
-  /**
-   * Appends one or more addon middleware to this agent and returns the same
-   * `AgentFn`.  Addons are applied in the order they are registered and wrap
-   * each turn's ask/response cycle.
-   *
-   * @example
-   * const worker = agent({ model: "mini", instructions: "..." });
-   * worker.use(timeout({ timeout: 5_000 }));
-   */
-  use: (addons: AgentAddon | AgentAddon[]) => AgentFn<Input, Output>;
 };
 
 export type PromptIntentOptions = {
@@ -1373,84 +1294,6 @@ export class AgentError extends Error {
   }
 }
 
-const DEFAULT_STEERING_WARNING = "You are running out of turns. This is your final attempt before reaching the turn limit. Please correct your output now.";
-
-export function steering(options: SteeringOptions = {}): AgentAddon {
-  const message = options.message ?? DEFAULT_STEERING_WARNING;
-  return async (context, next) => {
-    await next();
-    if (context.nextPrompt && context.turn + 1 === context.maxTurns) {
-      context.nextPrompt = `${context.nextPrompt}\n${message}`;
-    }
-  };
-}
-
-export function repair(): AgentAddon {
-  return async (context, next) => {
-    await next();
-    if (context.completed || context.error !== undefined || context.nextPrompt !== undefined) {
-      return;
-    }
-    if (context.response === undefined) {
-      return;
-    }
-    const analysis = analyzeResponse(context.response, context.outputSchema, context.spec.name, context.turn);
-    if (analysis.ok) {
-      context.completed = true;
-      context.output = analysis.output;
-      return;
-    }
-    if (context.turn >= context.maxTurns) {
-      context.error = analysis.error;
-      return;
-    }
-    context.nextPrompt = defaultRepairPrompt(context.spec, analysis.error);
-  };
-}
-
-export function timeout(options: TimeoutOptions): AgentAddon {
-  return async (context, next) => {
-    context.signal = timeoutSignal(context.signal, options.timeout);
-    await next();
-  };
-}
-
-export function oncePerAgent(register: AgentRegistration): AgentAddon {
-  const seen = new WeakSet<Agent>();
-  return async (context, next) => {
-    if (!seen.has(context.agent)) {
-      await register(context.agent, context);
-      seen.add(context.agent);
-    }
-    await next();
-  };
-}
-
-/**
- * Namespace of built-in addon factories. Import and combine these to customize
- * agent behaviour without modifying the core harness.
- *
- * | Addon | Purpose |
- * |---|---|
- * | `repair` | Re-prompts when the model returns invalid JSON or fails schema validation (up to `maxTurns`). Built in by default. |
- * | `steering` | Appends a warning to the prompt on the last turn so the model knows it must correct output now. |
- * | `timeout` | Cancels the in-flight turn via `AbortSignal` after the given number of milliseconds. |
- * | `oncePerAgent` | Runs a registration callback exactly once per unique `Agent` instance (e.g. to register tools). |
- *
- * @example
- * import { addons, agent, s } from "rig";
- * const a = agent({
- *   output: s.object({ answer: s.string }),
- *   addons: [addons.steering(), addons.timeout({ timeout: 30_000 })],
- * });
- */
-export const addons = {
-  oncePerAgent,
-  timeout,
-  repair,
-  steering,
-};
-
 let currentAgentFactory: AgentFactory = defaultAgentFactory();
 
 /**
@@ -1876,56 +1719,20 @@ export function agent(spec: AgentSpec<any, any>): AgentFn<any, any> {
     let failure: unknown;
 
     try {
-      for (let turn = 1; turn <= runtime.maxTurns; turn += 1) {
-        throwIfAborted(runtime.signal);
-        debugAgentTurn({ agent: normalizedSpec.name, turn, prompt });
-        const context: AgentAddonContext = {
-          spec: normalizedSpec,
-          agent: runtimeAgent,
-          input: normalizedInput,
-          outputSchema,
-          signal: runtime.signal,
-          turn,
-          maxTurns: runtime.maxTurns,
-          prompt,
-          completed: false,
-        };
-
-        await runAgentAddons(runtime.addons, context, async () => {
-          lastResponse = await runtimeAgent.ask(
-            context.prompt,
-            context.signal ? { signal: context.signal } : undefined,
-          );
-          context.response = lastResponse;
-          debugAgentResponse({ agent: normalizedSpec.name, turn, response: lastResponse });
-        });
-
-        if (context.error !== undefined) {
-          debugAgentError({ agent: normalizedSpec.name, turn, error: context.error });
-          throw context.error;
-        }
-        if (context.completed) {
-          debugAgentComplete({ agent: normalizedSpec.name, turn, output: context.output });
-          return context.output;
-        }
-        if (context.nextPrompt !== undefined) {
-          debugAgentRetry({ agent: normalizedSpec.name, turn, nextTurn: turn + 1 });
-          prompt = context.nextPrompt;
-          continue;
-        }
-        if (context.response !== undefined) {
-          const analysis = analyzeResponse(context.response, context.outputSchema, context.spec.name, context.turn);
-          if (analysis.ok) {
-            debugAgentComplete({ agent: normalizedSpec.name, turn, output: analysis.output });
-            return analysis.output;
-          }
-          debugAgentError({ agent: normalizedSpec.name, turn, error: analysis.error });
-          throw analysis.error;
-        }
-        throw new Error(
-          `Agent ${normalizedSpec.name}: addons must set context.output with context.completed=true or context.nextPrompt for turn ${turn}.`,
-        );
+      throwIfAborted(runtime.signal);
+      debugAgentTurn({ agent: normalizedSpec.name, turn: 1, prompt });
+      lastResponse = await runtimeAgent.ask(
+        prompt,
+        runtime.signal ? { signal: runtime.signal } : undefined,
+      );
+      debugAgentResponse({ agent: normalizedSpec.name, turn: 1, response: lastResponse });
+      const analysis = analyzeResponse(lastResponse, outputSchema, normalizedSpec.name, 1);
+      if (analysis.ok) {
+        debugAgentComplete({ agent: normalizedSpec.name, turn: 1, output: analysis.output });
+        return analysis.output;
       }
+      debugAgentError({ agent: normalizedSpec.name, turn: 1, error: analysis.error });
+      throw analysis.error;
     } catch (error) {
       failure = error;
       debugAgentFailure({ agent: normalizedSpec.name, error });
@@ -1947,8 +1754,6 @@ export function agent(spec: AgentSpec<any, any>): AgentFn<any, any> {
         }
       }
     }
-
-    throw new Error(`Agent ${normalizedSpec.name} failed after ${runtime.maxTurns} turns. Last response:\n${lastResponse}`);
   };
 
   const fn = (async (input: unknown, options: CallOptions = {}) => invoke(input, options)) as AgentFn<any, any>;
@@ -1960,13 +1765,6 @@ export function agent(spec: AgentSpec<any, any>): AgentFn<any, any> {
   fn.outputShape = outputSchema;
   fn.spec = normalizedSpec;
   fn._namespace = normalizedSpec.name;
-  fn.use = (addons) => {
-    normalizedSpec.addons = [
-      ...normalizeAddons(normalizedSpec.addons),
-      ...normalizeAddons(addons),
-    ];
-    return fn;
-  };
   return fn;
 }
 
@@ -1992,7 +1790,6 @@ function normalizeSpec(specOrName: AgentSpec<any, any>): NormalizedAgentSpec<any
   }
   if (specOrName.model !== undefined) spec.model = specOrName.model;
   if (specOrName.maxTurns !== undefined) spec.maxTurns = specOrName.maxTurns;
-  if (specOrName.addons !== undefined) spec.addons = specOrName.addons;
   if (specOrName.agents !== undefined) spec.agents = specOrName.agents;
   if (specOrName.systemMessage !== undefined) spec.systemMessage = specOrName.systemMessage;
   if (specOrName.tools !== undefined) spec.tools = normalizeTools(specOrName.tools, agentName);
@@ -2516,7 +2313,6 @@ function resolveCallRuntime(spec: NormalizedAgentSpec<any, any>, options: CallOp
   model: string;
   maxTurns: number;
   signal: AbortSignal | undefined;
-  addons: AgentAddon[];
   systemMessage: unknown;
   tools: Tool<any>[] | undefined;
 } {
@@ -2524,46 +2320,9 @@ function resolveCallRuntime(spec: NormalizedAgentSpec<any, any>, options: CallOp
     model: options.model ?? spec.model ?? "small",
     maxTurns: options.maxTurns ?? spec.maxTurns ?? 4,
     signal: timeoutSignal(options.signal, options.timeout),
-    addons: normalizeAddons(spec.addons),
     systemMessage: spec.systemMessage,
     tools: spec.tools,
   };
-}
-
-function normalizeAddons(addons?: AgentAddon | AgentAddon[]): AgentAddon[] {
-  if (!addons) {
-    return [];
-  }
-  const items = Array.isArray(addons) ? [...addons] : [addons];
-  for (let i = 0; i < items.length; i++) {
-    const addon = items[i];
-    if (typeof addon !== "function") {
-      const got = addon === null ? "null" : typeof addon;
-      throw new Error(`Agent addon entries must be functions (entry at index ${i} is ${got}).`);
-    }
-  }
-  return items;
-}
-
-async function runAgentAddons(
-  addons: AgentAddon[],
-  context: AgentAddonContext,
-  terminal: () => Promise<void>,
-): Promise<void> {
-  let index = -1;
-  const dispatch = async (current: number): Promise<void> => {
-    if (current <= index) {
-      throw new Error(`Agent ${context.spec.name} addon at index ${current} called next() multiple times.`);
-    }
-    index = current;
-    const addon = addons[current];
-    if (addon === undefined) {
-      await terminal();
-      return;
-    }
-    await addon(context, () => dispatch(current + 1));
-  };
-  await dispatch(0);
 }
 
 function isSchema(value: unknown): value is Schema {

@@ -1,7 +1,7 @@
 # 129 - Markdown Link Checker
 
 ```rig
-import { agent, p, s, defineTool, repair } from "rig";
+import { agent, p, s, defineTool } from "rig";
 
 const checkUrl = defineTool("checkUrl", {
   description: "Check HTTP status of a URL using curl",
@@ -24,7 +24,6 @@ const checkUrl = defineTool("checkUrl", {
 const markdownLinkChecker = agent({
   name: "markdownLinkChecker",
   model: "small",
-  addons: repair(),
   instructions: p`Find and check HTTP links in markdown files.
 
 Markdown files: ${p.bash("find . -name '*.md' -not -path '*/node_modules/*' | head -20")}

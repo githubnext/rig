@@ -1,7 +1,7 @@
 # 76 - Commit Msg Rewriter
 
 ```rig
-import { agent, p, s, steering, repair } from "rig";
+import { agent, p, s } from "rig";
 
 // Agent role: rewrite recent git commit messages into conventional commit format with imperative mood.
 const commitMsgRewriter = agent({
@@ -17,7 +17,6 @@ const commitMsgRewriter = agent({
     markdown: s.string,
   }),
   maxTurns: 6,
-  addons: [steering({ message: "Use imperative mood and conventional commit prefixes. Be consistent." }), repair()],
 });
 
 export default commitMsgRewriter;

@@ -1,7 +1,7 @@
 # 126 - Tsconfig Options Auditor
 
 ```rig
-import { agent, p, s, defineTool, steering, repair } from "rig";
+import { agent, p, s, defineTool } from "rig";
 
 const checkOption = defineTool("checkOption", {
   description: "Check whether a tsconfig compiler option matches the recommended value",
@@ -19,7 +19,6 @@ const checkOption = defineTool("checkOption", {
 const tsconfigOptionsAuditor = agent({
   name: "tsconfigOptionsAuditor",
   model: "small",
-  addons: [steering(), repair()],
   instructions: p`Audit TypeScript compiler options in this project against best-practice recommendations.
 
 tsconfig.json: ${p.readOptional("tsconfig.json", "{}")}

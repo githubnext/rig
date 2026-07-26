@@ -2,7 +2,6 @@
 
 ```rig
 import { agent, defineTool, p, s } from "rig";
-import { repair } from "rig/addons";
 
 // Agent role: detect dead TypeScript exports by scanning for exported symbols and estimating usage counts.
 const deadCodeDetector = agent({
@@ -34,7 +33,6 @@ Use the estimateUsage tool for each exported symbol name to count how many times
       },
     }),
   ],
-  addons: [repair()],
   output: s.object({
     symbols: s.record(s.object({
       usageCount: s.int,

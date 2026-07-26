@@ -1,12 +1,11 @@
 # 157 - Commit Churn Classifier
 
 ```rig
-import { agent, p, s, steering } from "rig";
+import { agent, p, s } from "rig";
 
 // Agent role: classify files by commit churn frequency and assign a risk level.
 const commitChurnClassifier = agent({
   model: "small",
-  addons: steering({ message: "Be precise: assign riskLevel based on churnCount: >20=critical, >10=volatile, >5=active, else stable." }),
   instructions: p`Classify repository files by how frequently they are committed (churn).
 
 File churn counts from last 100 commits (count file):

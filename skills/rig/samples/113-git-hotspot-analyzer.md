@@ -1,12 +1,11 @@
 # 113 - Git Hotspot Analyzer
 
 ```rig
-import { agent, p, s, steering } from "rig";
+import { agent, p, s } from "rig";
 
 // Agent role: identify hot-spot files by git churn and top contributors.
 const gitHotspotAnalyzer = agent({
   model: "mini",
-  addons: steering({ message: "Focus only on the top N files by change frequency. Skip binary files and node_modules." }),
   input: s.object({
     topN: s.int,
   }),

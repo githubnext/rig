@@ -1,4 +1,4 @@
-import { agent, defineTool, p, s, oncePerAgent, steering, timeout } from "rig";
+import { agent, defineTool, p, s } from "rig";
 
 const summarizeText = defineTool<{ text: string }>("summarize_text", {
   description: "Create a concise summary from text.",
@@ -48,11 +48,6 @@ const complexIntegration = agent({
   }),
   tools: [summarizeText],
   agents: { planner },
-  addons: [
-    oncePerAgent(async () => {}),
-    timeout({ timeout: 45_000 }),
-    steering(),
-  ],
   instructions: p`
     Build a compact execution brief for the user topic.
     Use repository context from ${p.read("README.md")} and workspace state from ${p.bash("git status --short")}.

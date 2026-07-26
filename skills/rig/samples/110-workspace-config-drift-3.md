@@ -1,13 +1,12 @@
 # 110 - Workspace Config Drift 3
 
 ```rig
-import { agent, defineTool, p, s, repair } from "rig";
+import { agent, defineTool, p, s } from "rig";
 
 // Agent role: detect drift in workspace config files against a baseline.
 const workspaceConfigDrift = agent({
   model: "mini",
   maxTurns: 6,
-  addons: repair(),
   input: s.object({
     baselineFile: s.path,
   }),

@@ -13,21 +13,17 @@ Use `agent({ name, ... })` as the only declaration form. `name` is optional and 
 | `input` | Input schema; defaults to `s.string` |
 | `output` | Output schema; defaults to `s.string` |
 | `model` | Default model for calls |
-| `maxTurns` | Total turn budget, including the initial attempt |
-| `addons` | Per-turn steering, validation, and retry behavior |
+| `maxTurns` | Total turn budget |
 | `agents` | Named subagents exposed to the harness |
 | `tools` | Function-calling tools created with `defineTool` or compatible plain objects |
 
 ### Setting placement
 
-| Setting | Spec | Call-time | `.use(addon)` |
-|---------|------|-----------|---------------|
-| `name`, `instructions`, `input`, `output`, `agents`, `tools` | yes | — | — |
-| `model`, `maxTurns` | default | override | — |
-| `timeout`, `signal` | — | yes | — |
-| `addons` | stable addons | — | additional addons |
-
-`agent.use()` accepts only `AgentAddon | AgentAddon[]`; passing spec fields or invocation options is a type error.
+| Setting | Spec | Call-time |
+|---------|------|-----------|
+| `name`, `instructions`, `input`, `output`, `agents`, `tools` | yes | — |
+| `model`, `maxTurns` | default | override |
+| `timeout`, `signal` | — | yes |
 
 ### Defaults
 
@@ -37,7 +33,6 @@ Use `agent({ name, ... })` as the only declaration form. `name` is optional and 
 | Input/output | `s.string` |
 | Model | `small` |
 | Max turns | `4` |
-| Addons | none |
 
 ## Schema helpers
 
@@ -219,6 +214,5 @@ Use only the current API:
 - `agent({ name, ... })`
 - `p.*` and ``p`...` `` from `rig`
 - `s.*` for explicit schemas
-- `oncePerAgent`, `repair()`, `steering`, and `timeout` from `rig`
 
 Do not add deprecated hooks, alternate schema syntaxes, or compatibility bridges.

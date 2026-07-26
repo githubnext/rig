@@ -63,7 +63,7 @@ interface Agent {
 }
 ```
 
-Register a factory with `configureAgent(factory)`. Rig creates one adapter instance per invocation and preserves it across repair turns.
+Register a factory with `configureAgent(factory)`. Rig creates one adapter instance per invocation.
 
 ## Included engines
 
@@ -95,8 +95,8 @@ configureAgent(geminiEngine());
 - `copilotEngine()` uses the Copilot SDK HTTP transport by default; launcher `--server` selects stdio.
 - `piEngine({ provider })` uses `@earendil-works/pi-agent-core` and requires a provider for model lookup.
 - `anthropicEngine()` uses `@anthropic-ai/sdk` and reads `ANTHROPIC_API_KEY`.
-- `codexEngine(options)` uses `@openai/codex-sdk`, accepts thread options under `thread`, preserves the thread across repair turns, and maps Rig system messages to developer instructions. It rejects Rig tools because the SDK does not expose custom tool registration.
-- `geminiEngine(options)` runs an installed Gemini CLI in headless JSON mode and resumes its session across repair turns. It accepts `command`, `cwd`, CLI `args`, environment variables, and `approvalMode`; it rejects Rig tools because the CLI does not expose registration.
+- `codexEngine(options)` uses `@openai/codex-sdk`, accepts thread options under `thread`, preserves the thread across turns, and maps Rig system messages to developer instructions. It rejects Rig tools because the SDK does not expose custom tool registration.
+- `geminiEngine(options)` runs an installed Gemini CLI in headless JSON mode and resumes its session across turns. It accepts `command`, `cwd`, CLI `args`, environment variables, and `approvalMode`; it rejects Rig tools because the CLI does not expose registration.
 
 ## Operational conventions
 

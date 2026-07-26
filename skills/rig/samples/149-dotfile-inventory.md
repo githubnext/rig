@@ -1,7 +1,7 @@
 # 149 - Dotfile Inventory
 
 ```rig
-import { agent, p, s, repair } from "rig";
+import { agent, p, s } from "rig";
 
 // Agent role: Discover and categorize dotfiles in the workspace root and nearby directories.
 const dotfileInventory = agent({
@@ -23,7 +23,6 @@ For each dotfile, determine its purpose and category:
 - other: anything else
 
 Return dotfiles record (keyed by filename) with purpose and category, totalFound, and categorySummary (record of counts per category).`,
-  addons: repair(),
   output: s.object({
     dotfiles: s.record(
       s.object({

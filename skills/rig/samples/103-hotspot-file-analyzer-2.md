@@ -1,7 +1,7 @@
 # 103 - Hotspot File Analyzer 2
 
 ```rig
-import { agent, p, s, steering } from "rig";
+import { agent, p, s } from "rig";
 
 // Agent role: identify hot-spot files by measuring commit churn and contributor spread.
 const hotspotFileAnalyzer = agent({
@@ -12,7 +12,6 @@ const hotspotFileAnalyzer = agent({
     topContributors: s.array(s.string),
   })),
   maxTurns: 5,
-  addons: steering({ message: "Every file entry must have a numeric churnScore 0-100 and at least one topContributor." }),
 });
 
 export default hotspotFileAnalyzer;

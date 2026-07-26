@@ -1,7 +1,7 @@
 # 187 - Lock File Drift Detector
 
 ```rig
-import { agent, defineTool, p, s, repair } from "rig";
+import { agent, defineTool, p, s } from "rig";
 
 const crossCheckVersions = defineTool("crossCheckVersions", {
   description: "Cross-check declared package.json versions against package-lock.json resolved versions",
@@ -38,7 +38,6 @@ const crossCheckVersions = defineTool("crossCheckVersions", {
 // Agent role: detect version drift between package.json declarations and package-lock.json resolved versions.
 const lockFileDriftDetector = agent({
   model: "small",
-  addons: [repair()],
   tools: [crossCheckVersions],
   instructions: p`Read package.json: ${p.bash("cat package.json 2>/dev/null || echo '{}'")} and package-lock.json: ${p.bash("cat package-lock.json 2>/dev/null || echo '{}'")}. Call crossCheckVersions with both file contents to find drifted packages. Return driftedPackages list, total driftCount, and whether all packages are in sync.`,
   output: s.object({

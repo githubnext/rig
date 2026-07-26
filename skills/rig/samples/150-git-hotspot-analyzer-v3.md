@@ -1,12 +1,11 @@
 # 150 - Git Hotspot Analyzer V3
 
 ```rig
-import { agent, defineTool, p, s, steering } from "rig";
+import { agent, defineTool, p, s } from "rig";
 
 // Agent role: identify hot-spot files by git churn and classify risk level.
 const gitHotspotAnalyzerV3 = agent({
   model: "small",
-  addons: steering({ message: "Focus on files that appear most frequently. Assign riskLevel based on churnScore: >20=critical, >10=high, >5=medium, else low." }),
   instructions: p`Analyze git history to find frequently changed files and classify their risk.
 
 Recently changed files (with churn counts):

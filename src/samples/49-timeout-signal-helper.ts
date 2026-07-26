@@ -1,11 +1,10 @@
-import { agent, timeout } from "rig";
+import { agent } from "rig";
 
-// Agent role: return a short response in output.text.
+// Agent role: return a short response within a time budget.
 
 const worker = agent({
   model: "mini",
-  instructions: `Return a short response in output.text.`,
-  addons: timeout({ timeout: 5_000 }),
+  instructions: `Return a short response.`,
 });
 
 export default worker;

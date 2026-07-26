@@ -1,14 +1,13 @@
 # 122 - Import Cycle Detector
 
 ```rig
-import { agent, p, s, repair } from "rig";
+import { agent, p, s } from "rig";
 
 // Agent role: detect import cycles in a TypeScript project and assess their severity
 const importCycleDetector = agent({
   name: "importCycleDetector",
   model: "small",
   maxTurns: 3,
-  addons: repair(),
   instructions: p`Detect circular imports in this TypeScript project.
 
 Madge circular analysis: ${p.bash("npx madge --circular --extensions ts . 2>/dev/null || echo 'madge not available, use heuristic analysis'")}

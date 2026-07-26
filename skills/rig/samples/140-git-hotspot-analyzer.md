@@ -1,7 +1,7 @@
 # 140 - Git Hotspot Analyzer
 
 ```rig
-import { agent, p, s, defineTool, steering } from "rig";
+import { agent, p, s, defineTool } from "rig";
 
 const scoreFile = defineTool("scoreFile", {
   description: "Compute a churn score from commit count for a file.",
@@ -26,7 +26,6 @@ ${p.bash("git shortlog -sn --no-merges -- . | head -10")}
 Use the scoreFile tool to compute a churnScore for each file.
 Return s.record output keyed by file path with churnScore, commitCount, and topContributors.`,
   tools: [scoreFile],
-  addons: steering({ message: "Ensure all top files appear in the output keyed by their path." }),
   output: s.record(
     s.object({
       churnScore: s.number,

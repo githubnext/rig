@@ -1,7 +1,7 @@
 # 101 - Commit Format Suggester 2
 
 ```rig
-import { agent, p, s, repair, steering } from "rig";
+import { agent, p, s } from "rig";
 
 // Agent role: suggest conventional commit format for recent git commit messages.
 const commitFormatSuggester = agent({
@@ -14,7 +14,6 @@ const commitFormatSuggester = agent({
     category: s.enum("feat", "fix", "chore", "docs", "test", "refactor", "style"),
   })),
   maxTurns: 4,
-  addons: [steering({ message: "Every commit must have a suggested message in conventional format." }), repair()],
 });
 
 export default commitFormatSuggester;

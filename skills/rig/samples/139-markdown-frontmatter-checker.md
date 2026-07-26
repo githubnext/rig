@@ -1,7 +1,7 @@
 # 139 - Markdown Frontmatter Checker
 
 ```rig
-import { agent, p, s, defineTool, repair } from "rig";
+import { agent, p, s, defineTool } from "rig";
 import { readFileSync, existsSync } from "node:fs";
 
 const parseFrontmatter = defineTool("parseFrontmatter", {
@@ -26,7 +26,6 @@ const parseFrontmatter = defineTool("parseFrontmatter", {
 const markdownFrontmatterChecker = agent({
   model: "small",
   maxTurns: 4,
-  addons: [repair()],
   instructions: p`Check markdown files for required YAML frontmatter fields.
 
 Markdown files: ${p.bash("find . -name '*.md' -not -path '*/node_modules/*' | head -50")}

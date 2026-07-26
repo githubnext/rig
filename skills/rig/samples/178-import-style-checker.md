@@ -1,7 +1,7 @@
 # 178 - Import Style Checker
 
 ```rig
-import { agent, p, s, repair } from "rig";
+import { agent, p, s } from "rig";
 import { defineTool } from "rig";
 
 const classifyStyle = defineTool("classifyStyle", {
@@ -19,7 +19,6 @@ const classifyStyle = defineTool("classifyStyle", {
 const importStyleChecker = agent({
   model: "small",
   maxTurns: 3,
-  addons: repair(),
   tools: [classifyStyle],
   instructions: p`Find JS files: ${p.bash("find . -name '*.js' -not -path '*/node_modules/*' 2>/dev/null | head -30")}. For each file run both grep counts in one call: ${p.bash("find . -name '*.js' -not -path '*/node_modules/*' 2>/dev/null | head -30 | xargs -I{} sh -c 'echo {}:$(grep -c \"require(\" {} 2>/dev/null || echo 0):$(grep -c \"^import \" {} 2>/dev/null || echo 0)'")}. Use classifyStyle tool with the counts for each file. Aggregate summary counts by style.`,
   output: s.object({

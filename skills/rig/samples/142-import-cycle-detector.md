@@ -1,7 +1,7 @@
 # 142 - Import Cycle Detector
 
 ```rig
-import { agent, p, s, repair } from "rig";
+import { agent, p, s } from "rig";
 
 // Agent role: Detect import cycles in TypeScript source using madge and classify severity.
 const importCycleDetector = agent({
@@ -21,7 +21,6 @@ For each cycle found, classify severity:
 - low: short cycle between utility files
 
 Return the structured output with hasCycles, cycles array, and totalCycles count.`,
-  addons: repair(),
   output: s.object({
     hasCycles: s.boolean,
     cycles: s.array(

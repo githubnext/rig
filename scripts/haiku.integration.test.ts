@@ -89,7 +89,7 @@ describe("rig runtime integration", () => {
   );
 
   itWithToken(
-    "runs a complex sonnet sample with tools, addons, intents, and subagent wiring",
+    "runs a complex sonnet sample with tools, intents, and subagent wiring",
     async () => {
       const stdout = await runIntegrationSample(
         complexSamplePath,

@@ -1,12 +1,11 @@
 # 156 - Regex Pattern Tester
 
 ```rig
-import { agent, defineTool, p, s, repair } from "rig";
+import { agent, defineTool, p, s } from "rig";
 
 // Agent role: run regex patterns against test cases and report pass/fail results.
 const regexPatternTester = agent({
   model: "small",
-  addons: repair(),
   input: s.object({
     patterns: s.array(
       s.object({

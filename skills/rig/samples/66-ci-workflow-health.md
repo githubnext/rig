@@ -1,7 +1,7 @@
 # 66 - CI Workflow Health Analyzer
 
 ```rig
-import { agent, defineTool, p, s, repair } from "rig";
+import { agent, defineTool, p, s } from "rig";
 
 const parseYamlSteps = defineTool("parse_yaml_steps", {
   description: "Extract step names and uses from a YAML workflow file.",
@@ -20,7 +20,6 @@ const parseYamlSteps = defineTool("parse_yaml_steps", {
 const ciWorkflowAnalyzer = agent({
   model: "mini",
   maxTurns: 3,
-  addons: repair(),
   instructions: p`Scan ${p.glob(".github/workflows/*.yml")} and ${p.bashRaw`find .github/workflows -name '*.yaml' 2>/dev/null`} for workflow health issues. Use parse_yaml_steps to inspect individual files.`,
   output: s.object({
     issues: s.array(s.object({ workflow: s.nonEmptyString, severity: s.enum("info", "warning", "error"), message: s.string, fix: s.optional(s.string) })),

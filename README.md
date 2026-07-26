@@ -19,15 +19,10 @@ gh skills clone githubnext/rig
 ```ts
 import {
   agent,
-  addons,
   configureAgent,
   defineTool,
-  oncePerAgent,
   p,
-  repair,
   s,
-  steering,
-  timeout,
 } from "rig";
 ```
 
@@ -38,9 +33,6 @@ import {
 - ``p`...` `` also works in `instructions` to embed prompt intents directly: `` instructions: p`Review ${p.bash("git status")}` ``.
 - `configureAgent(factory)` selects the SDK adapter used to instantiate runtime agents.
 - `defineTool(name, config)` creates an SDK-neutral tool definition and accepts rig `s.*` schemas for `parameters`.
-- `addons` accepts express-like `(context, next)` turn addons for steering, inline validation, and runtime agent access.
-- `rig` starts with no default addons.
-- `rig` exports addon helpers: `oncePerAgent`, `repair`, `steering`, `timeout`, and `addons.{oncePerAgent,repair,steering,timeout}`.
 - `p\`...\`` returns a prompt builder and renders intent values when coerced to string; prefer `${p.read(...)}` / `${p.bash(...)}` when the context source is already known.
 
 ## Embedding in markdown
@@ -207,7 +199,6 @@ Use these samples to quickly gauge how well `rig` supports increasingly agentic 
 
 - Default model: `small`
 - Default max turns: `4`
-- No addons are loaded by default (including repair/retry behavior)
 
 Per call, you can override `model`, `timeout`, `maxTurns`, and `signal`.
 
@@ -227,65 +218,13 @@ Custom integrations can use the same logger. Details are evaluated only when the
 ```ts
 import { debug } from "rig";
 
-const log = debug("my-addon:result");
+const log = debug("my-component:result");
 log({ status: "started" });
 log(() => ({ result: expensiveResult() }));
 if (log.enabled) {
   // Optional setup for debug-only instrumentation.
 }
 ```
-
-## Addons
-
-Each agent call runs a per-turn addon chain:
-
-```ts
-const steerFinalTurn = async (context, next) => {
-  await next();
-  if (context.nextPrompt && context.turn === context.maxTurns - 1) {
-    context.nextPrompt = `${context.nextPrompt}\nYou are running out of turns. Return corrected JSON now.`;
-  }
-};
-
-const review = agent({
-  maxTurns: 3,
-  addons: steerFinalTurn,
-});
-```
-
-`context` includes `prompt`, `response`, `turn`, `maxTurns`, `signal`, `output`, `nextPrompt`, `error`, and `completed`.
-
-For the common retry flow with last-turn steering or stable default timeouts, opt into addons:
-
-```ts
-const review = agent({
-  maxTurns: 3,
-  addons: [timeout({ timeout: 30_000 }), steering(), repair()],
-});
-```
-
-Use `oncePerAgent(...)` to register with the runtime agent once:
-
-```ts
-const review = agent({
-  addons: oncePerAgent((runtimeAgent) => {
-    // Register adapter-specific behavior here.
-  }),
-});
-```
-
-Per-turn addons receive `context.agent`, and you can also register addons after creating the agent:
-
-```ts
-const timingAddon = async (context, next) => {
-  await next();
-};
-
-const review = agent({});
-review.use(timingAddon);
-```
-
-`agent.use()` accepts **only** `AgentAddon | AgentAddon[]`. It does not accept spec fields or call-time overrides — passing `maxTurns`, `model`, or similar is a type error. Put stable defaults in the agent spec; pass per-run overrides at call time.
 
 ## Agent implementations
 
@@ -326,11 +265,11 @@ configureAgent(geminiEngine());
 
 If you do not call `configureAgent(...)`, Rig now auto-selects a default engine from environment variables: `COPILOT_SDK_URI` → `copilotEngine()`, then `RIG_ENGINE` (`copilot` | `anthropic` | `codex` | `gemini`) if set, then `ANTHROPIC_API_KEY` → `anthropicEngine()`, `OPENAI_API_KEY` → `codexEngine()`, `GEMINI_API_KEY`/`GOOGLE_API_KEY` → `geminiEngine()`, otherwise `copilotEngine()`.
 
-`piEngine()` uses the maintained `@earendil-works/pi-agent-core` package and requires the provider for model lookup. `anthropicEngine()` uses `@anthropic-ai/sdk`. Both adapters preserve conversation state across repair turns and map Rig tools to their SDK tool runners.
+`piEngine()` uses the maintained `@earendil-works/pi-agent-core` package and requires the provider for model lookup. `anthropicEngine()` uses `@anthropic-ai/sdk`. Both adapters preserve conversation state and map Rig tools to their SDK tool runners.
 
-`codexEngine()` uses `@openai/codex-sdk`, preserves its thread across repair turns, and accepts Codex client options plus thread options under `thread`. Rig system messages become Codex developer instructions. The Codex SDK does not expose custom tool registration, so the adapter rejects agents with Rig tools.
+`codexEngine()` uses `@openai/codex-sdk`, preserves its thread across turns, and accepts Codex client options plus thread options under `thread`. Rig system messages become Codex developer instructions. The Codex SDK does not expose custom tool registration, so the adapter rejects agents with Rig tools.
 
-`geminiEngine()` runs the installed `gemini` executable in headless JSON mode and resumes its session across repair turns. It accepts `command`, `cwd`, additional CLI `args`, environment variables, and an optional `approvalMode`. Rig system messages are prepended to the first prompt. The Gemini CLI does not expose custom tool registration through its command line, so the adapter rejects agents with Rig tools.
+`geminiEngine()` runs the installed `gemini` executable in headless JSON mode and resumes its session across turns. It accepts `command`, `cwd`, additional CLI `args`, environment variables, and an optional `approvalMode`. Rig system messages are prepended to the first prompt. The Gemini CLI does not expose custom tool registration through its command line, so the adapter rejects agents with Rig tools.
 
 ## Copilot SDK adapter
 

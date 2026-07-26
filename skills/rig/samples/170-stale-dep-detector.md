@@ -1,7 +1,7 @@
 # 170 - Stale Dep Detector
 
 ```rig
-import { agent, p, s, repair } from "rig";
+import { agent, p, s } from "rig";
 import { defineTool } from "rig";
 
 const classifyDrift = defineTool("classifyDrift", {
@@ -22,7 +22,6 @@ const classifyDrift = defineTool("classifyDrift", {
 const staleDependencyDetector = agent({
   model: "small",
   maxTurns: 3,
-  addons: repair(),
   tools: [classifyDrift],
   instructions: p`Analyze outdated npm packages using ${p.bash("npm outdated --json 2>/dev/null || echo '{}'")} and the manifest ${p.read("package.json")}. For each outdated package, use the classifyDrift tool to determine drift level. Compute overallRisk: "critical" if any major drift, "moderate" if any minor drift, else "safe".`,
   output: s.object({

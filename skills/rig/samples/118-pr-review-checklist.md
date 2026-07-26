@@ -1,13 +1,12 @@
 # 118 - Pr Review Checklist
 
 ```rig
-import { agent, p, s, repair } from "rig";
+import { agent, p, s } from "rig";
 
 // Agent role: generate a PR review checklist from the recent git diff.
 const prReviewChecklist = agent({
   model: "mini",
   maxTurns: 6,
-  addons: repair(),
   instructions: p`Generate a PR review checklist based on the changes in this branch.
 
 Changed files:

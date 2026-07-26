@@ -2,7 +2,6 @@
 
 ```rig
 import { agent, defineTool, p, s } from "rig";
-import { repair } from "rig/addons";
 
 // Agent role: extract and classify Makefile targets into phony vs real file targets with descriptions.
 const makefileTargetExtractor = agent({
@@ -31,7 +30,6 @@ Use the parseTargets tool to extract target names, then classify each. Phony tar
       },
     }),
   ],
-  addons: [repair()],
   output: s.object({
     targets: s.array(s.object({
       name: s.string,

@@ -1,7 +1,7 @@
 # 179 - Git Tag Semver Validator
 
 ```rig
-import { agent, p, s, steering } from "rig";
+import { agent, p, s } from "rig";
 import { defineTool } from "rig";
 
 const parseSemver = defineTool("parseSemver", {
@@ -22,7 +22,6 @@ const parseSemver = defineTool("parseSemver", {
 // Agent role: validate all git tags against semver format and identify the latest valid tag.
 const gitTagSemverValidator = agent({
   model: "small",
-  addons: steering({ message: "For tags with date-based or non-semver formats, mark valid as false and omit the parsed field." }),
   tools: [parseSemver],
   instructions: p`List all git tags: ${p.bash("git tag --list 2>/dev/null || true")}. For each tag, call the parseSemver tool to check if it conforms to semver (e.g. v1.2.3 or 1.2.3). Count invalid tags. Identify the latest valid semver tag by finding the highest version number.`,
   output: s.object({

@@ -1,12 +1,11 @@
 # 181 - Service Health Probe
 
 ```rig
-import { agent, p, s, steering } from "rig";
+import { agent, p, s } from "rig";
 
 // Agent role: probe each URL endpoint and classify its health status.
 const serviceHealthProbe = agent({
   model: "small",
-  addons: [steering({ message: "For any URL that times out or returns a non-standard code, classify as 'unknown' rather than failing." })],
   input: s.array(s.string),
   instructions: p`For each URL in the input, probe it using curl: ${p.bash("echo 'example: curl -o /dev/null -s -w \\'%{http_code}\\' --max-time 5 <url>'")}. Run a separate curl command for each input URL. Classify each: 'up' (2xx), 'down' (4xx/5xx/refused), 'slow' (timeout after 5s), 'unknown' (other). Count healthyCount and determine overallStatus: 'all-healthy' if all up, 'critical' if more than half are down, otherwise 'degraded'.`,
   output: s.object({
