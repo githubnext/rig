@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 import { fixSource, lintSource } from "../skills/rig/eslint/lint.js";
 import agentsMustBeObjectRule from "../skills/rig/eslint/rules/agents-must-be-object.js";
 import rule from "../skills/rig/eslint/rules/no-object-literal-record.js";
+import noRigAddonsImportRule from "../skills/rig/eslint/rules/no-rig-addons-import.js";
 import repairNoArgsRule from "../skills/rig/eslint/rules/repair-no-args.js";
 
 describe("agents-must-be-object", () => {
@@ -240,6 +241,75 @@ describe("repair-no-args", () => {
       arguments: [],
     });
 
+    expect(reports).toHaveLength(0);
+  });
+});
+
+describe("no-rig-addons-import", () => {
+  it.each([
+    'import { repair, steering } from "rig";',
+    "import { repair } from 'rig';",
+    'import { agent, p, s } from "rig";',
+    '// import { repair } from "rig/addons";',
+    'const x = "from \\"rig/addons\\"";',
+  ])("accepts %s", (source) => {
+    const problems = lintSource(source).filter((p) => p.kind === "no-rig-addons-import");
+    expect(problems).toEqual([]);
+  });
+
+  it.each([
+    [
+      'import { repair } from "rig/addons";',
+      'import { repair } from "rig";',
+    ],
+    [
+      "import { steering } from 'rig/addons';",
+      "import { steering } from 'rig';",
+    ],
+    [
+      'import { repair, steering } from "rig/addons";',
+      'import { repair, steering } from "rig";',
+    ],
+  ])("fixes %s", (source, expected) => {
+    const problems = lintSource(source).filter((p) => p.kind === "no-rig-addons-import");
+    expect(problems).toHaveLength(1);
+    expect(fixSource(source, problems)).toBe(expected);
+  });
+
+  it("is idempotent", () => {
+    const source = 'import { repair } from "rig/addons";';
+    const once = fixSource(source);
+    const twice = fixSource(once);
+    expect(twice).toBe(once);
+    expect(lintSource(once).filter((p) => p.kind === "no-rig-addons-import")).toEqual([]);
+  });
+
+  it("keeps the ESLint rule aligned", () => {
+    const reports = [];
+    const mockSource = { raw: '"rig/addons"', value: "rig/addons" };
+    const visitor = noRigAddonsImportRule.create({
+      sourceCode: {},
+      report: (problem) => reports.push(problem),
+    });
+
+    visitor.ImportDeclaration({
+      source: mockSource,
+    });
+
+    expect(reports).toHaveLength(1);
+    expect(reports[0].messageId).toBe("useRig");
+    expect(reports[0].fix({ replaceText: (_node, text) => text }))
+      .toBe('"rig"');
+  });
+
+  it("does not flag imports from other rig sub-paths", () => {
+    const reports = [];
+    const visitor = noRigAddonsImportRule.create({
+      sourceCode: {},
+      report: (problem) => reports.push(problem),
+    });
+
+    visitor.ImportDeclaration({ source: { value: "rig/engines/anthropic", raw: '"rig/engines/anthropic"' } });
     expect(reports).toHaveLength(0);
   });
 });

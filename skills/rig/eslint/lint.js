@@ -5,10 +5,12 @@ import { extname, resolve } from "node:path";
 import { pathToFileURL } from "node:url";
 import { scanTokens as scanAgentsMustBeObject } from "./rules/agents-must-be-object.js";
 import { scanTokens as scanNoObjectLiteralRecord } from "./rules/no-object-literal-record.js";
+import { scanSource as scanNoRigAddonsImport } from "./rules/no-rig-addons-import.js";
 import { scanTokens as scanRepairNoArgs } from "./rules/repair-no-args.js";
 
 const ignoredDirectories = new Set([".git", "node_modules"]);
 const tokenRules = [scanAgentsMustBeObject, scanNoObjectLiteralRecord, scanRepairNoArgs];
+const sourceRules = [scanNoRigAddonsImport];
 
 function tokenize(source) {
   const tokens = [];
@@ -55,7 +57,10 @@ function tokenize(source) {
 
 export function lintSource(source) {
   const tokens = tokenize(source);
-  return tokenRules.flatMap((scan) => scan(tokens));
+  return [
+    ...tokenRules.flatMap((scan) => scan(tokens)),
+    ...sourceRules.flatMap((scan) => scan(source)),
+  ];
 }
 
 export function fixSource(source, problems = lintSource(source)) {
