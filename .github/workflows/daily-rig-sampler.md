@@ -68,6 +68,10 @@ const runRigSample = defineTool("run_rig_sample", {
     return await new Promise((resolveRun, rejectRun) => {
       const child = spawn(process.execPath, ["skills/rig/rig.ts"], {
         cwd: process.cwd(),
+        env: {
+          ...process.env,
+          RIG_DEBUG: "agent:*,engine:copilot:*,-engine:copilot:event",
+        },
         stdio: ["pipe", "pipe", "pipe"],
       });
       let stdout = "";
