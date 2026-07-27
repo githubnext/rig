@@ -1,8 +1,7 @@
 # 160 - Dead Code Detector
 
 ```rig
-import { agent, defineTool, p, s } from "rig";
-import { repair } from "rig/addons";
+import { agent, defineTool, p, repair, s } from "rig";
 
 // Agent role: detect dead TypeScript exports by scanning for exported symbols and estimating usage counts.
 const deadCodeDetector = agent({

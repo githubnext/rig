@@ -4,7 +4,6 @@
   "type": "module",
   "exports": {
     ".": "./skills/rig/rig.ts",
-    "./addons": "./skills/rig/addons.ts",
     "./eslint": "./skills/rig/eslint/index.js",
     "./engines/anthropic": "./skills/rig/engines/anthropic.ts",
     "./engines/codex": "./skills/rig/engines/codex.ts",

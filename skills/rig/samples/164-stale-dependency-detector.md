@@ -1,8 +1,7 @@
 # 164 - Stale Dependency Detector
 
 ```rig
-import { agent, defineTool, p, s } from "rig";
-import { repair } from "rig/addons";
+import { agent, defineTool, p, repair, s } from "rig";
 
 // Agent role: detect stale npm dependencies by comparing installed versions with latest published versions.
 const staleDependencyDetector = agent({
