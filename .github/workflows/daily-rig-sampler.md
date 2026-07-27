@@ -95,7 +95,7 @@ const runRigSample = defineTool("run_rig_sample", {
 // Agent role: execute one Rig sample as a delegated task and record its result.
 const runSample = agent({
   name: "sample-runner",
-  model: "mini",
+  model: "gpt-4o-mini",
   input: s.object({ path: s.path }),
   tools: [runRigSample],
   instructions: p`Call run_rig_sample exactly once with ${p.inputField("path")}.
@@ -129,7 +129,7 @@ const runRandomSamples = defineTool("run_random_samples", {
 // Agent role: randomly select five Rig samples, delegate every run, and aggregate the results.
 const sampleCoordinator = agent({
   name: "sample-coordinator",
-  model: "small",
+  model: "gpt-4.1",
   agents: { runSample },
   tools: [runRandomSamples],
   instructions: "Call run_random_samples exactly once with an empty object and return its result unchanged.",
