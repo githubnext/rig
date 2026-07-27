@@ -82,6 +82,7 @@ Helper constraints:
 - `s.nonEmptyString` sets `minLength: 1`.
 - `s.url` uses format `"uri"`; `s.path` uses format `"path"`.
 - `s.int` aliases `s.integer`.
+- Prefer `s.int` for counts/line numbers and `s.number` for measurements, scores, and ratios.
 - `s.nonEmptyArray(item)` sets `minItems: 1`.
 - `s.nonEmptyObject(value)` describes `Record<string, V>` with `minProperties: 1`.
 - `s.optional(shape)` allows omission; `s.nullable(shape)` allows `null`.
@@ -117,6 +118,7 @@ s.optional(s.int)
 s.record(s.string)
 s.record(s.array(s.string))
 s.record(s.object({ name: s.string, age: s.number }))
+s.record(s.object({ path: s.path, homepage: s.url }))
 s.nullable(s.string)
 s.literal("done")
 s.nonEmptyArray(s.path)
@@ -152,6 +154,19 @@ export default triage;
 
 For plain JSON Schema parameters, provide a generic such as `defineTool<{ issue: string }>(...)`. A handler may return a string or any JSON-serializable value; Rig serializes non-string values, so do not call `JSON.stringify` in the handler. Tools default to `skipPermission: true`.
 
+`s.unknown` is valid in tool parameter schemas for caller-provided values whose concrete type is intentionally open:
+
+```ts
+const scoreField = defineTool("score_field", {
+  description: "Score one package.json field.",
+  parameters: s.object({
+    field: s.string,
+    value: s.unknown,
+  }),
+  handler: async ({ field, value }) => ({ field, present: value !== undefined }),
+});
+```
+
 Async handlers can import Node built-ins directly:
 
 ```ts
@@ -180,7 +195,18 @@ const readFileSize = defineTool("read_file_size", {
 });
 ```
 
+For recursive directory walks with `node:fs/promises` `readdir`, set `encoding: "utf-8"` when you need string paths:
+
+```ts
+const { readdir } = await import("node:fs/promises");
+const paths = await readdir("src", { recursive: true, encoding: "utf-8" });
+```
+
+Without `encoding`, the recursive overload can resolve to `Dirent[]`, which will not type-check as `string[]`.
+
 Strict TypeScript compilation reports unused handler bindings. Destructure only the keys the handler uses, or rename an unavoidable binding with a leading underscore, such as `{ filename: _filename, content }`.
+
+When returning discriminated unions from a handler, keep discriminator literals narrow with `as const` (or an explicit return type) so TypeScript does not widen `"missing"` to `string`.
 
 Use `defineTool` for I/O operations and external calls the LLM should be able to invoke — fetching a URL, running a query, reading a dynamic path. Do not use it to replace LLM inference: if the handler implements the classification or reasoning logic entirely in TypeScript, the model is never exercised for that step. Express classification rules as prompt instructions instead, and use a tool only when a discrete external operation is needed to support the model's reasoning.
 

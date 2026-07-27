@@ -43,13 +43,14 @@ Defaults: `name: "agent"`, `model: "small"`, `maxTurns: 4`, string input/output,
 
 | Need | Choose |
 |------|--------|
-| Known required/optional file | `p.read(path)` / `p.readOptional(path, fallback?)` |
+| Known required/optional file | `p.read(path)` / `p.readOptional(path, fallback?)` (prefer this over `cat ... || echo ...`) |
 | Several known files | `p.readAll(paths)` |
 | Static shell command | `p.bash(command)`; use ``p.bashRaw`...` `` for literal backslashes |
 | Caller-supplied path(s) | `p.readInput(field)` / `p.readAllInput(field)` with `s.path` schemas |
-| Discover workspace paths | `p.glob(pattern)` |
+| Discover workspace paths | `p.glob(pattern)` (prefer over `p.bash("find ...")` for static discovery) |
 | Persist generated output | `p.writeOutput(field, path)` or `p.writeInput(pathField, outputField)` |
 | String-keyed map | `s.record(value)`; do not wrap it in `s.object` |
+| Numeric schema choice | `s.int` for counts/line numbers; `s.number` for measurements and ratios |
 | Optional versus nullable | `s.optional(shape)` for omission; `s.nullable(shape)` for explicit `null` |
 | Custom model-callable operation | `defineTool(name, { description, parameters, handler })` |
 | Structured-output retries | `maxTurns` on the agent plus `addons: repair()` |
