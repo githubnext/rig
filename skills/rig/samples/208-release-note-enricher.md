@@ -30,7 +30,7 @@ const releaseNoteEnricher = agent({
   }),
   tools: [lookupTicketMetadata],
   maxTurns: 5,
-  addons: [steering(), repair()],
+  addons: [steering(), repair()], // steering must come before repair
 });
 
 export default releaseNoteEnricher;

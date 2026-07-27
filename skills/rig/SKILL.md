@@ -47,7 +47,8 @@ export default reviewDiff;
 
 | Concern | Location | Addon args |
 |---------|----------|------------|
-| `name`, `instructions`, `input`, `output`, tools, stable `model`/`maxTurns` | `agent({ ... })` | n/a |
+| `name`, `instructions`, `input`, `output`, stable `model`/`maxTurns` | `agent({ ... })` | n/a |
+| `tools` (`defineTool(...)` values) | `agent({ tools: [...] })` | n/a |
 | Per-run `model`, `maxTurns`, `timeout`, `signal` | `myAgent(input, { ... })` | n/a |
 | Stable addons | `addons` in the spec | `steering({ message? })`, `timeout({ timeout })`, `repair()` (no args) |
 | Additional addons | `agent.use(addon)` | Same signatures as spec addons |
@@ -67,7 +68,7 @@ Defaults are model `small`, `maxTurns: 4`, no addons, and name `"agent"`. `agent
 
 Descriptions go first for scalar helpers, second after the shape for containers, and last for enums/literals. Schemas serialize directly as JSON Schema; do not invent alternate schema syntax.
 
-Use `s.int`/`s.integer` for integer-valued fields (counts, indices, line numbers); `s.number` for floats or measured values. Use `s.path` for file-system paths — especially input fields read with `p.readInput` — rather than `s.string`.
+Use `s.int` for integer-valued fields (counts, indices, line numbers); `s.integer` is an alias. Use `s.number` for floats or measured values. Use `s.path` for file-system paths — especially input fields read with `p.readInput` — rather than `s.string`.
 Use `s.optional(shape)` when a field may be omitted and `s.nullable(shape)` when the field should be present but can be `null`. Use `s.record(value)` for string-keyed maps such as `s.record(s.number)` for per-file or per-symbol counters. `s.record(...)` is also valid as the root `output` — `output: s.record(s.number)` is correct when the agent returns a map; wrapping it in `s.object` is unnecessary. `s.record(...)` is also valid as a nested field, for example `output: s.object({ files: s.record(s.object({ owner: s.string })), categorySummary: s.record(s.int) })`.
 For link/file lists, keep the scalar helpers inside the item object — for example `s.array(s.object({ url: s.url, file: s.optional(s.path), httpCode: s.optional(s.int) }))`.
 
@@ -98,9 +99,10 @@ instructions: p`Review ${p.read("README.md")} against ${p.bash("git status --sho
 ```
 
 Do not replace file intents with `cat` commands or large in-memory strings. `p.readOptional(path, fallback?)` injects the fallback text directly into prompt context when the file is absent — for example, `p.readOptional(".nvmrc", "20")` injects `"20"` when the file is missing. `p.write` does not return a path; `p.writeOutput(field, path)` writes the named output field to a static path after generation — the first argument must exactly match an output schema field name (e.g., `p.writeOutput("report", "out.md")` paired with `output: s.object({ report: s.string })`). Use `p.writeInput("outputPath", "rendered")` instead when the caller supplies the destination path in `input.outputPath`. `p.readAll(paths)` accepts a known path list, not a glob pattern. `p.readInput(field)` reads the file at a **single** path held in the named input field; `p.readAllInput(field)` reads all files at the paths in an input array field and concatenates their contents — use it instead of prose-based iteration instructions when the input is a `s.array(s.path)` field. `p.bash` and `p.bashRaw` accept only static strings; when the **same command must run once per element** in a caller-supplied array, use `p.bashEach(template, field)` with `{}` as the element placeholder; for commands that depend on multiple fields or require branching, describe the iteration in prose and reference `input.<field>` by name — use `p.inputField(field)` to reference a non-path input value explicitly in prose instead of the opaque `${"input.field"}` literal.
-For `p.readOptional` fallbacks, pass a value the model can parse in context (for example `"{}"` when downstream instructions expect JSON). Multiple shell intents can be composed in one template expression, such as `p\`Check ${p.bash("node -v")} and ${p.bash("npm -v")}.\``.
+For `p.readOptional` fallbacks, pass a value the model can parse in context (for example `"{}"` when downstream instructions expect JSON). Match fallback syntax to the target file format: use `p.readOptional(".eslintrc.json", "{}")` for JSON and `p.readOptional(".eslintrc.js", "module.exports = {}")` for CommonJS config files. Multiple shell intents can be composed in one template expression, such as `p\`Check ${p.bash("node -v")} and ${p.bash("npm -v")}.\``.
 
 - Use `p.readOptional("tsconfig.json", "{}")` when later instructions expect JSON rather than free-form text.
+- Use `p.write("config-patch.json", "GENERATED")` as the canonical placeholder pattern when prompt instructions describe content the model must generate before writing.
 - Use `p.writeOutput("report", "out.md")` only when `output` declares a `report` field with that exact name.
 - Anti-example: `instructions: p\`${p.writeOutput("summary", "out.md")}\`` is invalid when `output` is `s.object({ report: s.string })`; the field name must match exactly.
 
@@ -114,9 +116,9 @@ For `p.readOptional` fallbacks, pass a value the model can parse in context (for
     handler: async ({ issue }) => ({ issue, status: "open" }),
   });
   ```
-  `s.unknown` is valid in tool parameters when the tool needs to compare or echo arbitrary JSON-like values, for example `parameters: s.object({ currentValue: s.unknown, recommendedValue: s.unknown })`. Handlers can be sync or async and return a string or any JSON-serializable value; return plain JS values (do not `JSON.stringify`) because Rig serializes non-string results automatically. Async handlers may import Node built-ins with `await import("node:child_process")`. Destructure only handler fields you use. Use `defineTool` for external operations and deterministic transforms that support reasoning — not to replace the core classification or judgment step with in-process TypeScript logic.
-- `agents` must be a named object — `agents: { extractor }` — never an array (`agents: [extractor]` is a type error). Attach every declared subagent to the exported root's graph.
-- There is no chain or loop primitive; give the coordinator explicit delegation instructions and require one combined output.
+  `s.unknown` is valid in tool parameters when the tool needs to compare or echo arbitrary JSON-like values, for example `parameters: s.object({ currentValue: s.unknown, recommendedValue: s.unknown })`. Handlers can be sync or async and return a string or any JSON-serializable value; return plain JS values (for example `return { count: 3 }`, not `return JSON.stringify({ count: 3 })`) because Rig serializes non-string results automatically. Async handlers may import Node built-ins with `await import("node:child_process")`. Destructure only handler fields you use. Use `defineTool` for external operations and deterministic transforms that support reasoning — not to replace the core classification or judgment step with in-process TypeScript logic.
+- `agents` must be a named object — `agents: { extractor }` — never an array (`agents: [extractor]` is a type error, typically TS2322: array is not assignable to the expected object map type). Attach every declared subagent to the exported root's graph.
+- There is no chain or loop primitive; give the coordinator explicit delegation instructions and require one combined output. Canonical coordinator pattern: delegate to named subagents, merge their structured results, then write final content (for example with `p.write(...)`).
 - Automatic parse/schema repair uses `repair()` from `rig`; `repair()` takes no arguments. Put retries on the agent spec: `maxTurns: 3, addons: repair()`. Do not pass retries to `repair()` (`addons: repair({ maxTurns: 3 })` is invalid).
 - `addons` accepts a single addon or an array. Use `addons: repair()` for one addon, and `addons: [steering(), repair()]` when combining. **`steering()` must come before `repair()` in the array** — write `[steering(), repair()]`, not `[repair(), steering()]`. `steering()` (default warning) or `steering({ message: "..." })` (custom text) should run before `repair()` to append a last-chance instruction on the final retry. `oncePerAgent(callback)` invokes the callback once per runtime agent instance — its internal `WeakSet` already deduplicates, so no external tracking is needed.
 

@@ -22,7 +22,7 @@ const proseCleanup = agent({
 // Agent role: coordinate docs refactoring by extracting APIs and cleaning prose, then writing the result.
 const docsRefactorCoordinator = agent({
   model: "small",
-  instructions: p`Delegate API extraction and prose cleanup to the named subagents. Merge their results: the apiExtractor returns the list of API names, and proseCleanup returns rewritten prose. Combine into a final output and write the refactored content to ${p.write("docs/refactored.md", "REFACTORED_CONTENT")}. Count the changes made to the prose.`,
+  instructions: p`Delegate API extraction and prose cleanup to the named subagents. Merge their results: the apiExtractor returns the list of API names, and proseCleanup returns rewritten prose. Combine into a final output and write the refactored content to ${p.write("docs/refactored.md", "GENERATED")}. Count the changes made to the prose.`,
   output: s.object({
     extractedApis: s.array(s.string),
     changesApplied: s.int,
