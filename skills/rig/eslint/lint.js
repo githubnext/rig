@@ -3,12 +3,13 @@
 import { readFile, readdir, writeFile } from "node:fs/promises";
 import { extname, resolve } from "node:path";
 import { pathToFileURL } from "node:url";
+import { scanTokens as scanDefineToolArgCount } from "./rules/define-tool-arg-count.js";
 import { scanTokens as scanAgentsMustBeObject } from "./rules/agents-must-be-object.js";
 import { scanTokens as scanNoObjectLiteralRecord } from "./rules/no-object-literal-record.js";
 import { scanTokens as scanRepairNoArgs } from "./rules/repair-no-args.js";
 
 const ignoredDirectories = new Set([".git", "node_modules"]);
-const tokenRules = [scanAgentsMustBeObject, scanNoObjectLiteralRecord, scanRepairNoArgs];
+const tokenRules = [scanDefineToolArgCount, scanAgentsMustBeObject, scanNoObjectLiteralRecord, scanRepairNoArgs];
 
 function tokenize(source) {
   const tokens = [];
@@ -55,7 +56,7 @@ function tokenize(source) {
 
 export function lintSource(source) {
   const tokens = tokenize(source);
-  return tokenRules.flatMap((scan) => scan(tokens));
+  return tokenRules.flatMap((scan) => scan(tokens, source));
 }
 
 export function fixSource(source, problems = lintSource(source)) {
