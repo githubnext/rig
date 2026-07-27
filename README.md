@@ -40,7 +40,7 @@ import {
 - `defineTool(name, config)` creates an SDK-neutral tool definition and accepts rig `s.*` schemas for `parameters`.
 - `addons` accepts express-like `(context, next)` turn addons for steering, inline validation, and runtime agent access.
 - `rig` starts with no default addons.
-- `rig` exports addon helpers: `oncePerAgent`, `repair`, `steering`, `timeout`, and `addons.{oncePerAgent,repair,steering,timeout}`.
+- `rig` exports addon helpers: `oncePerAgent`, `repair`, `steering`, `timeout`.
 - `p\`...\`` returns a prompt builder and renders intent values when coerced to string; prefer `${p.read(...)}` / `${p.bash(...)}` when the context source is already known.
 
 ## Embedding in markdown

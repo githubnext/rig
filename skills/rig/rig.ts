@@ -1426,30 +1426,6 @@ export function oncePerAgent(register: AgentRegistration): AgentAddon {
   };
 }
 
-/**
- * Namespace of built-in addon factories. Import and combine these to customize
- * agent behaviour without modifying the core harness.
- *
- * | Addon | Purpose |
- * |---|---|
- * | `repair` | Re-prompts when the model returns invalid JSON or fails schema validation (up to `maxTurns`). Built in by default. |
- * | `steering` | Appends a warning to the prompt on the last turn so the model knows it must correct output now. |
- * | `timeout` | Cancels the in-flight turn via `AbortSignal` after the given number of milliseconds. |
- * | `oncePerAgent` | Runs a registration callback exactly once per unique `Agent` instance (e.g. to register tools). |
- *
- * @example
- * import { addons, agent, s } from "rig";
- * const a = agent({
- *   output: s.object({ answer: s.string }),
- *   addons: [addons.steering(), addons.timeout({ timeout: 30_000 })],
- * });
- */
-export const addons = {
-  oncePerAgent,
-  timeout,
-  repair,
-  steering,
-};
 
 let currentAgentFactory: AgentFactory = defaultAgentFactory();
 
