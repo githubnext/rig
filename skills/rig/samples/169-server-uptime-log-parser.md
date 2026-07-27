@@ -1,8 +1,7 @@
 # 169 - Server Uptime Log Parser
 
 ```rig
-import { agent, defineTool, p, s } from "rig";
-import { steering } from "rig/addons";
+import { agent, defineTool, p, s, steering } from "rig";
 
 // Agent role: parse server uptime logs to extract start/stop/crash events and compute uptime statistics.
 const serverUptimeLogParser = agent({

@@ -1,8 +1,7 @@
 # 167 - Makefile Target Extractor
 
 ```rig
-import { agent, defineTool, p, s } from "rig";
-import { repair } from "rig/addons";
+import { agent, defineTool, p, repair, s } from "rig";
 
 // Agent role: extract and classify Makefile targets into phony vs real file targets with descriptions.
 const makefileTargetExtractor = agent({
