@@ -1,8 +1,73 @@
+import defineToolArgCountRule from "../skills/rig/eslint/rules/define-tool-arg-count.js";
 import { describe, expect, it } from "vitest";
 import { fixSource, lintSource } from "../skills/rig/eslint/lint.js";
 import agentsMustBeObjectRule from "../skills/rig/eslint/rules/agents-must-be-object.js";
 import rule from "../skills/rig/eslint/rules/no-object-literal-record.js";
 import repairNoArgsRule from "../skills/rig/eslint/rules/repair-no-args.js";
+
+describe("define-tool-arg-count", () => {
+  it.each([
+    "const tool = defineTool(\"echo\", { handler: () => \"ok\" });",
+    "const tool = defineTool(\"echo\", { description: \"Echo text.\", parameters: s.object({ text: s.string }), handler: ({ text }) => text });",
+    "other.defineTool(\"echo\", \"desc\", schema, schema, handler);",
+    "const text = 'defineTool(\"echo\", \"desc\", schema, schema, handler)';",
+  ])("accepts %s", (source) => {
+    const problems = lintSource(source).filter((p) => p.kind === "define-tool-arg-count");
+    expect(problems).toEqual([]);
+  });
+
+  it.each([
+    [
+      "const tool = defineTool(\"echo\", \"Echo text.\", s.object({ text: s.string }), s.object({ echoed: s.string }), ({ text }) => ({ echoed: text }));",
+      "const tool = defineTool(\"echo\", { description: \"Echo text.\", parameters: s.object({ text: s.string }), handler: ({ text }) => ({ echoed: text }) });",
+    ],
+    [
+      "defineTool(\"lookup_issue\", \"Look up an issue.\", params, result, handler)",
+      "defineTool(\"lookup_issue\", { description: \"Look up an issue.\", parameters: params, handler: handler })",
+    ],
+  ])("fixes %s", (source, expected) => {
+    const problems = lintSource(source).filter((p) => p.kind === "define-tool-arg-count");
+    expect(problems).toHaveLength(1);
+    expect(fixSource(source, problems)).toBe(expected);
+  });
+
+  it("reports ambiguous arg counts without autofixing", () => {
+    const source = "const tool = defineTool(\"echo\", \"Echo text.\", handler);";
+    const [problem] = lintSource(source).filter((p) => p.kind === "define-tool-arg-count");
+    expect(problem).toBeTruthy();
+    expect(problem.edits).toEqual([]);
+    expect(fixSource(source, [problem])).toBe(source);
+  });
+
+  it("keeps the ESLint rule aligned", () => {
+    const reports = [];
+    const visitor = defineToolArgCountRule.create({
+      sourceCode: {
+        getText: (node) => node.text,
+      },
+      report: (problem) => reports.push(problem),
+    });
+
+    const args = [
+      { type: "Literal", text: "\"echo\"", range: [0, 6] },
+      { type: "Literal", text: "\"Echo text.\"", range: [8, 20] },
+      { type: "Identifier", text: "params", range: [22, 28] },
+      { type: "Identifier", text: "result", range: [30, 36] },
+      { type: "Identifier", text: "handler", range: [38, 45] },
+    ];
+    visitor.CallExpression({
+      type: "CallExpression",
+      callee: { type: "Identifier", name: "defineTool" },
+      arguments: args,
+    });
+
+    expect(reports).toHaveLength(1);
+    expect(reports[0].messageId).toBe("argCount");
+    expect(reports[0].fix({
+      replaceTextRange: (_range, text) => text,
+    })).toBe(" { description: \"Echo text.\", parameters: params, handler: handler }");
+  });
+});
 
 describe("agents-must-be-object", () => {
   it.each([
