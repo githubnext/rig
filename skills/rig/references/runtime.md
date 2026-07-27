@@ -52,6 +52,22 @@ Success prints `typecheck passed` and exits 0. Failure reports TypeScript diagno
 
 For a standalone `.ts` program outside an ESM package, the launcher uses a temporary `.mts` shadow. Relative sibling imports still require the program directory or an ancestor to contain `{"type":"module"}` in `package.json`.
 
+## GitHub Agentic Workflows
+
+Enable Copilot SDK driver mode and pin the Rig skill to an immutable commit:
+
+```yaml
+engine:
+  id: copilot
+  copilot-sdk: true
+skills:
+  - githubnext/rig/skills/rig/SKILL.md@<full-commit-sha>
+```
+
+Import `configureAgent` and `copilotEngine` in the fenced program and call `configureAgent(copilotEngine())` before defining agents. Grant `copilot-requests: write`, and enable only the tools and network access the program uses.
+
+Edit workflows with an agent or run `gh aw compile --watch` for immediate feedback. Before committing, run `gh aw compile <workflow-id> --strict` and include the generated `.lock.yml`.
+
 ## Agent interface
 
 Adapters implement the SDK-neutral interface:
