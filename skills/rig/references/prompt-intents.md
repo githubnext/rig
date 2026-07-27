@@ -34,14 +34,14 @@ Intent values are also accepted in agent inputs, but prefer template expressions
 | ``p.bashRaw`command` `` | Verbatim shell command with no TypeScript backslash escaping |
 | `p.bashEach(template, inputArrayField)` | Run `template` once per element in `input.<field>`, substituting `{}` with each element |
 | `p.read(path)` | Required file at a literal path |
-| `p.readOptional(path, fallback?)` | Literal path that may be absent; default fallback is `""` and is injected as prompt text (use a context-valid fallback such as `"{}"` for expected JSON) |
+| `p.readOptional(path, fallback?)` | Literal path that may be absent; default fallback is `""` and is injected as prompt text (use a context-valid fallback such as `"{}"` for expected JSON). Prefer this over `cat ... || echo ...` for optional files. |
 | `p.readAll(paths)` | Concatenated contents of several known files (path list only; no glob overload) |
 | `p.readInput(field)` | File contents at the **single** path held in `input.<field>` at runtime |
 | `p.readAllInput(field)` | Concatenated contents of all files at the paths in `input.<field>` (array) at runtime |
 | `p.write(path, content)` | Prompt instruction to write content already known |
 | `p.writeOutput(field, path)` | Post-generation write of an output field to a **static** path |
 | `p.writeInput(inputPathField, contentOutputField)` | Post-generation write of an output field to a **dynamic** path from an input field |
-| `p.glob(pattern)` | Runtime workspace path discovery |
+| `p.glob(pattern)` | Runtime workspace path discovery; prefer over `p.bash("find ...")` for static pattern-based discovery |
 | `p.env(name, fallback?)` | Environment variable; default fallback is `""` |
 | `p.json(value)` | Immediate pretty-printed JSON for inline structured context |
 | `p.inputField(field)` | Returns `"input.<field>"` for explicit reference to a non-path input value in prose |
@@ -73,6 +73,8 @@ p.inputField("files")
 Use ``p.bashRaw`...` `` when regex or shell syntax contains sequences such as `\.`, `\|`, or other backslashes. A normal `p.bash("...")` argument follows TypeScript string escaping rules.
 
 Glob brace expansion and negation are runtime-dependent; use simple wildcard patterns when portability matters.
+
+For static file discovery, prefer `p.glob("src/**/*.ts")` over shell `find` pipelines. It is declarative and avoids shell quoting/truncation patterns like `find ... | head -20`.
 
 ## Inputs versus context
 
