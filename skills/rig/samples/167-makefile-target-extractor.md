@@ -20,12 +20,12 @@ Use the parseTargets tool to extract target names, then classify each. Phony tar
         const phonyTargets = new Set<string>();
         const phonyMatch = content.match(/^\.PHONY\s*:(.*)/gm) || [];
         for (const line of phonyMatch) {
-          line.replace(/^\.PHONY\s*:/, "").trim().split(/\s+/).forEach(t => phonyTargets.add(t));
+          line.replace(/^\.PHONY\s*:/, "").trim().split(/\s+/).forEach((t: string) => phonyTargets.add(t));
         }
         const targetLines = content.match(/^([a-zA-Z0-9_-]+)\s*:/gm) || [];
         const targets = targetLines
-          .map(l => l.replace(/:.*/, "").trim())
-          .filter(t => t && t !== ".PHONY");
+          .map((l: string) => l.replace(/:.*/, "").trim())
+          .filter((t: string) => t && t !== ".PHONY");
         return { targets, phonyTargets: [...phonyTargets] };
       },
     }),

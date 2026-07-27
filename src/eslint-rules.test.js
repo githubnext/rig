@@ -4,6 +4,7 @@ import { fixSource, lintSource } from "../skills/rig/eslint/lint.js";
 import agentsMustBeObjectRule from "../skills/rig/eslint/rules/agents-must-be-object.js";
 import rule from "../skills/rig/eslint/rules/no-object-literal-record.js";
 import repairNoArgsRule from "../skills/rig/eslint/rules/repair-no-args.js";
+import noImplicitAnyRule from "../skills/rig/eslint/rules/no-implicit-any-in-tool-handler.js";
 
 describe("define-tool-arg-count", () => {
   it.each([
@@ -303,6 +304,157 @@ describe("repair-no-args", () => {
       type: "CallExpression",
       callee: { type: "Identifier", name: "repair" },
       arguments: [],
+    });
+
+    expect(reports).toHaveLength(0);
+  });
+});
+
+describe("no-implicit-any-in-tool-handler", () => {
+  it.each([
+    // Already parenthesized — no flag
+    "lines.map((line) => line.trim())",
+    "lines.map((line: string) => line.trim())",
+    // Destructured — no flag (already needs parens)
+    "lines.map(({ a }) => a)",
+    // Named function reference — no flag
+    "lines.map(Number)",
+    // async arrow — no flag (async keyword precedes the param name)
+    "lines.map(async line => line.trim())",
+    // Method not in the array-methods set
+    "lines.reduce((acc, x) => acc + x, 0)",
+    // Inside a string literal — not tokenized
+    "const text = 'lines.map(line => line.trim())';",
+    // Not a bare function call (method on object) — still flagged by design, but let's confirm the object receiver is irrelevant
+  ])("accepts %s", (source) => {
+    const problems = lintSource(source).filter((p) => p.kind === "no-implicit-any-in-tool-handler");
+    expect(problems).toEqual([]);
+  });
+
+  it.each([
+    [
+      "handler: ({ content }) => content.split(\"\\n\").map(line => line.trim())",
+      "handler: ({ content }) => content.split(\"\\n\").map((line) => line.trim())",
+    ],
+    [
+      "lines.filter(l => l !== l.trimEnd())",
+      "lines.filter((l) => l !== l.trimEnd())",
+    ],
+    [
+      "files.forEach(f => process(f))",
+      "files.forEach((f) => process(f))",
+    ],
+    [
+      "items.find(i => i.startsWith(\"prefix\"))",
+      "items.find((i) => i.startsWith(\"prefix\"))",
+    ],
+    [
+      "arr.some(x => x > 0)",
+      "arr.some((x) => x > 0)",
+    ],
+    [
+      "arr.every(x => x > 0)",
+      "arr.every((x) => x > 0)",
+    ],
+    [
+      "arr.flatMap(x => [x, x])",
+      "arr.flatMap((x) => [x, x])",
+    ],
+    [
+      "arr.findIndex(x => x === 0)",
+      "arr.findIndex((x) => x === 0)",
+    ],
+  ])("fixes %s", (source, expected) => {
+    const problems = lintSource(source).filter((p) => p.kind === "no-implicit-any-in-tool-handler");
+    expect(problems).toHaveLength(1);
+    expect(fixSource(source, problems)).toBe(expected);
+  });
+
+  it("is idempotent", () => {
+    const source = "lines.map(line => line.trim())";
+    const once = fixSource(source);
+    const twice = fixSource(once);
+    expect(twice).toBe(once);
+    expect(lintSource(once).filter((p) => p.kind === "no-implicit-any-in-tool-handler")).toEqual([]);
+  });
+
+  it("keeps the ESLint rule aligned", () => {
+    const reports = [];
+    const param = { type: "Identifier", name: "line", typeAnnotation: undefined };
+    const visitor = noImplicitAnyRule.create({
+      sourceCode: { getText: (node) => node.name },
+      report: (problem) => reports.push(problem),
+    });
+
+    visitor.CallExpression({
+      type: "CallExpression",
+      callee: {
+        type: "MemberExpression",
+        computed: false,
+        object: { type: "Identifier", name: "lines" },
+        property: { type: "Identifier", name: "map" },
+      },
+      arguments: [
+        {
+          type: "ArrowFunctionExpression",
+          params: [param],
+        },
+      ],
+    });
+
+    expect(reports).toHaveLength(1);
+    expect(reports[0].messageId).toBe("noType");
+    expect(reports[0].data).toEqual({ name: "line" });
+    expect(reports[0].fix({ replaceText: (_node, text) => text })).toBe("(line)");
+  });
+
+  it("does not flag already-typed arrow param", () => {
+    const reports = [];
+    const visitor = noImplicitAnyRule.create({
+      sourceCode: {},
+      report: (problem) => reports.push(problem),
+    });
+
+    visitor.CallExpression({
+      type: "CallExpression",
+      callee: {
+        type: "MemberExpression",
+        computed: false,
+        object: { type: "Identifier", name: "lines" },
+        property: { type: "Identifier", name: "map" },
+      },
+      arguments: [
+        {
+          type: "ArrowFunctionExpression",
+          params: [{ type: "Identifier", name: "line", typeAnnotation: { type: "TSTypeAnnotation" } }],
+        },
+      ],
+    });
+
+    expect(reports).toHaveLength(0);
+  });
+
+  it("does not flag destructured arrow param", () => {
+    const reports = [];
+    const visitor = noImplicitAnyRule.create({
+      sourceCode: {},
+      report: (problem) => reports.push(problem),
+    });
+
+    visitor.CallExpression({
+      type: "CallExpression",
+      callee: {
+        type: "MemberExpression",
+        computed: false,
+        object: { type: "Identifier", name: "lines" },
+        property: { type: "Identifier", name: "map" },
+      },
+      arguments: [
+        {
+          type: "ArrowFunctionExpression",
+          params: [{ type: "ObjectPattern", properties: [] }],
+        },
+      ],
     });
 
     expect(reports).toHaveLength(0);

@@ -15,10 +15,10 @@ const analyzeImportDepth = defineTool("analyzeImportDepth", {
     while ((match = importRegex.exec(content)) !== null) {
       imports.push(match[1]);
     }
-    const relativeImports = imports.filter(i => i.startsWith("."));
-    const depths = relativeImports.map(i => (i.match(/\.\.\//g) ?? []).length);
+    const relativeImports = imports.filter((i: string) => i.startsWith("."));
+    const depths = relativeImports.map((i: string) => (i.match(/\.\.\//g) ?? []).length);
     const maxDepth = depths.length > 0 ? Math.max(...depths) : 0;
-    const deepImports = relativeImports.filter(i => (i.match(/\.\.\//g) ?? []).length >= 2);
+    const deepImports = relativeImports.filter((i: string) => (i.match(/\.\.\//g) ?? []).length >= 2);
     return { maxDepth, deepImports, importCount: imports.length };
   },
 });

@@ -13,7 +13,7 @@ const validateYaml = defineTool("validateYaml", {
       const lines = text.split("\n");
       const lineCount = lines.length;
       const issues: string[] = [];
-      const topKeys = lines.filter(l => /^[a-zA-Z]/.test(l)).map(l => l.split(":")[0].trim());
+      const topKeys = lines.filter((l: string) => /^[a-zA-Z]/.test(l)).map((l: string) => l.split(":")[0].trim());
       const isGhAction = topKeys.includes("on") || topKeys.includes("jobs");
       if (isGhAction) {
         if (!topKeys.includes("name")) issues.push("missing top-level 'name' key");

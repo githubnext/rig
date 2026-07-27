@@ -10,7 +10,7 @@ const detectExports = defineTool("detectExports", {
   handler: async ({ filePath }) => {
     const content = await readFile(filePath, "utf8");
     const exportMatches = content.match(/^export\s+(?:default\s+)?(?:const|function|class|type|interface|enum)\s+(\w+)/gm) ?? [];
-    const symbols = exportMatches.map(m => {
+    const symbols = exportMatches.map((m: string) => {
       const match = m.match(/(\w+)\s*$/);
       return match ? match[1] : "";
     }).filter(Boolean);

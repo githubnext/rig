@@ -8,7 +8,7 @@ const parseEnvKeys = defineTool("parseEnvKeys", {
   parameters: s.object({ content: s.string }),
   handler({ content }) {
     const keys = (content.match(/^([A-Z_][A-Z0-9_]*)=/gm) || [])
-      .map(line => line.replace("=", ""));
+      .map((line: string) => line.replace("=", ""));
     return { keys };
   },
 });

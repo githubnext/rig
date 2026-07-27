@@ -14,8 +14,8 @@ const matchTestFile = defineTool("matchTestFile", {
       `${baseName}.test.js`,
       `${baseName}.spec.js`,
     ];
-    const matched = testFiles.filter(f =>
-      patterns.some(p => f.endsWith(p))
+    const matched = testFiles.filter((f: string) =>
+      patterns.some((p: string) => f.endsWith(p))
     );
     return { matched };
   },
