@@ -2,9 +2,9 @@
 emoji: 🚀
 name: Create Release
 description: >
-  On demand, runs the full build (typecheck + tests), computes the next semver
-  version from the latest git tag and the requested bump type (patch/minor/major),
-  then has the AI agent summarize commits and publish a draft GitHub release.
+  On demand, runs the full build (typecheck + tests), then has the AI agent
+  compute the next semver version from the latest git tag, summarize commits,
+  and publish a draft GitHub release.
 on:
   workflow_dispatch:
     inputs:
@@ -36,24 +36,6 @@ steps:
     run: npm run typecheck
   - name: Test
     run: npm test
-  - name: Compute next version
-    id: semver
-    env:
-      BUMP: ${{ github.event.inputs.bump }}
-    run: |
-      git fetch --tags
-      LATEST_TAG=$(git describe --tags --abbrev=0 2>/dev/null || echo "v0.0.0")
-      CURRENT="${LATEST_TAG#v}"
-      IFS='.' read -r MAJOR MINOR PATCH <<< "$CURRENT"
-      MAJOR=${MAJOR:-0}; MINOR=${MINOR:-0}; PATCH=${PATCH:-0}
-      case "$BUMP" in
-        major) MAJOR=$((MAJOR+1)); MINOR=0; PATCH=0 ;;
-        minor) MINOR=$((MINOR+1)); PATCH=0 ;;
-        *)     PATCH=$((PATCH+1)) ;;
-      esac
-      NEXT="${MAJOR}.${MINOR}.${PATCH}"
-      echo "next_version=${NEXT}" >> "$GITHUB_OUTPUT"
-      echo "previous_tag=${LATEST_TAG}" >> "$GITHUB_OUTPUT"
 safe-outputs:
   jobs:
     create-release:
@@ -99,15 +81,25 @@ safe-outputs:
 
 ## Task
 
-You are preparing release **v${{ steps.semver.outputs.next_version }}**
-(a **${{ github.event.inputs.bump }}** bump from `${{ steps.semver.outputs.previous_tag }}`).
+This is a **${{ github.event.inputs.bump }}** release. The build has already passed. Your job is to determine the next version, summarize what changed since the previous release, and create the draft release.
 
-The build has already passed. Your job is to summarize what changed since the previous release and create the draft release.
-
-### Step 1 — Gather commits since the previous release
+### Step 1 — Determine the next version
 
 ```bash
-git log ${{ steps.semver.outputs.previous_tag }}..HEAD --oneline
+git fetch --tags && git describe --tags --abbrev=0 2>/dev/null || echo "v0.0.0"
+```
+
+Note the previous tag printed above. Then compute the next semver version by applying a **${{ github.event.inputs.bump }}** bump:
+- `patch`: increment the patch number (e.g. `v1.2.3` → `1.2.4`)
+- `minor`: increment the minor number, reset patch (e.g. `v1.2.3` → `1.3.0`)
+- `major`: increment the major number, reset minor and patch (e.g. `v1.2.3` → `2.0.0`)
+
+### Step 2 — Gather commits since the previous release
+
+Replace `<previous-tag>` with the tag from Step 1:
+
+```bash
+git log <previous-tag>..HEAD --oneline
 ```
 
 If the previous tag was `v0.0.0` (no prior release), list all commits instead:
@@ -116,7 +108,7 @@ If the previous tag was `v0.0.0` (no prior release), list all commits instead:
 git log --oneline
 ```
 
-### Step 2 — Read package metadata
+### Step 3 — Read package metadata
 
 ```bash
 cat package.json
@@ -124,7 +116,7 @@ cat package.json
 
 Use the package name and description to add context to the release notes.
 
-### Step 3 — Categorize the commits
+### Step 4 — Categorize the commits
 
 Group commits into the following categories (omit empty ones):
 
@@ -135,11 +127,11 @@ Group commits into the following categories (omit empty ones):
 - **Documentation** — commits starting with `docs:`
 - **Internal** — chores, tests, and CI changes (summarize briefly, do not list individually)
 
-### Step 4 — Create the release
+### Step 5 — Create the release
 
 Call the `create_release` tool with:
 
-- `version`: `${{ steps.semver.outputs.next_version }}`
+- `version`: the computed next version string (without the `v` prefix, e.g. `1.2.4`)
 - `draft`: `true`
 - `body`: A GitHub-flavored markdown release description with:
   - A short summary paragraph
@@ -147,4 +139,4 @@ Call the `create_release` tool with:
   - Breaking changes prominently at the top if any exist
   - Upgrade instructions only if the release contains breaking changes
 
-Call `noop` if the commit list is empty or if a tag `v${{ steps.semver.outputs.next_version }}` already exists.
+Call `noop` if the commit list is empty or if the computed tag already exists in the repo.
