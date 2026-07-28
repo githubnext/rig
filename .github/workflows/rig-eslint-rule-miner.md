@@ -33,9 +33,7 @@ safe-outputs:
       - "skills/rig/eslint/rules/*.js"
       - "skills/rig/eslint/index.js"
       - "skills/rig/eslint/lint.js"
-      - "src/eslint-rules.test.js"
-      - "src/launcher.test.ts"
-      - "src/rig.test.ts"
+      - "src/**/*"
 ---
 
 # Rig ESLint Rule Miner
