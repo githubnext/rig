@@ -80,6 +80,17 @@ describe("workflow", () => {
     expect(events.at(-1)?.type).toBe("run_failed");
   });
 
+  it("does not hide programming errors in pipeline callbacks", async () => {
+    const definition = workflow({
+      meta: { name: "broken", description: "broken callback", phases: [] },
+      body: ({ pipeline }) => pipeline([1], () => {
+        throw new TypeError("callback bug");
+      }),
+    });
+
+    await expect(runWorkflow(definition)).rejects.toThrow("callback bug");
+  });
+
   it("emits phase, log, agent, and completion events", async () => {
     const worker = fakeAgent<string, string>("echo", (value) => value);
     const events: WorkflowEvent[] = [];
@@ -120,8 +131,8 @@ describe("workflow", () => {
     await expect(runWorkflow(definition, {
       limits: { maxWallMs: 5 },
       onEvent: (event) => events.push(event),
-    })).resolves.toBeNull();
-    expect(events.at(-1)).toMatchObject({ type: "run_done", status: "aborted" });
+    })).rejects.toThrow("Workflow exceeded maxWallMs (5).");
+    expect(events.at(-1)).toMatchObject({ type: "run_failed" });
   });
 });
 

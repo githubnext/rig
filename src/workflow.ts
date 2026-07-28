@@ -104,7 +104,7 @@ export type WorkflowLimits = {
 };
 
 export type RunWorkflowOptions<Input> = {
-  args?: AgentInputValue<Input>;
+  args?: Input;
   limits?: WorkflowLimits;
   onEvent?: (event: WorkflowEvent) => void;
   signal?: AbortSignal;
@@ -178,7 +178,7 @@ export async function pipeline<Item, Result>(
   items: readonly Item[],
   fn: (item: Item, index: number) => Promise<Result> | Result,
 ): Promise<(Result | null)[]> {
-  return parallel(items.map((item, index) => () => fn(item, index)));
+  return Promise.all(items.map((item, index) => fn(item, index)));
 }
 
 export async function until<S>(options: UntilOptions, step: UntilStep<S>): Promise<S> {
@@ -230,9 +230,19 @@ export async function runWorkflow<Input, Output>(
   const signal = options.signal === undefined
     ? controller.signal
     : AbortSignal.any([controller.signal, options.signal]);
+  let failWallLimit: ((error: WorkflowLimitError) => void) | undefined;
+  const wallLimit = maxWallMs === undefined
+    ? undefined
+    : new Promise<never>((_resolve, reject) => {
+      failWallLimit = reject;
+    });
   const timer = maxWallMs === undefined
     ? undefined
-    : setTimeout(() => controller.abort(new Error(`Workflow exceeded maxWallMs (${maxWallMs}).`)), maxWallMs);
+    : setTimeout(() => {
+      const error = new WorkflowLimitError(`Workflow exceeded maxWallMs (${maxWallMs}).`);
+      controller.abort(error);
+      failWallLimit?.(error);
+    }, maxWallMs);
   timer?.unref();
 
   const emit = (event: WorkflowEvent): void => {
@@ -298,12 +308,20 @@ export async function runWorkflow<Input, Output>(
     return call(textAgent, "", callOptions);
   };
 
+  const runUntil = <S>(untilOptions: UntilOptions, step: UntilStep<S>): Promise<S> =>
+    until(untilOptions, async (state, round) => {
+      signal.throwIfAborted();
+      const result = await step(state, round);
+      signal.throwIfAborted();
+      return result;
+    });
+
   const context: WorkflowContext<Input> = {
     input: options.args as Input,
     call,
     pipeline,
     parallel,
-    until,
+    until: runUntil,
     phase(name) {
       currentPhase = name;
       emit({ type: "phase_start", phase: name, ts: Date.now() });
@@ -315,7 +333,8 @@ export async function runWorkflow<Input, Output>(
   };
 
   try {
-    const output = await definition.body(context);
+    const body = Promise.resolve(definition.body(context));
+    const output = await (wallLimit === undefined ? body : Promise.race([body, wallLimit]));
     emit({
       type: "run_done",
       status: signal.aborted ? "aborted" : "completed",
@@ -324,6 +343,7 @@ export async function runWorkflow<Input, Output>(
     });
     return output;
   } catch (error) {
+    if (!controller.signal.aborted) controller.abort(error);
     emit({ type: "run_failed", error: errorMessage(error), ms: Date.now() - started, ts: Date.now() });
     throw error;
   } finally {

@@ -57,10 +57,12 @@ Rig schema inference in both `body` and `runWorkflow({ args })`.
 Call options support `label` plus the normal per-call `model`, `timeout`,
 `maxTurns`, and `signal` overrides.
 
-`pipeline` and `parallel` turn rejected callbacks into `null` holes.
-`WorkflowLimitError` is the exception: exceeding `maxAgents` fails the whole run
-so runaway scheduling cannot be hidden as an ordinary worker failure. Exceptions
-thrown elsewhere in `body` also fail the run.
+`parallel` turns rejected thunks into `null` holes. Agent failures passed through
+`pipeline` are already `null` because `call` handles them; other pipeline callback
+errors fail the run rather than hiding programming bugs. `WorkflowLimitError` is
+never converted to `null`: exceeding `maxAgents` fails the whole run so runaway
+scheduling cannot be hidden as an ordinary worker failure. Exceptions thrown
+elsewhere in `body` also fail the run.
 
 ## Limits
 
@@ -81,7 +83,7 @@ await runWorkflow(job, {
 - `concurrency` defaults to the machine parallelism clamped between 2 and 16.
 - `maxAgents` defaults to 1,000.
 - `warnAgents` defaults to 25 and emits one advisory warning when exceeded.
-- `maxWallMs` is optional. When reached, it aborts in-flight calls.
+- `maxWallMs` is optional. When reached, it aborts in-flight calls and fails the run.
 - The limiter is shared by all nested primitives and is acquired only by agent
   calls, so nested pipelines do not multiply concurrency or deadlock.
 
