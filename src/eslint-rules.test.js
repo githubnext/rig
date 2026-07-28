@@ -5,6 +5,7 @@ import agentsMustBeObjectRule from "../skills/rig/eslint/rules/agents-must-be-ob
 import rule from "../skills/rig/eslint/rules/no-object-literal-record.js";
 import repairNoArgsRule from "../skills/rig/eslint/rules/repair-no-args.js";
 import noImplicitAnyRule from "../skills/rig/eslint/rules/no-implicit-any-in-tool-handler.js";
+import preferPGlobRule from "../skills/rig/eslint/rules/prefer-p-glob-over-bash-find.js";
 
 describe("define-tool-arg-count", () => {
   it.each([
@@ -455,6 +456,103 @@ describe("no-implicit-any-in-tool-handler", () => {
           params: [{ type: "ObjectPattern", properties: [] }],
         },
       ],
+    });
+
+    expect(reports).toHaveLength(0);
+  });
+});
+
+describe("prefer-p-glob-over-bash-find", () => {
+  it.each([
+    // Complex find predicates — not flagged
+    "files: p.bash(\"find . -name '*.ts' -not -path '*/node_modules/*'\")",
+    "files: p.bash(\"find . -name '*.ts' | sort\")",
+    "files: p.bash(\"find . -type f -name '*.ts'\")",
+    "files: p.bash(\"find . -maxdepth 2 -name '*.ts'\")",
+    "files: p.bash(\"find . -name '*.ts' -o -name '*.js'\")",
+    // Non-find bash commands — not flagged
+    "files: p.bash(\"git diff\")",
+    "files: p.bash(\"npm test\")",
+    // Member expression — not flagged
+    "foo.p.bash(\"find . -name '*.ts'\")",
+    // Inside a string literal — not tokenized
+    "const text = 'p.bash(\"find . -name \\\"*.ts\\\"\")';",
+  ])("accepts %s", (source) => {
+    const problems = lintSource(source).filter((p) => p.kind === "prefer-p-glob-over-bash-find");
+    expect(problems).toEqual([]);
+  });
+
+  it.each([
+    [
+      "files: p.bash(\"find . -name '*.ts'\")",
+      'files: p.glob("**/*.ts")',
+    ],
+    [
+      "files: p.bash(\"find src -name '*.ts'\")",
+      'files: p.glob("src/**/*.ts")',
+    ],
+    [
+      "files: p.bash(\"find . -name '*.md'\")",
+      'files: p.glob("**/*.md")',
+    ],
+    [
+      "files: p.bash('find . -name \"*.ts\"')",
+      'files: p.glob("**/*.ts")',
+    ],
+  ])("fixes %s", (source, expected) => {
+    const problems = lintSource(source).filter((p) => p.kind === "prefer-p-glob-over-bash-find");
+    expect(problems).toHaveLength(1);
+    expect(fixSource(source, problems)).toBe(expected);
+  });
+
+  it("is idempotent", () => {
+    const source = "files: p.bash(\"find . -name '*.ts'\")";
+    const once = fixSource(source);
+    const twice = fixSource(once);
+    expect(twice).toBe(once);
+    expect(lintSource(once).filter((p) => p.kind === "prefer-p-glob-over-bash-find")).toEqual([]);
+  });
+
+  it("keeps the ESLint rule aligned", () => {
+    const reports = [];
+    const visitor = preferPGlobRule.create({
+      sourceCode: {},
+      report: (problem) => reports.push(problem),
+    });
+
+    visitor.CallExpression({
+      type: "CallExpression",
+      callee: {
+        type: "MemberExpression",
+        computed: false,
+        object: { type: "Identifier", name: "p" },
+        property: { type: "Identifier", name: "bash" },
+      },
+      arguments: [{ type: "Literal", value: "find . -name '*.ts'", raw: "\"find . -name '*.ts'\"" }],
+    });
+
+    expect(reports).toHaveLength(1);
+    expect(reports[0].messageId).toBe("preferGlob");
+    expect(reports[0].data).toEqual({ glob: "**/*.ts" });
+    expect(reports[0].fix({ replaceText: (_node, text) => text })).toBe('p.glob("**/*.ts")');
+  });
+
+  it("does not flag complex find commands via ESLint rule", () => {
+    const reports = [];
+    const visitor = preferPGlobRule.create({
+      sourceCode: {},
+      report: (problem) => reports.push(problem),
+    });
+
+    visitor.CallExpression({
+      type: "CallExpression",
+      callee: {
+        type: "MemberExpression",
+        computed: false,
+        object: { type: "Identifier", name: "p" },
+        property: { type: "Identifier", name: "bash" },
+      },
+      arguments: [{ type: "Literal", value: "find . -name '*.ts' -not -path '*/node_modules/*'", raw: "\"find . -name '*.ts' -not -path '*/node_modules/*'\"" }],
     });
 
     expect(reports).toHaveLength(0);

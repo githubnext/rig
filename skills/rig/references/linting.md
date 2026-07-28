@@ -88,6 +88,24 @@ handler: ({ content }) => content.split("\n").map((line: string) => line.trim())
 
 The rule wraps the parameter in parentheses automatically; add the explicit type annotation (usually `: string` for string arrays, or `: RegExpMatchArray` for `matchAll` results) after the autofix.
 
+### `rig/prefer-p-glob-over-bash-find`
+
+Use `p.glob(pattern)` instead of `p.bash("find DIR -name PATTERN")` for static file discovery. `p.glob` is the idiomatic Rig primitive: it is declarative, avoids shell quoting issues, and can be analyzed statically.
+
+```ts
+// Invalid
+files: p.bash("find . -name '*.ts'")
+files: p.bash("find src -name '*.md'")
+
+// Valid
+files: p.glob("**/*.ts")
+files: p.glob("src/**/*.md")
+```
+
+The rule autofixes simple `find DIR -name PATTERN` commands (no other predicates). Complex commands — those with `-type`, `-not -path`, `| sort`, or multiple predicates — are left unchanged because they express behavior that `p.glob` cannot replicate.
+
+Use `p.bash` when you need shell command output (counts, content, sorting, etc.); use `p.glob` when you want the model to iterate over a list of matching paths.
+
 ## Adding rules
 
 Put rule implementations in `skills/rig/eslint/rules/`, export them from `skills/rig/eslint/index.js`, add the equivalent skill-local check to `skills/rig/eslint/lint.js`, and cover both in `src/eslint-rules.test.js`.
