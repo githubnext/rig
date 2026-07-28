@@ -1,5 +1,5 @@
 /**
- * @file skills/rig/rig.ts @last-analyzed 138fb9d @edit-time 2026-07-26T20:52:42Z
+ * @file skills/rig/rig.ts @last-analyzed d697b7b @edit-time 2026-07-28T03:15:11Z
  * @purpose Minimal TypeScript multi-agent harness: typed input/output schemas, prompt intents, sub-agent delegation, Copilot SDK runtime
  * @deps @github/copilot-sdk (CopilotClient,RuntimeConnection,approveAll); node:path,url,fs/promises,child_process,util
  * T:Json type null|bool|num|str|Json[]|{[k]:Json}
@@ -17,9 +17,9 @@
  * T:AgentAddonContext type context passed to each addon in the chain
  * T:AgentDefinitionFactory type typeof agent (for passing agent constructor as value)
  * T:AgentError class error carrying kind,agent,turn,response,schema,schemaText fields
- * T:SteeringOptions type {message?:string} options for steering addon [NEW]
- * T:TimeoutOptions type {timeout:number} options for timeout addon [NEW]
- * T:AgentRegistration type callback invoked once per unique Agent instance for oncePerAgent [NEW]
+ * T:SteeringOptions type {message?:string} options for steering addon
+ * T:TimeoutOptions type {timeout:number} options for timeout addon
+ * T:AgentRegistration type callback invoked once per unique Agent instance for oncePerAgent
  * T:Tool<TArgs> type ToolConfig+name; created by defineTool
  * T:ToolConfig<TArgs> type {description,parameters,handler}
  * T:PromptIntent type declarative placeholder {kind:'bash'|'bashEach'|'read'|'readAll'|'write'|'writeOutput'|'writeInput'|'glob'|'env',…} resolved into prompt text
@@ -71,14 +71,13 @@
  * F:defaultRepairPrompt(spec,err) string re-prompt on parse/validation failure
  * F:toJsonSchema(schema) JsonSchemaObject converts Schema to plain JSON Schema
  * F:debug(category) creates a lazy category-filtered JSONL logger
- * F:steering(opts?) AgentAddon appends last-turn warning to prompt when model must correct output [NEW]
- * F:timeout(opts) AgentAddon applies AbortSignal timeout to each turn [NEW]
- * F:oncePerAgent(register) AgentAddon runs registration callback exactly once per unique Agent instance [NEW]
- * V:addons {repair,steering,timeout,oncePerAgent} convenience object collecting all built-in addon factories [NEW]
+ * F:steering(opts?) AgentAddon appends last-turn warning to prompt when model must correct output
+ * F:timeout(opts) AgentAddon applies AbortSignal timeout to each turn
+ * F:oncePerAgent(register) AgentAddon runs registration callback exactly once per unique Agent instance
  * addon:repair re-prompts on JSON/schema failure up to maxTurns (built-in via defaultRepairPrompt)
- * addon:steering appends warning on last turn so model knows it must correct output now [NEW]
- * addon:timeout wraps each turn with AbortSignal from TimeoutOptions.timeout ms [NEW]
- * addon:oncePerAgent runs AgentRegistration callback once per unique Agent (e.g. tool registration) [NEW]
+ * addon:steering appends warning on last turn so model knows it must correct output now
+ * addon:timeout wraps each turn with AbortSignal from TimeoutOptions.timeout ms
+ * addon:oncePerAgent runs AgentRegistration callback once per unique Agent (e.g. tool registration)
  * INV:shape-descriptors JS values promote to schemas ("" → string, 0 → number, [""] → string[])
  * INV:optional-key trailing _ on spec key means optional field
  * INV:prompt-intents p.* are declarative placeholders resolved into prompt text, never executed
