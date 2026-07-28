@@ -24,7 +24,7 @@ const validateYaml = defineTool("validateYaml", {
       if (!content.includes("jobs:")) issues.push("Missing 'jobs' key");
     }
     if (content.includes("\t")) issues.push("Contains tab characters (use spaces in YAML)");
-    const status = issues.length === 0 ? "pass" : issues.some(i => i.startsWith("Missing")) ? "fail" : "warn";
+    const status = issues.length === 0 ? "pass" : issues.some((i: string) => i.startsWith("Missing")) ? "fail" : "warn";
     return { issues, lineCount, status } as { issues: string[]; lineCount: number; status: "pass" | "warn" | "fail" };
   },
 });

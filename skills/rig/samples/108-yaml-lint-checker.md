@@ -17,9 +17,9 @@ const validateYaml = defineTool("validateYaml", {
       if (!content.includes("jobs:")) issues.push("Missing 'jobs' key");
     }
     if (content.includes("\t")) issues.push("Contains tab characters (use spaces in YAML)");
-    const trailingWhitespace = lines.filter(l => l !== l.trimEnd()).length;
+    const trailingWhitespace = lines.filter((l: string) => l !== l.trimEnd()).length;
     if (trailingWhitespace > 0) issues.push(`${trailingWhitespace} lines with trailing whitespace`);
-    const status = issues.length === 0 ? "pass" : issues.some(i => i.startsWith("Missing")) ? "fail" : "warn";
+    const status = issues.length === 0 ? "pass" : issues.some((i: string) => i.startsWith("Missing")) ? "fail" : "warn";
     return { issues, lineCount, status };
   },
 });

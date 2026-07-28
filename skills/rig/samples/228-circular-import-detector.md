@@ -12,12 +12,12 @@ const buildImportGraph = defineTool("buildImportGraph", {
     const graph: Record<string, string[]> = {};
     try {
       const entries = await readdir(directory, { recursive: true, encoding: "utf-8" });
-      const tsFiles = entries.filter(f => f.endsWith(".ts") && !f.endsWith(".test.ts") && !f.endsWith(".d.ts"));
+      const tsFiles = entries.filter((f: string) => f.endsWith(".ts") && !f.endsWith(".test.ts") && !f.endsWith(".d.ts"));
       for (const file of tsFiles.slice(0, 20)) {
         const fullPath = join(directory, file);
         try {
           const content = await readFile(fullPath, "utf-8");
-          const imports = [...content.matchAll(/from\s+['"](\.[^'"]+)['"]/g)].map(m => m[1]);
+          const imports = [...content.matchAll(/from\s+['"](\.[^'"]+)['"]/g)].map((m: RegExpMatchArray) => m[1]);
           graph[file] = imports;
         } catch {
           graph[file] = [];

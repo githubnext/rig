@@ -76,6 +76,16 @@ Glob brace expansion and negation are runtime-dependent; use simple wildcard pat
 
 For static file discovery, prefer `p.glob("src/**/*.ts")` over shell `find` pipelines. It is declarative and avoids shell quoting/truncation patterns like `find ... | head -20`.
 
+`p.glob(pattern)` injects a newline-separated list of matching paths into the prompt. It is distinct from `p.bash("find ...")` which produces raw stdout. Use `p.glob` when you want the model to iterate over paths; use `p.bash` when you need command output (counts, content, etc.):
+
+```ts
+// p.glob — gives the model a list of paths to process
+instructions: p`Analyze these files: ${p.glob("src/**/*.ts")}`
+
+// p.bash — gives the model shell output
+instructions: p`Line counts: ${p.bash("wc -l src/**/*.ts")}`
+```
+
 ## Inputs versus context
 
 Only introduce an input field for caller-supplied data. Known workspace files and commands belong directly in the instructions:

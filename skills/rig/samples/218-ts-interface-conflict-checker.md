@@ -19,9 +19,9 @@ const extractInterface = defineTool("extractInterface", {
       const body = match[1];
       const fields = body
         .split("\n")
-        .map(l => l.trim())
-        .filter(l => l && !l.startsWith("//") && !l.startsWith("*"))
-        .map(l => l.split(":")[0].replace(/[?;]/g, "").trim())
+        .map((l: string) => l.trim())
+        .filter((l: string) => l && !l.startsWith("//") && !l.startsWith("*"))
+        .map((l: string) => l.split(":")[0].replace(/[?;]/g, "").trim())
         .filter(Boolean);
       return { fields };
     } catch {

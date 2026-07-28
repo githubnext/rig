@@ -7,7 +7,7 @@ const extractKeys = defineTool("extractKeys", {
   description: "Extract KEY names from dotenv-style file content",
   parameters: s.object({ content: s.string }),
   handler({ content }) {
-    const keys = (content.match(/^([A-Z_][A-Z0-9_]*)=/gm) ?? []).map(l => l.replace("=", ""));
+    const keys = (content.match(/^([A-Z_][A-Z0-9_]*)=/gm) ?? []).map((l: string) => l.replace("=", ""));
     return { keys };
   },
 });

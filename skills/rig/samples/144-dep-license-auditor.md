@@ -14,9 +14,9 @@ const extractLicense = defineTool("extractLicense", {
       const license: string = pkg.license ?? pkg.licenses?.[0]?.type ?? "UNKNOWN";
       let category: "permissive" | "copyleft" | "unknown" = "unknown";
       const upper = license.toUpperCase();
-      if (["MIT", "ISC", "BSD", "APACHE", "0BSD", "WTFPL"].some(l => upper.includes(l))) {
+      if (["MIT", "ISC", "BSD", "APACHE", "0BSD", "WTFPL"].some((l: string) => upper.includes(l))) {
         category = "permissive";
-      } else if (["GPL", "LGPL", "AGPL", "MPL", "EUPL"].some(l => upper.includes(l))) {
+      } else if (["GPL", "LGPL", "AGPL", "MPL", "EUPL"].some((l: string) => upper.includes(l))) {
         category = "copyleft";
       }
       return { license, category };

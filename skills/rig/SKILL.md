@@ -49,7 +49,7 @@ Defaults: `name: "agent"`, `model: "small"`, `maxTurns: 4`, string input/output,
 | Caller-supplied path(s) | `p.readInput(field)` / `p.readAllInput(field)` with `s.path` schemas |
 | Discover workspace paths | `p.glob(pattern)` (prefer over `p.bash("find ...")` for static discovery) |
 | Persist generated output | `p.writeOutput(field, path)` or `p.writeInput(pathField, outputField)` |
-| String-keyed map | `s.record(value)`; do not wrap it in `s.object` |
+| String-keyed map | `s.record(value)`; keys are always `string` — do not wrap in `s.object`; use `s.record(s.int)` for count maps |
 | Numeric schema choice | `s.int` for counts/line numbers; `s.number` for measurements and ratios |
 | Optional versus nullable | `s.optional(shape)` for omission; `s.nullable(shape)` for explicit `null` |
 | Custom model-callable operation | `defineTool(name, { description, parameters, handler })` |
@@ -62,7 +62,7 @@ Prompt intents are declarative instructions, not in-process operations. Prefer f
 
 - `agents` is a named object, never an array; every subagent must be reachable from the exported root.
 - There is no chain or loop primitive. Tell the coordinator what to delegate, in what order, and what combined output to return.
-- `defineTool` uses the two-argument config form. Rig infers handler arguments from `s.*` parameters and serializes non-string return values.
+- `defineTool` uses the two-argument config form. Use `s.object({ ... })` for object-shaped parameters — plain `{ key: s.string }` loses handler arg type inference. Arrow callbacks in handlers must have explicit type annotations: `.map((line: string) => ...)`.
 - `repair()` takes no arguments. Turn budgets belong on the agent spec or invocation.
 - Stable settings belong in `agent({ ... })`; per-run `model`, `maxTurns`, `timeout`, and `signal` belong on invocation; `agent.use()` accepts only addons.
 

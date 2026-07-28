@@ -96,11 +96,14 @@ const output = s.object({
 });
 ```
 
-Use `s.record(value)` for string-keyed maps when keys are not fixed ahead of time:
+Use `s.record(value)` for string-keyed maps when keys are not fixed ahead of time. Record keys are always `string`; there is no key-type constraint:
 
 ```ts
-s.record(s.number) // e.g. churn score keyed by filename
+s.record(s.number)  // e.g. churn score keyed by filename
+s.record(s.int)     // e.g. occurrence counts keyed by identifier — use instead of s.array(s.object({key, count}))
 ```
+
+`s.url` uses format `"uri"` and is a valid schema helper for URL-valued fields (same usage as `s.path` for file-system locations).
 
 Description placement:
 
@@ -116,6 +119,7 @@ Common contracts:
 s.enum("bug", "feature", "question")
 s.optional(s.int)
 s.record(s.string)
+s.record(s.int)                                             // aggregate counts keyed by string
 s.record(s.array(s.string))
 s.record(s.object({ name: s.string, age: s.number }))
 s.record(s.object({ path: s.path, homepage: s.url }))
@@ -125,7 +129,7 @@ s.nonEmptyArray(s.path)
 s.nonEmptyObject(s.boolean)
 ```
 
-Prefer `s.path` for file-system locations and `s.int` for counts or line numbers. Omit schemas entirely when free-form strings are sufficient.
+Prefer `s.path` for file-system locations, `s.url` for URIs, and `s.int` for counts or line numbers. Omit schemas entirely when free-form strings are sufficient.
 
 ## Tools
 
@@ -207,6 +211,18 @@ Without `encoding`, the recursive overload can resolve to `Dirent[]`, which will
 Strict TypeScript compilation reports unused handler bindings. Destructure only the keys the handler uses, or rename an unavoidable binding with a leading underscore, such as `{ filename: _filename, content }`.
 
 When returning discriminated unions from a handler, keep discriminator literals narrow with `as const` (or an explicit return type) so TypeScript does not widen `"missing"` to `string`.
+
+Arrow function callbacks inside handler bodies must have explicit type annotations on their parameters under `noImplicitAny`. TypeScript can infer the element type when the array is typed, but the inference chain breaks when a handler arg is `any` — for example, when `parameters` is a plain object (`{ content: s.string }`) rather than `s.object({ content: s.string })`. Add annotations to be safe:
+
+```ts
+// May fail under noImplicitAny if content is any
+content.split("\n").map(line => line.trim())
+
+// Always safe — explicit type prevents the cascade
+content.split("\n").map((line: string) => line.trim())
+```
+
+Use `: string` for string array callbacks, `: RegExpMatchArray` for `matchAll` results.
 
 Use `defineTool` for I/O operations and external calls the LLM should be able to invoke — fetching a URL, running a query, reading a dynamic path. Do not use it to replace LLM inference: if the handler implements the classification or reasoning logic entirely in TypeScript, the model is never exercised for that step. Express classification rules as prompt instructions instead, and use a tool only when a discrete external operation is needed to support the model's reasoning.
 
