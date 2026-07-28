@@ -6,6 +6,7 @@ description: >
   compute the next semver version from the latest git tag, summarize commits,
   and publish a draft GitHub release.
 on:
+  roles: [admin, maintain]
   workflow_dispatch:
     inputs:
       bump:
@@ -37,6 +38,7 @@ steps:
   - name: Test
     run: npm test
 safe-outputs:
+  threat-detection: false
   jobs:
     create-release:
       description: "Push a git tag and create a GitHub release with the AI-generated notes"
@@ -86,7 +88,9 @@ This is a **${{ github.event.inputs.bump }}** release. The build has already pas
 ### Step 1 — Determine the next version
 
 ```bash
-git fetch --tags && git describe --tags --abbrev=0 2>/dev/null || echo "v0.0.0"
+PREVIOUS_TAG=$(git tag --list 'v[0-9]*.[0-9]*.[0-9]*' --sort=-version:refname | head -n 1)
+if [ -z "$PREVIOUS_TAG" ]; then PREVIOUS_TAG="v0.0.0"; fi
+echo "$PREVIOUS_TAG"
 ```
 
 Note the previous tag printed above. Then compute the next semver version by applying a **${{ github.event.inputs.bump }}** bump:
@@ -139,4 +143,4 @@ Call the `create_release` tool with:
   - Breaking changes prominently at the top if any exist
   - Upgrade instructions only if the release contains breaking changes
 
-Call `noop` if the commit list is empty or if the computed tag already exists in the repo.
+Call `noop` if the commit list is empty, or if the computed tag already exists locally (`git rev-parse "v<next-version>"`) or on origin (`git ls-remote --tags origin "v<next-version>"`).
