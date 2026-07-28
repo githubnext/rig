@@ -190,7 +190,7 @@ it("requires stdin-mode root agent to be a default export", async () => {
 
   await expect(
     runLauncherCli([fixturePath], {}, { stdin, stdout }),
-  ).rejects.toThrow("Expected program to export a root value (agent, string, or prompt builder) as default export.");
+  ).rejects.toThrow("Expected program to export a root value (agent, workflow, string, or prompt builder) as default export.");
 });
 
 it("rejects stdin mode when prompt is empty", async () => {

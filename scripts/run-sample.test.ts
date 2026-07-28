@@ -257,7 +257,7 @@ describe("skill markdown samples", () => {
       const runnableCode = withTypecheckModel(code);
       expect(code.split("\n").length).toBeLessThanOrEqual(30);
       expect(code).toContain("export default");
-      expect(code).toContain("// Agent role:");
+      expect(code).toMatch(/\/\/ (?:Agent|Workflow) role:/);
       expect(code).not.toContain("console.log");
       expect((code.match(/^import .* from "rig";$/gm) ?? [])).toHaveLength(1);
       expect(code).not.toMatch(/^await\s+\w+\(/m);

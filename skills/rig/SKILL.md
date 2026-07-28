@@ -29,13 +29,13 @@ export default reviewDiff;
 
 ## Construction rules
 
-1. Import current APIs from `"rig"` once and define agents with `agent({ ... })`.
-2. Add a `// Agent role: ...` comment above each agent.
+1. Import current APIs from `"rig"` once and define agents with `agent({ ... })` or workflows with `workflow({ ... })`.
+2. Add a `// Agent role: ...` comment above each `agent()` and a `// Workflow role: ...` comment above each `workflow()`.
 3. Omit `input`/`output` when free-form strings suffice; otherwise use explicit `s.*` schemas.
 4. Put known workspace context in ``p`...` `` with `p.read`, `p.bash`, or another intent. Use `input` only for caller-supplied values.
 5. Keep outputs strict and small; prefer `s.enum`, `s.literal`, `s.path`, and `s.int` when they express the contract.
 6. Add narrow, named subagents only when delegation helps; attach them as `agents: { name }`.
-7. Export exactly one root value. Do not invoke it or print its result in generated programs.
+7. Export exactly one root value — an `agent` or a `workflow`. Do not invoke it or print its result in generated programs.
 
 Defaults: `name: "agent"`, `model: "small"`, `maxTurns: 4`, string input/output, and no addons.
 
@@ -52,7 +52,7 @@ Defaults: `name: "agent"`, `model: "small"`, `maxTurns: 4`, string input/output,
 | String-keyed map | `s.record(value)`; keys are always `string` — do not wrap in `s.object`; use `s.record(s.int)` for count maps |
 | Numeric schema choice | `s.int` for counts/line numbers; `s.number` for measurements and ratios |
 | Optional versus nullable | `s.optional(shape)` for omission; `s.nullable(shape)` for explicit `null` |
-| Custom model-callable operation | `defineTool(name, { description, parameters, handler })` |
+| Deterministic TypeScript fan-out | `workflow({ meta, input?, body })` + `export default`; use `call`, `pipeline`, `parallel`, `until` inside `body` |
 | Structured-output retries | `maxTurns` on the agent plus `addons: repair()` |
 | Retry with final-turn warning | `addons: [steering(), repair()]` in that order |
 
@@ -68,7 +68,7 @@ Prompt intents are declarative instructions, not in-process operations. Prefer f
 
 ## Runnable output
 
-For runnable markdown, emit exactly one fenced `rig` block with one default-exported root and no required external input. Never call the root inside the fence.
+For runnable markdown, emit exactly one fenced `rig` block with one default-exported root (`agent` or `workflow`) and no required external input. Never call the root inside the fence. Add a `// Agent role: ...` comment above each `agent()` and a `// Workflow role: ...` comment above each `workflow()`.
 
 Before running generated TypeScript:
 
@@ -83,7 +83,7 @@ cat program.ts | node skills/rig/rig.ts --typecheck
 - Schemas use only current `s.*` helpers and constrain important output.
 - Every import, addon, tool, and helper follows the current API.
 - Every subagent is named, reachable, and narrowly scoped.
-- The program has one default export and no `console.log`.
+- The program has one default export (an `agent` or a `workflow`) and no `console.log`.
 - Linting and typechecking pass.
 
 ## Focused references
