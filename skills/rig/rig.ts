@@ -1474,14 +1474,40 @@ function asRootAgent(value: unknown): AgentFn | undefined {
   return value as AgentFn;
 }
 
+function isWorkflow(value: unknown): value is Workflow<unknown, unknown> {
+  return (
+    typeof value === "object" &&
+    value !== null &&
+    "meta" in value &&
+    typeof (value as Record<string, unknown>)["meta"] === "object" &&
+    "body" in value &&
+    typeof (value as Record<string, unknown>)["body"] === "function"
+  );
+}
+
 /**
  * Normalizes supported launcher root exports to an agent function.
  * Strings and prompt builders are wrapped in a default agent.
+ * Workflow objects are wrapped in a runWorkflow call.
  */
 function asRootProgram(value: unknown, name: string): AgentFn | undefined {
   const rootAgent = asRootAgent(value);
   if (rootAgent) {
     return rootAgent;
+  }
+  if (isWorkflow(value)) {
+    const w = value;
+    const hasInput = "inputSchema" in w;
+    const inputSchema: Schema = hasInput ? (w.inputSchema as Schema) : defaultStringSchema;
+    const fn = Object.assign(
+      async (input: unknown) => runWorkflow(w, hasInput ? { args: input } : {}),
+      {
+        inputSchema,
+        outputSchema: defaultStringSchema as Schema,
+        agentName: w.meta.name,
+      },
+    );
+    return fn as unknown as AgentFn;
   }
   if (typeof value === "string" || value instanceof PromptBuilder) {
     return agent({ name, instructions: value }) as AgentFn;
@@ -1691,7 +1717,7 @@ async function runRootAgentFromStdin(
   const mod = await import(pathToFileURL(resolvedPath).href);
   const rootAgent = asRootProgram(mod.default, "launcher-root");
   if (!rootAgent) {
-    throw new Error("Expected program to export a root value (agent, string, or prompt builder) as default export.");
+    throw new Error("Expected program to export a root value (agent, workflow, string, or prompt builder) as default export.");
   }
 
   const result = await rootAgent(coerceStdinInput(rootAgent, prompt));
@@ -1725,7 +1751,7 @@ async function runProgramCodeFromStdin(
     const mod = await import(pathToFileURL(tempProgramPath).href);
     const rootAgent = asRootProgram(mod.default, "launcher-inline-root");
     if (!rootAgent) {
-      throw new Error("Expected program to export a root value (agent, string, or prompt builder) as default export.");
+      throw new Error("Expected program to export a root value (agent, workflow, string, or prompt builder) as default export.");
     }
     const input = noInputInvocation(rootAgent);
     if (input === undefined) {

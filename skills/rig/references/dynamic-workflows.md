@@ -40,6 +40,41 @@ const results = await runWorkflow(audit, {
 `meta` describes the workflow for tools and progress displays. `input` preserves
 Rig schema inference in both `body` and `runWorkflow({ args })`.
 
+## Workflow as default export
+
+A `workflow` can be the default export of a rig program. The launcher wraps it
+in `runWorkflow` automatically — no manual call is needed:
+
+```ts
+import { agent, s, workflow } from "rig";
+
+// Agent role: check one file for linting issues.
+const lintFile = agent({
+  name: "lintFile",
+  model: "nano",
+  input: s.object({ file: s.path }),
+  output: s.object({ issues: s.array(s.string) }),
+  instructions: "Check the file for linting issues.",
+});
+
+// Workflow role: lint source files discovered at runtime.
+const linter = workflow({
+  meta: { name: "linter", description: "Lint TypeScript files in parallel", phases: ["Discover", "Lint"] },
+  body: async ({ call, phase, pipeline }) => {
+    phase("Discover");
+    const raw = await call.text("List TypeScript source files to lint, one path per line.");
+    const files = (raw ?? "").split("\n").map((f) => f.trim()).filter(Boolean);
+    phase("Lint");
+    return pipeline(files, (file) => call(lintFile, { file }, { label: file }));
+  },
+});
+
+export default linter;
+```
+
+- Omit `input` for a no-input program (inline mode) or add `input: s.object({ ... })` for file-mode programs that read stdin JSON.
+- Use `agent()` with `agents:` when an LLM should improvise the coordination order. Use `workflow()` when TypeScript owns the orchestration (fan-out, branching, convergence).
+
 ## Context
 
 | Member | Behavior |
