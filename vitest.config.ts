@@ -5,6 +5,7 @@ export default defineConfig({
   resolve: {
     alias: [
       { find: /^rig$/, replacement: resolve(__dirname, "skills/rig/rig.ts") },
+      { find: /^rig\/workflow$/, replacement: resolve(__dirname, "src/workflow.ts") },
       { find: /^rig\/engines\/anthropic$/, replacement: resolve(__dirname, "skills/rig/engines/anthropic.ts") },
       { find: /^rig\/engines\/codex$/, replacement: resolve(__dirname, "skills/rig/engines/codex.ts") },
       { find: /^rig\/engines\/gemini$/, replacement: resolve(__dirname, "skills/rig/engines/gemini.ts") },

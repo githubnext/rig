@@ -1957,6 +1957,26 @@ export function agent(spec: AgentSpec<any, any>): AgentFn<any, any> {
 
 export type AgentDefinitionFactory = typeof agent;
 
+export {
+  parallel,
+  pipeline,
+  runWorkflow,
+  until,
+  workflow,
+  WorkflowLimitError,
+  type RunWorkflowOptions,
+  type UntilOptions,
+  type UntilStep,
+  type Workflow,
+  type WorkflowCall,
+  type WorkflowCallOptions,
+  type WorkflowContext,
+  type WorkflowEvent,
+  type WorkflowLimits,
+  type WorkflowMeta,
+  type WorkflowSpec,
+} from "../../src/workflow.ts";
+
 function validate(value: unknown, schema: Schema): ValidationResult {
   return validateSchema(value, schema, "$", false);
 }
