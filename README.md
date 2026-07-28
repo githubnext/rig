@@ -211,6 +211,45 @@ Use these samples to quickly gauge how well `rig` supports increasingly agentic 
 
 Per call, you can override `model`, `timeout`, `maxTurns`, and `signal`.
 
+## Dynamic workflows
+
+Use `workflow()` when ordinary TypeScript should own multi-agent fan-out, branching,
+and convergence instead of asking one model to improvise the orchestration:
+
+```ts
+import { agent, s } from "rig";
+import { runWorkflow, workflow } from "rig/workflow";
+
+const inspect = agent({
+  input: s.string,
+  output: s.object({ finding: s.string }),
+  instructions: "Inspect the requested file.",
+});
+
+const audit = workflow({
+  meta: { name: "audit", description: "Inspect files concurrently", phases: ["Audit"] },
+  input: s.object({ files: s.array(s.string) }),
+  body: async ({ input, call, phase, pipeline }) => {
+    phase("Audit");
+    return pipeline(input.files, (file) => call(inspect, file, { label: file }));
+  },
+});
+
+const findings = await runWorkflow(audit, {
+  args: { files: ["src/a.ts", "src/b.ts"] },
+  limits: { concurrency: 8, maxAgents: 100 },
+});
+```
+
+`call` returns `null` when an agent fails. `pipeline` and `parallel` preserve input
+order and use the run's shared agent concurrency limit. `until` provides a bounded
+loop with optional repeated-progress detection. `phase`, `log`, and `onEvent`
+expose structured progress without coupling workflows to a UI. Runs default to at
+most 1,000 agent calls and warn after 25.
+
+See [Dynamic workflows](skills/rig/references/dynamic-workflows.md) for limits,
+events, failure behavior, and the complete API.
+
 ## Debug logging
 
 Set `RIG_DEBUG` to emit lazy JSONL diagnostics to stderr. A category enables itself and its children, `*` enables everything, and a `-` prefix excludes a category:
