@@ -7,7 +7,7 @@ import {
   until,
   workflow,
   type WorkflowEvent,
-} from "rig/workflow";
+} from "rig";
 import { s } from "rig";
 
 function fakeAgent<Input, Output>(

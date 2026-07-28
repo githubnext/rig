@@ -5,11 +5,11 @@ typed agents.
 
 ## Define and run
 
-Import workflow APIs from `rig/workflow` (they are also exported from `rig`):
+Import workflow APIs from `rig`:
 
 ```ts
 import { agent, s } from "rig";
-import { runWorkflow, workflow } from "rig/workflow";
+import { runWorkflow, workflow } from "rig";
 
 const review = agent({
   input: s.object({ file: s.string }),

@@ -218,7 +218,7 @@ and convergence instead of asking one model to improvise the orchestration:
 
 ```ts
 import { agent, s } from "rig";
-import { runWorkflow, workflow } from "rig/workflow";
+import { runWorkflow, workflow } from "rig";
 
 const inspect = agent({
   input: s.string,
