@@ -47,7 +47,7 @@ Defaults: `name: "agent"`, `model: "small"`, `maxTurns: 4`, string input/output,
 | Several known files | `p.readAll(paths)` |
 | Static shell command | `p.bash(command)`; use ``p.bashRaw`...` `` for literal backslashes |
 | Caller-supplied path(s) | `p.readInput(field)` / `p.readAllInput(field)` with `s.path` schemas |
-| Discover workspace paths | `p.glob(pattern)` (prefer over `p.bash("find ...")` for static discovery) |
+| Discover workspace paths | `p.glob(pattern)` returns paths only; follow with a read intent for contents (prefer over `p.bash("find ...")` for static discovery) |
 | Persist generated output | `p.writeOutput(field, path)` or `p.writeInput(pathField, outputField)` |
 | String-keyed map | `s.record(value)`; keys are always `string` — do not wrap in `s.object`; use `s.record(s.int)` for count maps |
 | Numeric schema choice | `s.int` for counts/line numbers; `s.number` for measurements and ratios |
