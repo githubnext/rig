@@ -93,5 +93,6 @@ Read only when the task needs the listed detail:
 - [Agent API and schemas](references/agent-api.md) — spec fields, schema overloads, tools, and invocation options.
 - [Prompt intents](references/prompt-intents.md) — complete helper semantics, dynamic inputs, writes, and failure behavior.
 - [Composition and addons](references/composition.md) — delegation patterns, dynamic sets, repair, steering, and addon lifecycle.
+- [Dynamic workflows](references/dynamic-workflows.md) — bounded fan-out, failure semantics, limits, events, and convergence loops.
 - [Running and engines](references/runtime.md) — markdown/file launch modes, typechecking, Agentic Workflows, and SDK adapters.
 - [Linting](references/linting.md) — linter usage, autofixes, rules, and rule development.
