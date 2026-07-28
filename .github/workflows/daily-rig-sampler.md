@@ -14,7 +14,7 @@ engine:
   id: copilot
   copilot-sdk: true
 strict: true
-timeout-minutes: 30
+timeout-minutes: 40
 skills:
   - githubnext/rig/skills/rig/SKILL.md@31d2dbdf686db9fa8bcb3fbc1792011faabc0c89
 tools:
