@@ -125,17 +125,22 @@ Write a one-paragraph prompt that tells the `rig-expander` subagent:
 
 **5b. Ask the `rig-expander` subagent to write the program.**
 
-Invoke the `rig-expander` subagent with the prompt from 5a. It will return the TypeScript
-program wrapped in a single ` ```typescript ` fence.
+Invoke the `rig-expander` subagent with the prompt from 5a. It will return a JSON object
+describing the generated sample, including whether it chose an `agent` or `workflow`
+root export and the plain TypeScript source.
 
 **5c. Write the program to a temp file for typechecking.**
 
-Extract the code inside the ` ```typescript ` ... ` ``` ` fence markers from the subagent
-response and write it (fence markers excluded) to:
+Parse the subagent JSON and extract:
+
+- `kind` (`"agent"` or `"workflow"`)
+- `source` (plain TypeScript source code with no fence markers)
+
+Write `source` to:
 
 ```bash
 cat > /tmp/gh-aw/agent/rig-task-<N>.ts << 'EOF'
-<code-extracted-from-fence>
+<source>
 EOF
 ```
 
@@ -160,14 +165,15 @@ cat > skills/rig/samples/<NN>-<slug>.md << 'EOF'
 # <NN> - <Title>
 
 ```rig
-<code-extracted-from-fence>
+<source>
 ```
 EOF
 ```
 
 Where `<NN>` is the sample number assigned in Step 2 (zero-padded to two digits),
 `<slug>` is a 2–4 word kebab-case summary of the task, and `<Title>` is a title-case
-version of the slug. If typecheck failed, skip writing the file.
+version of the slug. If typecheck failed, skip writing the file. In Step 7, include
+the generated `kind` so results show where workflow export was selected.
 
 ---
 
@@ -326,14 +332,21 @@ Your job: write a complete, idiomatic rig TypeScript program that implements the
 following the API patterns shown in the SKILL.md you just read.
 
 Rules:
-- Single `import { agent, p, s } from "rig"` (add `defineTool` if tools are needed).
+- Single `import { ... } from "rig"` using only symbols needed by the program.
 - Use `s.object(...)` and explicit `s.*` helpers for all schemas.
 - Use `p\`...\`` template tag with `${p.bash(...)}` or `${p.read(...)}` for context.
 - Add a `// Agent role: ...` comment above each agent declaration.
 - Set `model` explicitly to `"large"`, `"mini"`, or `"small"`.
-- `export default` the root agent. Do NOT call it directly.
+- Prefer `workflow(...)` as the root export when orchestration is deterministic
+  (fan-out/fan-in, branching, reduction, bounded loops). Use a root `agent(...)`
+  only when the coordination should remain model-driven.
+- `export default` exactly one root object (`agent` or `workflow`). Do NOT call it directly.
 - Do not use `console.log`.
 - Keep the program under 60 lines.
 
-Return the complete TypeScript source code wrapped in a single ` ```typescript ` fence.
-Do not add any explanation before or after the fence.
+Return strictly valid JSON with this shape:
+{
+  "kind": "agent" | "workflow",
+  "source": "<complete TypeScript source code>"
+}
+Do not wrap `source` in markdown fences, and do not add extra keys.
