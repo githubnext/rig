@@ -140,6 +140,11 @@ When a task asks for runnable markdown:
 
 Rig starts with no addons. `maxTurns` is only the total budget; automatic parse/schema correction requires `repair()`:
 
+| Scenario | Addons | What happens |
+|----------|--------|--------------|
+| Invalid parsed or schema-validated output | `repair()` | Retries with the validation error |
+| The same failure needs stronger final guidance | `[steering(), repair()]` | Adds a last-chance warning to repair's final retry |
+
 ```ts
 import { agent, repair } from "rig";
 
