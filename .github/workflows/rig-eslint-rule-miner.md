@@ -36,6 +36,8 @@ safe-outputs:
       - "src/eslint-rules.test.js"
       - "src/launcher.test.ts"
       - "src/rig.test.ts"
+      - "src/samples/07-summarize-many-files.ts"
+      - "src/samples/34-intent-options.ts"
 ---
 
 # Rig ESLint Rule Miner
