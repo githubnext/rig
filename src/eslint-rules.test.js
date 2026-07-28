@@ -6,6 +6,8 @@ import rule from "../skills/rig/eslint/rules/no-object-literal-record.js";
 import repairNoArgsRule from "../skills/rig/eslint/rules/repair-no-args.js";
 import noImplicitAnyRule from "../skills/rig/eslint/rules/no-implicit-any-in-tool-handler.js";
 import preferPGlobRule from "../skills/rig/eslint/rules/prefer-p-glob-over-bash-find.js";
+import noInvalidAgentFieldsRule from "../skills/rig/eslint/rules/no-invalid-agent-fields.js";
+import enumReturnNeedsAsConstRule from "../skills/rig/eslint/rules/enum-return-needs-as-const.js";
 
 describe("define-tool-arg-count", () => {
   it.each([
@@ -554,6 +556,300 @@ describe("prefer-p-glob-over-bash-find", () => {
       },
       arguments: [{ type: "Literal", value: "find . -name '*.ts' -not -path '*/node_modules/*'", raw: "\"find . -name '*.ts' -not -path '*/node_modules/*'\"" }],
     });
+
+    expect(reports).toHaveLength(0);
+  });
+});
+
+describe("no-invalid-agent-fields", () => {
+  it.each([
+    // All valid fields
+    "const a = agent({ name: \"a\", instructions: p`x`, input: s.string, output: s.string, model: \"small\", maxTurns: 4, addons: repair(), agents: { sub }, systemMessage: \"\", tools: [] });",
+    // Subset of valid fields
+    "const a = agent({ model: \"small\", output: s.string });",
+    // agent as a key (not a call) — must not be flagged
+    "const x = { agent: { instructions2: 1 } };",
+    // Method call obj.agent() — must not be flagged
+    "const x = obj.agent({ instructions2: \"x\" });",
+    // Inside string
+    "const text = 'agent({ instructions2: 1 })';",
+    // Computed key — not flagged
+    "const a = agent({ [key]: value });",
+  ])("accepts %s", (source) => {
+    const problems = lintSource(source).filter((p) => p.kind === "no-invalid-agent-fields");
+    expect(problems).toEqual([]);
+  });
+
+  it.each([
+    "const a = agent({ instructions2: p`x` });",
+    "const a = agent({ model: \"small\", instruction: p`x` });",
+    "const a = agent({ desciption: \"typo\" });",
+  ])("flags %s", (source) => {
+    const problems = lintSource(source).filter((p) => p.kind === "no-invalid-agent-fields");
+    expect(problems).toHaveLength(1);
+  });
+
+  it("flags multiple invalid fields in one agent call", () => {
+    const source = "const a = agent({ instructions2: p`x`, modell: \"small\" });";
+    const problems = lintSource(source).filter((p) => p.kind === "no-invalid-agent-fields");
+    expect(problems).toHaveLength(2);
+  });
+
+  it("does not autofix (no edits)", () => {
+    const source = "const a = agent({ instructions2: p`x` });";
+    const problems = lintSource(source).filter((p) => p.kind === "no-invalid-agent-fields");
+    expect(problems[0].edits).toEqual([]);
+    expect(fixSource(source, problems)).toBe(source);
+  });
+
+  it("keeps the ESLint rule aligned", () => {
+    const reports = [];
+    const visitor = noInvalidAgentFieldsRule.create({
+      sourceCode: {},
+      report: (problem) => reports.push(problem),
+    });
+
+    visitor.CallExpression({
+      type: "CallExpression",
+      callee: { type: "Identifier", name: "agent" },
+      arguments: [
+        {
+          type: "ObjectExpression",
+          properties: [
+            {
+              type: "Property",
+              computed: false,
+              key: { type: "Identifier", name: "instructions2" },
+              value: { type: "Literal", value: "x" },
+            },
+            {
+              type: "Property",
+              computed: false,
+              key: { type: "Identifier", name: "model" },
+              value: { type: "Literal", value: "small" },
+            },
+          ],
+        },
+      ],
+    });
+
+    expect(reports).toHaveLength(1);
+    expect(reports[0].messageId).toBe("invalidField");
+    expect(reports[0].data.field).toBe("instructions2");
+  });
+
+  it("does not flag valid agent fields via ESLint rule", () => {
+    const reports = [];
+    const visitor = noInvalidAgentFieldsRule.create({
+      sourceCode: {},
+      report: (problem) => reports.push(problem),
+    });
+
+    visitor.CallExpression({
+      type: "CallExpression",
+      callee: { type: "Identifier", name: "agent" },
+      arguments: [
+        {
+          type: "ObjectExpression",
+          properties: [
+            {
+              type: "Property",
+              computed: false,
+              key: { type: "Identifier", name: "instructions" },
+              value: { type: "Literal", value: "x" },
+            },
+          ],
+        },
+      ],
+    });
+
+    expect(reports).toHaveLength(0);
+  });
+
+  it("does not flag member-expression agent calls via ESLint rule", () => {
+    const reports = [];
+    const visitor = noInvalidAgentFieldsRule.create({
+      sourceCode: {},
+      report: (problem) => reports.push(problem),
+    });
+
+    visitor.CallExpression({
+      type: "CallExpression",
+      callee: {
+        type: "MemberExpression",
+        object: { type: "Identifier", name: "obj" },
+        property: { type: "Identifier", name: "agent" },
+      },
+      arguments: [
+        {
+          type: "ObjectExpression",
+          properties: [
+            {
+              type: "Property",
+              computed: false,
+              key: { type: "Identifier", name: "instructions2" },
+              value: { type: "Literal", value: "x" },
+            },
+          ],
+        },
+      ],
+    });
+
+    expect(reports).toHaveLength(0);
+  });
+});
+
+describe("enum-return-needs-as-const", () => {
+  // This rule is ESLint-only: the tokenizer cannot track scope to limit
+  // the check to handler: property bodies. The ESLint rule walks ancestors
+  // to verify the return is inside a handler function.
+
+  function makeHandlerReturn(raw, value = "stable") {
+    const retNode = {
+      type: "ReturnStatement",
+      argument: { type: "Literal", value, raw },
+    };
+    // Build ancestor chain: BlockStatement → ArrowFunctionExpression → Property(handler)
+    retNode.parent = {
+      type: "BlockStatement",
+      parent: {
+        type: "ArrowFunctionExpression",
+        parent: {
+          type: "Property",
+          computed: false,
+          key: { type: "Identifier", name: "handler" },
+        },
+      },
+    };
+    return retNode;
+  }
+
+  it("flags a bare string literal return inside a handler", () => {
+    const reports = [];
+    const visitor = enumReturnNeedsAsConstRule.create({
+      sourceCode: {},
+      report: (problem) => reports.push(problem),
+    });
+
+    visitor.ReturnStatement(makeHandlerReturn("\"stable\""));
+
+    expect(reports).toHaveLength(1);
+    expect(reports[0].messageId).toBe("needsAsConst");
+    expect(reports[0].fix({ replaceText: (_node, text) => text }))
+      .toBe("\"stable\" as const");
+  });
+
+  it("flags single-quoted string literals inside a handler", () => {
+    const reports = [];
+    const visitor = enumReturnNeedsAsConstRule.create({
+      sourceCode: {},
+      report: (problem) => reports.push(problem),
+    });
+
+    visitor.ReturnStatement(makeHandlerReturn("'missing'", "missing"));
+
+    expect(reports).toHaveLength(1);
+    expect(reports[0].fix({ replaceText: (_node, text) => text }))
+      .toBe("'missing' as const");
+  });
+
+  it("does not flag a non-string return inside a handler", () => {
+    const reports = [];
+    const visitor = enumReturnNeedsAsConstRule.create({
+      sourceCode: {},
+      report: (problem) => reports.push(problem),
+    });
+
+    const retNode = { type: "ReturnStatement", argument: { type: "Literal", value: 42, raw: "42" } };
+    retNode.parent = {
+      type: "BlockStatement",
+      parent: {
+        type: "ArrowFunctionExpression",
+        parent: {
+          type: "Property",
+          computed: false,
+          key: { type: "Identifier", name: "handler" },
+        },
+      },
+    };
+    visitor.ReturnStatement(retNode);
+
+    expect(reports).toHaveLength(0);
+  });
+
+  it("does not flag return outside a handler (top-level function)", () => {
+    const reports = [];
+    const visitor = enumReturnNeedsAsConstRule.create({
+      sourceCode: {},
+      report: (problem) => reports.push(problem),
+    });
+
+    const retNode = {
+      type: "ReturnStatement",
+      argument: { type: "Literal", value: "stable", raw: "\"stable\"" },
+      parent: {
+        type: "BlockStatement",
+        parent: {
+          type: "FunctionDeclaration",
+          parent: null,
+        },
+      },
+    };
+    visitor.ReturnStatement(retNode);
+
+    expect(reports).toHaveLength(0);
+  });
+
+  it("does not flag return inside a non-handler property function", () => {
+    const reports = [];
+    const visitor = enumReturnNeedsAsConstRule.create({
+      sourceCode: {},
+      report: (problem) => reports.push(problem),
+    });
+
+    const retNode = {
+      type: "ReturnStatement",
+      argument: { type: "Literal", value: "stable", raw: "\"stable\"" },
+      parent: {
+        type: "BlockStatement",
+        parent: {
+          type: "ArrowFunctionExpression",
+          parent: {
+            type: "Property",
+            computed: false,
+            key: { type: "Identifier", name: "transform" },
+          },
+        },
+      },
+    };
+    visitor.ReturnStatement(retNode);
+
+    expect(reports).toHaveLength(0);
+  });
+
+  it("does not flag return when argument is not a literal (e.g. identifier)", () => {
+    const reports = [];
+    const visitor = enumReturnNeedsAsConstRule.create({
+      sourceCode: {},
+      report: (problem) => reports.push(problem),
+    });
+
+    const retNode = {
+      type: "ReturnStatement",
+      argument: { type: "Identifier", name: "value" },
+      parent: {
+        type: "BlockStatement",
+        parent: {
+          type: "ArrowFunctionExpression",
+          parent: {
+            type: "Property",
+            computed: false,
+            key: { type: "Identifier", name: "handler" },
+          },
+        },
+      },
+    };
+    visitor.ReturnStatement(retNode);
 
     expect(reports).toHaveLength(0);
   });

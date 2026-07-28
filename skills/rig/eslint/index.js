@@ -4,6 +4,8 @@ import noObjectLiteralRecord from "./rules/no-object-literal-record.js";
 import repairNoArgs from "./rules/repair-no-args.js";
 import noImplicitAnyInToolHandler from "./rules/no-implicit-any-in-tool-handler.js";
 import preferPGlobOverBashFind from "./rules/prefer-p-glob-over-bash-find.js";
+import noInvalidAgentFields from "./rules/no-invalid-agent-fields.js";
+import enumReturnNeedsAsConst from "./rules/enum-return-needs-as-const.js";
 
 export default {
   meta: {
@@ -16,5 +18,7 @@ export default {
     "repair-no-args": repairNoArgs,
     "no-implicit-any-in-tool-handler": noImplicitAnyInToolHandler,
     "prefer-p-glob-over-bash-find": preferPGlobOverBashFind,
+    "no-invalid-agent-fields": noInvalidAgentFields,
+    "enum-return-needs-as-const": enumReturnNeedsAsConst,
   },
 };

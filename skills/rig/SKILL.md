@@ -53,7 +53,8 @@ Defaults: `name: "agent"`, `model: "small"`, `maxTurns: 4`, string input/output,
 | Numeric schema choice | `s.int` for counts/line numbers; `s.number` for measurements and ratios |
 | Optional versus nullable | `s.optional(shape)` for omission; `s.nullable(shape)` for explicit `null` |
 | Deterministic TypeScript fan-out | `workflow({ meta, input?, body })` + `export default`; use `call`, `pipeline`, `parallel`, `until` inside `body` |
-| Structured-output retries | `maxTurns` on the agent plus `addons: repair()` |
+| Custom model-callable operation | `defineTool(name, { description, parameters, handler })` |
+| Structured-output retries | `maxTurns` on the agent plus `addons: [repair()]` |
 | Retry with final-turn warning | `addons: [steering(), repair()]` in that order |
 
 Prompt intents are declarative instructions, not in-process operations. Prefer file intents over `cat` and workspace paths over large in-memory strings.
@@ -65,6 +66,8 @@ Prompt intents are declarative instructions, not in-process operations. Prefer f
 - `defineTool` uses the two-argument config form. Use `s.object({ ... })` for object-shaped parameters — plain `{ key: s.string }` loses handler arg type inference. Arrow callbacks in handlers must have explicit type annotations: `.map((line: string) => ...)`.
 - `repair()` takes no arguments. Turn budgets belong on the agent spec or invocation.
 - Stable settings belong in `agent({ ... })`; per-run `model`, `maxTurns`, `timeout`, and `signal` belong on invocation; `agent.use()` accepts only addons.
+- Valid `agent()` fields: `name`, `instructions`, `input`, `output`, `model`, `maxTurns`, `addons`, `agents`, `systemMessage`, `tools`. Misspelled keys (e.g. `instructions2`) are silently dropped; the linter flags them.
+- Handler functions that return string literals must use `as const` to preserve the literal type for enum schema comparison.
 
 ## Runnable output
 

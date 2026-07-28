@@ -106,6 +106,40 @@ The rule autofixes simple `find DIR -name PATTERN` commands (no other predicates
 
 Use `p.bash` when you need shell command output (counts, content, sorting, etc.); use `p.glob` when you want the model to iterate over a list of matching paths.
 
+### `rig/no-invalid-agent-fields`
+
+Unknown or misspelled fields on the `agent()` spec object are silently ignored at runtime. TypeScript does not always catch them due to excess property checking gaps, so this rule flags them explicitly.
+
+Valid fields: `name`, `instructions`, `input`, `output`, `model`, `maxTurns`, `addons`, `agents`, `systemMessage`, `tools`.
+
+```ts
+// Invalid — "instructions2" is silently dropped at runtime
+agent({ instructions2: p`Review the diff.` })
+
+// Valid
+agent({ instructions: p`Review the diff.` })
+```
+
+No autofix (the correct field name must be supplied by the author).
+
+### `rig/enum-return-needs-as-const`
+
+A `defineTool` handler that returns a bare string literal widens the return type to `string`, which breaks the enum schema comparison. TypeScript reports the error at the `output` schema, not at the `return` site.
+
+```ts
+// Invalid — TypeScript widens "stable" to string
+handler: ({ risk }) => {
+  return "stable";
+}
+
+// Valid — literal type preserved
+handler: ({ risk }) => {
+  return "stable" as const;
+}
+```
+
+The rule autofixes by inserting `as const` after the string literal.
+
 ## Adding rules
 
 Put rule implementations in `skills/rig/eslint/rules/`, export them from `skills/rig/eslint/index.js`, add the equivalent skill-local check to `skills/rig/eslint/lint.js`, and cover both in `src/eslint-rules.test.js`.
