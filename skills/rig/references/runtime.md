@@ -16,9 +16,9 @@ RIG
 Inline mode:
 
 - writes the root result to stdout
-- accepts an agent, string, or prompt builder as the default export
+- accepts an agent, workflow, string, or prompt builder as the default export
 - injects `import { agent, p, s } from "rig"` when omitted
-- accepts a root with no `input`, `input: s.object({})`, or the default `s.string` input invoked with `""`
+- accepts a root with no `input`, `input: s.object({})`, `input: s.object({ text: s.string })`, or the default `s.string` input; omitted values become `{}`, `{ text: "" }`, or `""`
 - falls back to the first `const`/`let`/`var` assigned from `agent(...)` if `export default` is omitted
 
 Prefer an explicit default export even though the fallback exists.
@@ -37,7 +37,11 @@ Stdin coercion follows the root schema:
 - object containing `text`: `{ text: "<stdin>" }`
 - any other schema: stdin must be valid JSON
 
-Add `--server` in either mode to start the Copilot server over stdio. Without it, `copilotEngine()` connects over HTTP using `COPILOT_SDK_URI`, then `localhost:7777`.
+The launcher writes string results, or the string `text` field of an object result, directly to stdout. It JSON-serializes other results.
+
+Add `--server` in either mode to start the Copilot server over stdio and force the Copilot engine. Without it, `copilotEngine()` connects over HTTP using `COPILOT_SDK_URI`, then `localhost:7777`.
+
+Use `--help`, `-h`, `help`, `/help`, or `/?` to print launcher usage.
 
 ## Typechecking
 
@@ -74,12 +78,15 @@ Adapters implement the SDK-neutral interface:
 
 ```ts
 interface Agent {
-  ask(prompt: string, options?: { signal?: AbortSignal }): Promise<string>;
+  ask(prompt: string, options?: {
+    signal?: AbortSignal;
+    outputSchema?: Record<string, unknown>;
+  }): Promise<string>;
   close(): Promise<void>;
 }
 ```
 
-Register a factory with `configureAgent(factory)`. Rig creates one adapter instance per invocation and preserves it across repair turns.
+An `AgentFactory` receives the resolved `model`, `systemMessage`, and tools. Register a factory with `configureAgent(factory)`. Rig creates one adapter instance per invocation and preserves it across repair turns.
 
 ## Included engines
 
@@ -108,11 +115,21 @@ configureAgent(geminiEngine());
   - `OPENAI_API_KEY` → `codexEngine()`
   - `GEMINI_API_KEY` or `GOOGLE_API_KEY` → `geminiEngine()`
   - otherwise → `copilotEngine()`
-- `copilotEngine()` uses the Copilot SDK HTTP transport by default; launcher `--server` selects stdio.
-- `piEngine({ provider })` uses `@earendil-works/pi-agent-core` and requires a provider for model lookup.
-- `anthropicEngine()` uses `@anthropic-ai/sdk` and reads `ANTHROPIC_API_KEY`.
-- `codexEngine(options)` uses `@openai/codex-sdk`, accepts thread options under `thread`, preserves the thread across repair turns, and maps Rig system messages to developer instructions. It rejects Rig tools because the SDK does not expose custom tool registration.
+- `copilotEngine(options)` accepts Copilot client options plus `server` and `connection`. It supports Rig tools and uses the Copilot SDK HTTP transport by default; launcher `--server` selects stdio.
+- `piEngine({ provider, models? })` uses `@earendil-works/pi-agent-core`, requires a provider for model lookup, and supports Rig tools.
+- `anthropicEngine(options)` uses `@anthropic-ai/sdk`, reads `ANTHROPIC_API_KEY`, supports Rig tools, and accepts `maxTokens` and `maxIterations`.
+- `codexEngine(options)` uses `@openai/codex-sdk`, accepts thread options under `thread`, preserves the thread across repair turns, maps Rig system messages to developer instructions, and forwards structured output schemas. It rejects Rig tools because the SDK does not expose custom tool registration.
 - `geminiEngine(options)` runs an installed Gemini CLI in headless JSON mode and resumes its session across repair turns. It accepts `command`, `cwd`, CLI `args`, environment variables, and `approvalMode`; it rejects Rig tools because the CLI does not expose registration.
+
+## Debug logging
+
+Set `RIG_DEBUG` to comma- or whitespace-separated categories. A category includes its descendants, `*` matches all categories, and a leading `-` excludes a match:
+
+```bash
+RIG_DEBUG="engine,agent:turn,-engine:copilot:event" node skills/rig/rig.ts src/program.ts
+```
+
+Debug records are `rig.*` JSONL events on stderr and never replace the final stdout result.
 
 ## Operational conventions
 
