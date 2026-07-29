@@ -10,9 +10,12 @@ gh skill install githubnext/rig
 
 ## Quick start
 
-```ts
-import { agent, p, s } from "rig";
+Save as `program.md`:
 
+````md
+# Review Git Diff
+
+```rig
 // Agent role: review the current diff and return prioritized findings.
 const reviewDiff = agent({
   model: "small",
@@ -25,12 +28,7 @@ const reviewDiff = agent({
 
 export default reviewDiff;
 ```
-
-Run it:
-
-```bash
-echo "check this" | node skills/rig/rig.ts program.ts
-```
+````
 
 ## Full API reference
 
