@@ -31,3 +31,13 @@ jobs:
 
       - name: Typecheck extracted markdown rig samples
         run: npm run sample -- --testNamePattern="skill markdown samples typecheck"
+
+  validate-skill:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+
+      - name: Validate skill manifest
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: gh skills publish --dry-run
