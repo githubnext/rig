@@ -1,7 +1,7 @@
 # 35 - Call Options
 
 ```rig
-import { agent, p, s } from "rig";
+import { agent, s } from "rig";
 // Agent role: parse environment outputs.
 const envReader = agent({
     model: "mini",
@@ -11,6 +11,5 @@ const envReader = agent({
     }),
     instructions: `Parse environment outputs.`,
 });
-
 export default envReader;
 ```

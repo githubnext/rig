@@ -1,7 +1,7 @@
 # 17 - Refactor Plan
 
 ```rig
-import { agent, p, s } from "rig";
+import { agent, s } from "rig";
 // Agent role: find documentation gaps against the source API.
 const docsGap = agent({
     model: "mini",
@@ -12,6 +12,5 @@ const docsGap = agent({
     }),
     instructions: `Find documentation gaps against the source API.`,
 });
-
 export default docsGap;
 ```

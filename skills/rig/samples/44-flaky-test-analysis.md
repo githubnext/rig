@@ -1,7 +1,7 @@
 # 44 - Flaky Test Analysis
 
 ```rig
-import { agent, p, s } from "rig";
+import { agent, s } from "rig";
 // Agent role: decide whether snapshot updates are legitimate.
 const snapshotReview = agent({
     model: "mini",
@@ -12,6 +12,5 @@ const snapshotReview = agent({
     }),
     instructions: `Decide whether snapshot updates are legitimate.`,
 });
-
 export default snapshotReview;
 ```

@@ -1,7 +1,7 @@
 # 46 - Prompt Intent Inspection
 
 ```rig
-import { agent, p, s } from "rig";
+import { agent, s } from "rig";
 // Agent role: suggest owners for changed files.
 const owners = agent({
     model: "mini",
@@ -11,6 +11,5 @@ const owners = agent({
     }),
     instructions: `Suggest owners for changed files.`,
 });
-
 export default owners;
 ```

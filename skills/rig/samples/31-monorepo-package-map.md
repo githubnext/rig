@@ -1,7 +1,7 @@
 # 31 - Monorepo Package Map
 
 ```rig
-import { agent, p, s } from "rig";
+import { agent, s } from "rig";
 // Agent role: review the workflow for reliability, caching, and least privilege.
 const actionReview = agent({
     model: "mini",
@@ -12,6 +12,5 @@ const actionReview = agent({
     }),
     instructions: `Review the workflow for reliability, caching, and least privilege.`,
 });
-
 export default actionReview;
 ```

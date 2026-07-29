@@ -1,13 +1,7 @@
 # 04 - Generate Readme
 
 ```rig
-import { agent, p, s } from "rig";
-const ShResult = s.object({
-    ok: s.boolean,
-    stdout: s.string,
-    stderr: s.string,
-    exitCode: s.number
-});
+import { agent, s } from "rig";
 // Agent role: diagnose the failing test result. Do not edit files.
 const diagnose = agent({
     model: "mini",
@@ -22,6 +16,5 @@ const diagnose = agent({
     Do not edit files.
   `,
 });
-
 export default diagnose;
 ```

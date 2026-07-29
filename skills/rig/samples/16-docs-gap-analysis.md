@@ -1,7 +1,7 @@
 # 16 - Docs Gap Analysis
 
 ```rig
-import { agent, p, s } from "rig";
+import { agent, s } from "rig";
 // Agent role: compare public API declarations and identify breaking changes.
 const apiDiff = agent({
     model: "mini",
@@ -12,6 +12,5 @@ const apiDiff = agent({
     }),
     instructions: `Compare public API declarations and identify breaking changes.`,
 });
-
 export default apiDiff;
 ```

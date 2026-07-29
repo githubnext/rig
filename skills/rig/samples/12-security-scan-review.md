@@ -1,7 +1,7 @@
 # 12 - Security Scan Review
 
 ```rig
-import { agent, p, s } from "rig";
+import { agent, s } from "rig";
 // Agent role: write release notes from commits. Omit empty sections as empty arrays.
 const releaseNotes = agent({
     model: "mini",
@@ -13,6 +13,5 @@ const releaseNotes = agent({
     }),
     instructions: `Write release notes from commits. Omit empty sections as empty arrays.`,
 });
-
 export default releaseNotes;
 ```

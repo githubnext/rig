@@ -1,7 +1,7 @@
 # 28 - License Check
 
 ```rig
-import { agent, p, s } from "rig";
+import { agent, s } from "rig";
 // Agent role: plan safe dependency upgrades.
 const upgradePlan = agent({
     model: "mini",
@@ -16,6 +16,5 @@ const upgradePlan = agent({
     }),
     instructions: `Plan safe dependency upgrades.`,
 });
-
 export default upgradePlan;
 ```

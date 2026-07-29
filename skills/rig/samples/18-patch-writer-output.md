@@ -1,7 +1,7 @@
 # 18 - Patch Writer Output
 
 ```rig
-import { agent, p, s } from "rig";
+import { agent, s } from "rig";
 // Agent role: plan a minimal, low-risk refactor. Do not edit files.
 const refactorPlan = agent({
     model: "mini",
@@ -12,6 +12,5 @@ const refactorPlan = agent({
     }),
     instructions: `Plan a minimal, low-risk refactor. Do not edit files.`,
 });
-
 export default refactorPlan;
 ```

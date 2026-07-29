@@ -1,7 +1,7 @@
 # 30 - Github Action Review
 
 ```rig
-import { agent, p, s } from "rig";
+import { agent, s } from "rig";
 // Agent role: draft a GitHub bug report from the failure details.
 const bugReport = agent({
     model: "mini",
@@ -12,6 +12,5 @@ const bugReport = agent({
     }),
     instructions: `Draft a GitHub bug report from the failure details.`,
 });
-
 export default bugReport;
 ```
