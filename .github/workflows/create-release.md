@@ -65,9 +65,6 @@ safe-outputs:
             VERSION=$(jq -r 'first(.items[] | select(.type == "create_release")) | .version' "$GH_AW_AGENT_OUTPUT")
             git config user.name "github-actions[bot]"
             git config user.email "github-actions[bot]@users.noreply.github.com"
-            git fetch --tags
-            git tag "v${VERSION}"
-            git push origin "v${VERSION}"
             gh skills publish --tag "v${VERSION}"
 ---
 
@@ -75,18 +72,24 @@ safe-outputs:
 
 This is a **${{ github.event.inputs.bump }}** release. The build has already passed. Your job is to determine the next version and create the release.
 
-### Step 1 — Determine the next version
+### Step 1 — Determine the latest published version
+
+Run both commands and use whichever returns a higher version:
 
 ```bash
 git fetch --tags
-PREVIOUS_TAG=$(git tag -l 'v[0-9]*.[0-9]*.[0-9]*' | sort -V | tail -n 1)
-if [ -z "$PREVIOUS_TAG" ]; then PREVIOUS_TAG="v0.0.0"; fi
-echo "$PREVIOUS_TAG"
+git tag -l 'v[0-9]*.[0-9]*.[0-9]*' | sort -V | tail -n 1
 ```
+
+```bash
+gh release list --json tagName --jq '[.[].tagName | select(test("^v[0-9]+\\.[0-9]+\\.[0-9]+$"))] | sort | last // empty'
+```
+
+Take the greater of the two values as `PREVIOUS_TAG`. If both are empty, use `v0.0.0`.
 
 ### Step 2 — Compute the next version
 
-Note the previous tag printed above. Then compute the next semver version by applying a **${{ github.event.inputs.bump }}** bump:
+Note the previous tag determined above. Then compute the next semver version by applying a **${{ github.event.inputs.bump }}** bump:
 - `patch`: increment the patch number (e.g. `v1.2.3` → `1.2.4`)
 - `minor`: increment the minor number, reset patch (e.g. `v1.2.3` → `1.3.0`)
 - `major`: increment the major number, reset minor and patch (e.g. `v1.2.3` → `2.0.0`)
@@ -97,4 +100,4 @@ Call the `create_release` tool with:
 
 - `version`: the computed next version string (without the `v` prefix, e.g. `1.2.4`)
 
-Call `noop` only if the computed tag already exists locally (`git rev-parse "v<next-version>"`) or on origin (`git ls-remote --tags origin "v<next-version>"`).
+Call `noop` only if the computed release already exists: check both `git ls-remote --tags origin "v<next-version>"` and `gh release view "v<next-version>"`. If either indicates the version exists, call `noop` instead.
