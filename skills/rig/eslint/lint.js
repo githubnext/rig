@@ -7,12 +7,13 @@ import { scanTokens as scanDefineToolArgCount } from "./rules/define-tool-arg-co
 import { scanTokens as scanAgentsMustBeObject } from "./rules/agents-must-be-object.js";
 import { scanTokens as scanNoObjectLiteralRecord } from "./rules/no-object-literal-record.js";
 import { scanTokens as scanRepairNoArgs } from "./rules/repair-no-args.js";
+import { scanTokens as scanAddonOrder } from "./rules/addon-order.js";
 import { scanTokens as scanNoImplicitAnyInToolHandler } from "./rules/no-implicit-any-in-tool-handler.js";
 import { scanTokens as scanPreferPGlobOverBashFind } from "./rules/prefer-p-glob-over-bash-find.js";
 import { scanTokens as scanNoInvalidAgentFields } from "./rules/no-invalid-agent-fields.js";
 
 const ignoredDirectories = new Set([".git", "node_modules"]);
-const tokenRules = [scanDefineToolArgCount, scanAgentsMustBeObject, scanNoObjectLiteralRecord, scanRepairNoArgs, scanNoImplicitAnyInToolHandler, scanPreferPGlobOverBashFind, scanNoInvalidAgentFields];
+const tokenRules = [scanDefineToolArgCount, scanAgentsMustBeObject, scanNoObjectLiteralRecord, scanRepairNoArgs, scanAddonOrder, scanNoImplicitAnyInToolHandler, scanPreferPGlobOverBashFind, scanNoInvalidAgentFields];
 
 function tokenize(source) {
   const tokens = [];

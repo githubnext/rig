@@ -86,6 +86,12 @@ instructions: p`Analyze these files: ${p.glob("src/**/*.ts")}`
 instructions: p`Line counts: ${p.bash("wc -l src/**/*.ts")}`
 ```
 
+Inline discovery + follow-up read pattern:
+
+```ts
+instructions: p`Find files with ${p.glob("src/**/*.ts")}. For each discovered path, call fileAnalyzer with { path } so it can read ${p.readInput("path")}.`
+```
+
 ## Inputs versus context
 
 Only introduce an input field for caller-supplied data. Known workspace files and commands belong directly in the instructions:
@@ -159,6 +165,35 @@ const report = agent({
 });
 
 export default report;
+```
+
+```ts
+// p.write with async defineTool — collect structured data, then write known content
+import { agent, defineTool, p, s } from "rig";
+
+const collectKeys = defineTool("collectKeys", {
+  description: "Extract env variable names from dotenv content.",
+  parameters: s.object({ content: s.string }),
+  handler: async ({ content }) => {
+    return {
+      keys: content
+        .split("\n")
+        .map((line: string) => line.trim())
+        .filter((line: string) => line && !line.startsWith("#"))
+        .map((line: string) => line.split("=")[0]),
+    };
+  },
+});
+
+// Agent role: collect env keys and write a starter template.
+const dotenvTemplate = agent({
+  model: "mini",
+  instructions: p`Read ${p.readOptional(".env.example")}, call collectKeys, then write ${p.write(".env.template", "# Generated template\n")}.`,
+  tools: [collectKeys],
+  output: s.object({ keys: s.array(s.string) }),
+});
+
+export default dotenvTemplate;
 ```
 
 Do not rely on `p.writeOutput` to create an output field.

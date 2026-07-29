@@ -44,12 +44,13 @@ Defaults: `name: "agent"`, `model: "small"`, `maxTurns: 4`, string input/output,
 | Need | Choose |
 |------|--------|
 | Known required/optional file | `p.read(path)` / `p.readOptional(path, fallback?)` (prefer this over `cat ... || echo ...`) |
-| Several known files | `p.readAll(paths)` |
+| Several known files | `p.readAll(["path/a.ts", "path/b.ts"])` (explicit array of literal paths) |
 | Static shell command | `p.bash(command)`; use ``p.bashRaw`...` `` for literal backslashes |
 | Caller-supplied path(s) | `p.readInput(field)` / `p.readAllInput(field)` with `s.path` schemas |
-| Discover workspace paths | `p.glob(pattern)` returns paths only; follow with a read intent for contents (prefer over `p.bash("find ...")` for static discovery) |
+| Discover workspace paths | `p.glob(pattern)` returns paths only; then delegate one path at a time to a subagent using `p.readInput("path")` (there is no `p.readAll(globPattern)` overload) |
 | Persist generated output | `p.writeOutput(field, path)` or `p.writeInput(pathField, outputField)` |
 | String-keyed map | `s.record(value)`; keys are always `string` — do not wrap in `s.object`; use `s.record(s.int)` for count maps |
+| URL and file-path fields | `s.url` for URIs, `s.path` for paths, and wrappers like `s.array(s.path)` for path lists |
 | Numeric schema choice | `s.int` for counts/line numbers; `s.number` for measurements and ratios |
 | Optional versus nullable | `s.optional(shape)` for omission; `s.nullable(shape)` for explicit `null` |
 | Deterministic TypeScript fan-out | `workflow({ meta, input?, body })` + `export default`; use `call`, `pipeline`, `parallel`, `until` inside `body` |
@@ -64,10 +65,10 @@ Prompt intents are declarative instructions, not in-process operations. Prefer f
 - `agents` is a named object, never an array; every subagent must be reachable from the exported root.
 - There is no chain or loop primitive. Tell the coordinator what to delegate, in what order, and what combined output to return.
 - `defineTool` uses the two-argument config form. Use `s.object({ ... })` for object-shaped parameters — plain `{ key: s.string }` loses handler arg type inference. Arrow callbacks in handlers must have explicit type annotations: `.map((line: string) => ...)`.
-- `repair()` takes no arguments. Turn budgets belong on the agent spec or invocation.
+- `repair()` takes no arguments. Turn budgets belong on the agent spec or invocation. Repair turns are parse/schema retry turns; a steering turn is only the last warning prepended to the final repair retry.
 - Stable settings belong in `agent({ ... })`; per-run `model`, `maxTurns`, `timeout`, and `signal` belong on invocation; `agent.use()` accepts only addons.
 - Valid `agent()` fields: `name`, `instructions`, `input`, `output`, `model`, `maxTurns`, `addons`, `agents`, `systemMessage`, `tools`. Misspelled keys (e.g. `instructions2`) are silently dropped; the linter flags them.
-- Handler functions that return string literals must use `as const` to preserve the literal type for enum schema comparison.
+- Handler functions that return string literals must use `as const` to preserve the literal type for enum schema comparison. Example: `return "stable" as const`.
 
 ## Runnable output
 
