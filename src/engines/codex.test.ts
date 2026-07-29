@@ -69,6 +69,29 @@ it("uses Codex defaults when optional configuration is absent", async () => {
   expect(mocks.startThread).toHaveBeenCalledWith({ model: "gpt-5-codex" });
 });
 
+it("forwards output schemas to Codex and stringifies structured responses", async () => {
+  const runtimeAgent = await codexEngine()({ model: "gpt-5-codex" });
+  const outputSchema = {
+    type: "object",
+    properties: {
+      summary: { type: "string" },
+    },
+    required: ["summary"],
+    additionalProperties: false,
+  } as const;
+  mocks.run.mockResolvedValueOnce({ finalResponse: { summary: "done" } });
+
+  await expect(runtimeAgent.ask("summarize", { outputSchema })).resolves.toBe(JSON.stringify({ summary: "done" }));
+
+  expect(mocks.run).toHaveBeenCalledWith(
+    "summarize",
+    expect.objectContaining({
+      signal: expect.any(AbortSignal),
+      outputSchema,
+    }),
+  );
+});
+
 it("rejects non-string system messages", () => {
   const factory = codexEngine();
 

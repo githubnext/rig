@@ -35,11 +35,17 @@ export function codexEngine(options: CodexEngineOptions = {}): AgentFactory {
         const signal = askOptions.signal
           ? AbortSignal.any([askOptions.signal, closeController.signal])
           : closeController.signal;
-        const activeTurn = thread.run(prompt, { signal });
+        const activeTurn = thread.run(prompt, {
+          signal,
+          ...(askOptions.outputSchema !== undefined && { outputSchema: askOptions.outputSchema }),
+        });
         activeTurns.add(activeTurn);
         try {
           const turn = await activeTurn;
-          return turn.finalResponse;
+          if (typeof turn.finalResponse === "string") {
+            return turn.finalResponse;
+          }
+          return JSON.stringify(turn.finalResponse);
         } finally {
           activeTurns.delete(activeTurn);
         }

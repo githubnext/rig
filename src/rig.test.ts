@@ -288,7 +288,10 @@ describe("agent invocation", () => {
 
     await expect(greet({ text: "Hi" })).resolves.toEqual({ text: "custom" });
     expect(factory).toHaveBeenCalledWith({ model: "custom-model" });
-    expect(ask).toHaveBeenCalledWith(expect.stringContaining("Hi"), undefined);
+    expect(ask).toHaveBeenCalledWith(
+      expect.stringContaining("Hi"),
+      expect.objectContaining({ outputSchema: expect.any(Object) }),
+    );
     expect(close).toHaveBeenCalledOnce();
     expect(mocks.copilotClientCtor).not.toHaveBeenCalled();
   });
