@@ -81,7 +81,8 @@ This is a **${{ github.event.inputs.bump }}** release. The build has already pas
 ### Step 1 — Determine the next version
 
 ```bash
-PREVIOUS_TAG=$(git tag --list 'v[0-9]*.[0-9]*.[0-9]*' --sort=-version:refname | head -n 1)
+git fetch --tags
+PREVIOUS_TAG=$(git tag -l 'v[0-9]*.[0-9]*.[0-9]*' | sort -V | tail -n 1)
 if [ -z "$PREVIOUS_TAG" ]; then PREVIOUS_TAG="v0.0.0"; fi
 echo "$PREVIOUS_TAG"
 ```
