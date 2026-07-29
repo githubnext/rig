@@ -466,6 +466,7 @@ export type AgentOptions = {
 
 export type AgentAskOptions = {
   signal?: AbortSignal;
+  outputSchema?: JsonSchemaObject;
 };
 
 export interface Agent {
@@ -1906,7 +1907,10 @@ export function agent(spec: AgentSpec<any, any>): AgentFn<any, any> {
         await runAgentAddons(runtime.addons, context, async () => {
           lastResponse = await runtimeAgent.ask(
             context.prompt,
-            context.signal ? { signal: context.signal } : undefined,
+            {
+              ...(context.signal ? { signal: context.signal } : {}),
+              outputSchema: toJsonSchema(context.outputSchema),
+            },
           );
           context.response = lastResponse;
           debugAgentResponse({ agent: normalizedSpec.name, turn, response: lastResponse });
