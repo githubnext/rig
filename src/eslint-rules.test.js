@@ -4,6 +4,7 @@ import { fixSource, lintSource } from "../skills/rig/eslint/lint.js";
 import agentsMustBeObjectRule from "../skills/rig/eslint/rules/agents-must-be-object.js";
 import rule from "../skills/rig/eslint/rules/no-object-literal-record.js";
 import repairNoArgsRule from "../skills/rig/eslint/rules/repair-no-args.js";
+import addonOrderRule from "../skills/rig/eslint/rules/addon-order.js";
 import noImplicitAnyRule from "../skills/rig/eslint/rules/no-implicit-any-in-tool-handler.js";
 import preferPGlobRule from "../skills/rig/eslint/rules/prefer-p-glob-over-bash-find.js";
 import noInvalidAgentFieldsRule from "../skills/rig/eslint/rules/no-invalid-agent-fields.js";
@@ -310,6 +311,77 @@ describe("repair-no-args", () => {
     });
 
     expect(reports).toHaveLength(0);
+  });
+});
+
+describe("addon-order", () => {
+  it.each([
+    "addons: [steering(), repair()]",
+    "addons: [steering({ message: \"Final turn\" }), repair()]",
+    "addons: repair()",
+    "addons: [repair()]",
+    "const text = 'addons: [repair(), steering()]';",
+  ])("accepts %s", (source) => {
+    const problems = lintSource(source).filter((p) => p.kind === "addon-order");
+    expect(problems).toEqual([]);
+  });
+
+  it.each([
+    [
+      "addons: [repair(), steering()]",
+      "addons: [steering(), repair()]",
+    ],
+    [
+      "addons: [repair(), steering({ message: \"Final turn\" })]",
+      "addons: [steering({ message: \"Final turn\" }), repair()]",
+    ],
+  ])("fixes %s", (source, expected) => {
+    const problems = lintSource(source).filter((p) => p.kind === "addon-order");
+    expect(problems).toHaveLength(1);
+    expect(fixSource(source, problems)).toBe(expected);
+  });
+
+  it("is idempotent", () => {
+    const source = "addons: [repair(), steering()]";
+    const once = fixSource(source);
+    const twice = fixSource(once);
+    expect(twice).toBe(once);
+    expect(lintSource(once).filter((p) => p.kind === "addon-order")).toEqual([]);
+  });
+
+  it("keeps the ESLint rule aligned", () => {
+    const reports = [];
+    const visitor = addonOrderRule.create({
+      sourceCode: {
+        getText: (node) => node.text,
+      },
+      report: (problem) => reports.push(problem),
+    });
+
+    const repairCall = {
+      type: "CallExpression",
+      callee: { type: "Identifier", name: "repair" },
+      arguments: [],
+      text: "repair()",
+    };
+    const steeringCall = {
+      type: "CallExpression",
+      callee: { type: "Identifier", name: "steering" },
+      arguments: [],
+      text: "steering()",
+    };
+
+    visitor.Property({
+      type: "Property",
+      key: { type: "Identifier", name: "addons" },
+      value: { type: "ArrayExpression", elements: [repairCall, steeringCall] },
+    });
+
+    expect(reports).toHaveLength(1);
+    expect(reports[0].messageId).toBe("order");
+    expect(reports[0].fix({
+      replaceText: (_node, text) => text,
+    })).toBe("[steering(), repair()]");
   });
 });
 

@@ -160,6 +160,8 @@ export default summarize;
 
 `repair()` takes no options. The budget includes the initial attempt and all retries — for example, `maxTurns: 3` means one initial attempt plus two repair retries. Configure `maxTurns` on the agent spec; a call-time value can override it.
 
+A repair turn is a parse/schema retry attempt after invalid output; steering does not add extra retries, it only injects a stronger warning on the final repair retry.
+
 ```ts
 // wrong: repair() does not accept maxTurns
 addons: repair({ maxTurns: 3 });

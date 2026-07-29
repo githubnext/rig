@@ -72,6 +72,20 @@ addons: repair()
 
 The rule removes arguments from `repair(...)` automatically.
 
+### `rig/addon-order`
+
+When both addons are present, order them as `[steering(), repair()]` so steering can augment the final repair retry prompt:
+
+```ts
+// Invalid
+addons: [repair(), steering()]
+
+// Valid
+addons: [steering(), repair()]
+```
+
+The rule swaps the entries automatically.
+
 ### `rig/no-implicit-any-in-tool-handler`
 
 Arrow function callbacks passed to array iteration methods (`.map`, `.filter`, `.forEach`, `.find`, `.findIndex`, `.every`, `.some`, `.flatMap`) must use parenthesized parameters so that an explicit type annotation can be added.
