@@ -6,7 +6,6 @@
 import { describe, it, expect, beforeEach, vi } from "vitest";
 import { readFileSync, readdirSync } from "fs";
 import { mkdtemp, rm, writeFile } from "fs/promises";
-import { tmpdir } from "os";
 import { resolve } from "path";
 import { Readable, Writable } from "stream";
 import { execFile } from "child_process";
@@ -282,7 +281,7 @@ describe("skill markdown samples", () => {
 
 describe("skill markdown samples typecheck", () => {
   it("typechecks extracted rig programs with npx tsc", async () => {
-    const typecheckDir = await mkdtemp(resolve(tmpdir(), "rig-sample-typecheck-"));
+    const typecheckDir = await mkdtemp(resolve(__dirname, ".tmp-rig-sample-typecheck-"));
     try {
       for (const file of markdownTargets) {
         const markdown = readFileSync(resolve(markdownDir, file), "utf8");
@@ -290,13 +289,28 @@ describe("skill markdown samples typecheck", () => {
         const tsFile = resolve(typecheckDir, file.replace(/\.md$/, ".ts"));
         await writeFile(tsFile, `${code}\n`, "utf8");
       }
+      const tsconfigPath = resolve(typecheckDir, "tsconfig.json");
+      await writeFile(
+        tsconfigPath,
+        JSON.stringify(
+          {
+            extends: "../../tsconfig.json",
+            compilerOptions: {
+              noUnusedLocals: false,
+              noUnusedParameters: false,
+            },
+            include: ["./*.ts"],
+          },
+          null,
+          2,
+        ),
+      );
 
       await execFileAsync(
         "npx",
-        ["--yes", "--package", "typescript@5.9.3", "--", "tsc", "--noEmit", "--pretty", "false"],
+        ["tsc", "--project", tsconfigPath, "--pretty", "false"],
         {
           cwd: resolve(__dirname, ".."),
-          env: { ...process.env, npm_config_ignore_scripts: "true" },
         },
       );
     } finally {

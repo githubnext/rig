@@ -28,3 +28,6 @@ jobs:
 
       - name: Test
         run: npm test
+
+      - name: Typecheck extracted markdown rig samples
+        run: npm run sample -- --testNamePattern="skill markdown samples typecheck"

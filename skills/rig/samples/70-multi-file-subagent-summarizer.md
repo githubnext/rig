@@ -13,7 +13,6 @@ const fileSummarizer = agent({
 // Workflow role: deterministically discover files, run subagent summaries in parallel, and aggregate by file path.
 const multiFileSummarizer = workflow({
   meta: { name: "multiFileSummarizer", description: "Summarize TypeScript files", phases: ["Discover", "Summarize"] },
-  output: s.record(s.string),
   body: async ({ call, phase, pipeline }) => {
     phase("Discover");
     const raw = await call.text(
