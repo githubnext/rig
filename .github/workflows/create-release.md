@@ -4,7 +4,7 @@ name: Create Release
 description: >
   On demand, runs the full build (typecheck + tests), then has the AI agent
   compute the next semver version from the latest git tag, summarize commits,
-  and publish a draft GitHub release.
+  and publish a GitHub release.
 on:
   roles: [admin, maintain]
   workflow_dispatch:
@@ -52,9 +52,6 @@ safe-outputs:
           description: "Release description in GitHub-flavored markdown"
           required: true
           type: string
-        draft:
-          description: "Publish as a draft release for manual review before going live"
-          type: boolean
       permissions:
         contents: write
       steps:
@@ -66,24 +63,20 @@ safe-outputs:
             GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           run: |
             VERSION=$(jq -r 'first(.items[] | select(.type == "create_release")) | .version' "$GH_AW_AGENT_OUTPUT")
-            DRAFT=$(jq -r 'first(.items[] | select(.type == "create_release")) | .draft // true' "$GH_AW_AGENT_OUTPUT")
             jq -r 'first(.items[] | select(.type == "create_release")) | .body' "$GH_AW_AGENT_OUTPUT" > /tmp/release-body.md
             git config user.name "github-actions[bot]"
             git config user.email "github-actions[bot]@users.noreply.github.com"
             git fetch --tags
             git tag "v${VERSION}"
             git push origin "v${VERSION}"
-            DRAFT_FLAG=""
-            if [ "$DRAFT" = "true" ]; then DRAFT_FLAG="--draft"; fi
             gh release create "v${VERSION}" \
               --title "v${VERSION}" \
-              --notes-file /tmp/release-body.md \
-              $DRAFT_FLAG
+              --notes-file /tmp/release-body.md
 ---
 
 ## Task
 
-This is a **${{ github.event.inputs.bump }}** release. The build has already passed. Your job is to determine the next version, summarize what changed since the previous release, and create the draft release.
+This is a **${{ github.event.inputs.bump }}** release. The build has already passed. Your job is to determine the next version, summarize what changed since the previous release, and create the release.
 
 ### Step 1 — Determine the next version
 
@@ -112,6 +105,8 @@ If the previous tag was `v0.0.0` (no prior release), list all commits instead:
 git log --oneline
 ```
 
+If there are no commits since the previous tag, continue anyway. The version must still be incremented from the latest tag, and the release notes should clearly say there were no code changes since the previous release.
+
 ### Step 3 — Read package metadata
 
 ```bash
@@ -136,11 +131,11 @@ Group commits into the following categories (omit empty ones):
 Call the `create_release` tool with:
 
 - `version`: the computed next version string (without the `v` prefix, e.g. `1.2.4`)
-- `draft`: `true`
 - `body`: A GitHub-flavored markdown release description with:
   - A short summary paragraph
   - Categorized change lists using `###` headings
   - Breaking changes prominently at the top if any exist
   - Upgrade instructions only if the release contains breaking changes
+  - A brief note when there were no code changes since the previous release
 
-Call `noop` if the commit list is empty, or if the computed tag already exists locally (`git rev-parse "v<next-version>"`) or on origin (`git ls-remote --tags origin "v<next-version>"`).
+Call `noop` only if the computed tag already exists locally (`git rev-parse "v<next-version>"`) or on origin (`git ls-remote --tags origin "v<next-version>"`).
