@@ -1,6 +1,6 @@
 ---
 name: rig
-description: Minimal TypeScript harness for building typed agents with structured input/output, prompt intents, and runnable rig markdown fences.
+description: Minimal agent cli harness for defining harnesses in prompts as rig markdown fences.
 license: MIT
 ---
 
