@@ -5,13 +5,7 @@
 ## Install
 
 ```bash
-npm install github:githubnext/rig#v0.0.8
-```
-
-Or install the skill for Copilot coding agent:
-
-```bash
-gh skills clone githubnext/rig
+gh skill install githubnext/rig
 ```
 
 ## Quick start
