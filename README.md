@@ -8,14 +8,27 @@
 gh skill install githubnext/rig
 ```
 
-## Quick start
+## Use Rig in 2 ways
 
-Save as `program.md`:
+### 1) As a skill for Rig programs that use the Copilot SDK
 
-````md
-# Review Git Diff
+Pin the skill in your workflow:
 
-```rig
+```yaml
+engine:
+  id: copilot
+  copilot-sdk: true
+skills:
+  - githubnext/rig/skills/rig/SKILL.md@<full-commit-sha>
+```
+
+Then write a Rig program that configures the Copilot engine:
+
+```ts
+import { agent, configureAgent, copilotEngine, p, s } from "rig";
+
+configureAgent(copilotEngine());
+
 // Agent role: review the current diff and return prioritized findings.
 const reviewDiff = agent({
   model: "small",
@@ -28,15 +41,31 @@ const reviewDiff = agent({
 
 export default reviewDiff;
 ```
-````
 
-## Full API reference
+### 2) Run a Rig program directly with `skills/rig/rig.ts`
 
-See [skills/rig/SKILL.md](skills/rig/SKILL.md) for construction rules, schema helpers, prompt intents, addons, tools, dynamic workflows, engines, and the launcher CLI.
-
-## Local development
+Pipe an inline program to the launcher:
 
 ```bash
-npm test
-npm run typecheck
+cat <<'RIG' | node skills/rig/rig.ts
+// Agent role: summarize this repository in one sentence.
+export default "Summarize this repository in one sentence.";
+RIG
 ```
+
+Or run a program file:
+
+```bash
+echo "Review this diff" | node skills/rig/rig.ts src/program.ts
+```
+
+Use `--typecheck` to validate a program without running it:
+
+```bash
+cat program.ts | node skills/rig/rig.ts --typecheck
+```
+
+## Docs
+
+See [skills/rig/SKILL.md](skills/rig/SKILL.md) for construction rules and
+[skills/rig/references/runtime.md](skills/rig/references/runtime.md) for launcher and engine details.
