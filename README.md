@@ -22,12 +22,10 @@ skills:
   - githubnext/rig/skills/rig/SKILL.md@<full-commit-sha>
 ```
 
-Then write a Rig program that configures the Copilot engine:
+Then write a Rig program:
 
 ```ts
-import { agent, configureAgent, copilotEngine, p, s } from "rig";
-
-configureAgent(copilotEngine());
+import { agent, p, s } from "rig";
 
 // Agent role: review the current diff and return prioritized findings.
 const reviewDiff = agent({
