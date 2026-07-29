@@ -1,7 +1,7 @@
 # 03 - Diagnose Test Failure
 
 ```rig
-import { agent, p, s } from "rig";
+import { agent, s } from "rig";
 // Agent role: review input.diff for correctness and regression risks. Return only the declared output shape.
 const reviewer = agent({
     model: "mini",
@@ -21,6 +21,5 @@ const reviewer = agent({
     Return only the declared output shape.
   `,
 });
-
 export default reviewer;
 ```

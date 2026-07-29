@@ -1,7 +1,7 @@
 # 22 - Config Normalizer
 
 ```rig
-import { agent, p, s } from "rig";
+import { agent, s } from "rig";
 // Agent role: diagnose the CI log. Prefer the first real failure over cascading errors.
 const ciDiagnosis = agent({
     model: "mini",
@@ -12,6 +12,5 @@ const ciDiagnosis = agent({
     }),
     instructions: `Diagnose the CI log. Prefer the first real failure over cascading errors.`,
 });
-
 export default ciDiagnosis;
 ```

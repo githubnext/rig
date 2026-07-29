@@ -1,7 +1,7 @@
 # 45 - Code Owner Suggestion
 
 ```rig
-import { agent, p, s } from "rig";
+import { agent, s } from "rig";
 // Agent role: analyze whether the test failure appears flaky.
 const flaky = agent({
     model: "mini",
@@ -12,6 +12,5 @@ const flaky = agent({
     }),
     instructions: `Analyze whether the test failure appears flaky.`,
 });
-
 export default flaky;
 ```

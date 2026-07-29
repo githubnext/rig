@@ -1,7 +1,7 @@
 # 11 - Release Notes
 
 ```rig
-import { agent, p, s } from "rig";
+import { agent, s } from "rig";
 // Agent role: triage the pull request and recommend reviewers.
 const triage = agent({
     model: "mini",
@@ -13,6 +13,5 @@ const triage = agent({
     }),
     instructions: `Triage the pull request and recommend reviewers.`,
 });
-
 export default triage;
 ```

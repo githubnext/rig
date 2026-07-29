@@ -295,10 +295,6 @@ describe("skill markdown samples typecheck", () => {
         JSON.stringify(
           {
             extends: "../../tsconfig.json",
-            compilerOptions: {
-              noUnusedLocals: false,
-              noUnusedParameters: false,
-            },
             include: ["./*.ts"],
           },
           null,

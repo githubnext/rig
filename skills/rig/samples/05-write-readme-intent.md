@@ -1,7 +1,7 @@
 # 05 - Write Readme Intent
 
 ```rig
-import { agent, p, s } from "rig";
+import { agent, s } from "rig";
 // Agent role: generate a concise README for the package. Include install, usage, and API sections.
 const readmeWriter = agent({
     model: "mini",
@@ -14,6 +14,5 @@ const readmeWriter = agent({
     Include install, usage, and API sections.
   `,
 });
-
 export default readmeWriter;
 ```

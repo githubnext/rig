@@ -1,7 +1,7 @@
 # 41 - Parse Coverage
 
 ```rig
-import { agent, p, s } from "rig";
+import { agent, s } from "rig";
 // Agent role: parse coverage by file path.
 const coverage = agent({
     model: "mini",
@@ -14,6 +14,5 @@ const coverage = agent({
     }),
     instructions: `Parse coverage by file path.`,
 });
-
 export default coverage;
 ```

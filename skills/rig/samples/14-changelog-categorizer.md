@@ -1,7 +1,7 @@
 # 14 - Changelog Categorizer
 
 ```rig
-import { agent, p, s } from "rig";
+import { agent, s } from "rig";
 // Agent role: create a focused validation plan for the current changes.
 const planner = agent({
     model: "mini",
@@ -12,6 +12,5 @@ const planner = agent({
     }),
     instructions: `Create a focused validation plan for the current changes.`,
 });
-
 export default planner;
 ```

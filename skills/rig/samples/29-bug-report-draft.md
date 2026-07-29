@@ -1,7 +1,7 @@
 # 29 - Bug Report Draft
 
 ```rig
-import { agent, p, s } from "rig";
+import { agent, s } from "rig";
 // Agent role: flag unknown or concerning dependency licenses.
 const licenseCheck = agent({
     model: "mini",
@@ -16,6 +16,5 @@ const licenseCheck = agent({
     }),
     instructions: `Flag unknown or concerning dependency licenses.`,
 });
-
 export default licenseCheck;
 ```

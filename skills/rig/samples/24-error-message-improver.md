@@ -1,7 +1,7 @@
 # 24 - Error Message Improver
 
 ```rig
-import { agent, p, s } from "rig";
+import { agent, s } from "rig";
 // Agent role: infer a practical runtime-visible schema from the samples.
 const inferShape = agent({
     model: "mini",
@@ -15,6 +15,5 @@ const inferShape = agent({
     }),
     instructions: `Infer a practical runtime-visible schema from the samples.`,
 });
-
 export default inferShape;
 ```

@@ -1,7 +1,7 @@
 # 19 - Fix Then Review
 
 ```rig
-import { agent, p, s } from "rig";
+import { agent, s } from "rig";
 // Agent role: return a complete replacement for the target file.
 const patcher = agent({
     model: "mini",
@@ -12,6 +12,5 @@ const patcher = agent({
     }),
     instructions: `Return a complete replacement for the target file.`,
 });
-
 export default patcher;
 ```

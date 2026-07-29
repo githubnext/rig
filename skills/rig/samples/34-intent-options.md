@@ -1,7 +1,7 @@
 # 34 - Intent Options
 
 ```rig
-import { agent, p, s } from "rig";
+import { agent, s } from "rig";
 // Agent role: investigate the project using only readonly evidence.
 const investigator = agent({
     model: "mini",
@@ -11,6 +11,5 @@ const investigator = agent({
     }),
     instructions: `Investigate the project using only readonly evidence.`,
 });
-
 export default investigator;
 ```

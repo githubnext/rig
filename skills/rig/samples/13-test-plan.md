@@ -1,7 +1,7 @@
 # 13 - Test Plan
 
 ```rig
-import { agent, p, s } from "rig";
+import { agent, s } from "rig";
 // Agent role: review dependency security posture from the provided outputs.
 const securityReview = agent({
     model: "mini",
@@ -15,6 +15,5 @@ const securityReview = agent({
     }),
     instructions: `Review dependency security posture from the provided outputs.`,
 });
-
 export default securityReview;
 ```

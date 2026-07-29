@@ -1,7 +1,7 @@
 # 32 - Command Planner
 
 ```rig
-import { agent, p, s } from "rig";
+import { agent, s } from "rig";
 // Agent role: build a package map for a JavaScript monorepo.
 const packageMap = agent({
     model: "mini",
@@ -19,6 +19,5 @@ const packageMap = agent({
     }),
     instructions: `Build a package map for a JavaScript monorepo.`,
 });
-
 export default packageMap;
 ```
