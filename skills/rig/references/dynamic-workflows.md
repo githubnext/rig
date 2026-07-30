@@ -77,6 +77,28 @@ export default linter;
 - Omit `input` for a no-input program (inline mode) or add `input: s.object({ ... })` for file-mode programs that read stdin JSON.
 - Use `agent()` with `agents:` when an LLM should improvise the coordination order. Use `workflow()` when TypeScript owns the orchestration (fan-out, branching, convergence).
 
+## Top-level constructs in agent programs
+
+The launcher runs every program inside a workflow run, including programs whose
+root export is an `agent`, a string, or a prompt builder. Module evaluation
+happens inside that run, so `phase()` and `log()` imported from `rig` work at the
+program's top level without declaring a `workflow()`:
+
+```ts
+import { agent, log, phase } from "rig";
+
+phase("Review");
+log("reviewing the staged diff");
+
+export default agent({ instructions: "Review the staged diff." });
+```
+
+`currentWorkflow()` returns the active run context (`call`, `budget`, `signal`,
+`phase`, `log`) or `undefined` outside a run; `phase()` and `log()` are no-ops
+outside a run. A `workflow()` default export is nested into the same run, so it
+shares the launcher's limiter, budget, and event stream instead of starting a
+second run.
+
 ## Context
 
 | Member | Behavior |

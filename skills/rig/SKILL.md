@@ -62,6 +62,7 @@ Defaults: `name: "agent"`, `model: "small"`, `maxTurns: 4`, string input/output,
 | Deterministic TypeScript fan-out | `workflow({ meta, input?, body })` + `export default`; use `call`, `pipeline`, `parallel`, `until` inside `body` |
 | One-off prompt inside a workflow | `call.text(prompt)` for a string, `call.json(prompt, schema)` for structured output |
 | Reusable workflow step | Define an `agent({ input, output })` and `call(worker, input, { label, phase })` |
+| Phase or log from an agent program | Import `phase` / `log` from `rig` and call them at top level; the launcher runs every program inside a workflow |
 | Custom model-callable operation | `defineTool(name, { description, parameters, handler })` |
 | Structured-output retries | `maxTurns` on the agent plus `addons: [repair()]` |
 | Retry with final-turn warning | `addons: [steering(), repair()]` in that order |

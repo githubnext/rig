@@ -34,6 +34,11 @@ primitives from its context instead of from globals.
 | top-level `return value` | `return value` from `body` | Same |
 | `Workflow({ scriptPath, args })` from a session | `cat args.json \| node skills/rig/rig.ts program.ts` | See [runtime](runtime.md) |
 
+Globals such as `phase` and `log` also exist as module-level imports from `rig`.
+The launcher runs every program — including one whose root export is an `agent` —
+inside a workflow run, so a partially ported script can call `phase()` and `log()`
+at top level before the orchestration itself moves into `workflow({ body })`.
+
 ## Schema conversion
 
 Dynamic workflows pass OpenAI-strict JSON Schema literals. rig schemas are

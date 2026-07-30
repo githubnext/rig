@@ -2,6 +2,9 @@ import { describe, expect, it, vi } from "vitest";
 import type { AgentFn, CallOptions } from "rig";
 import {
   configureAgent,
+  currentWorkflow,
+  log,
+  phase,
   WorkflowLimitError,
   parallel,
   runWorkflow,
@@ -288,5 +291,45 @@ describe("workflow one-off agents", () => {
       json: { answer: "pong", count: 1 },
     });
     expect(prompts).toHaveLength(2);
+  });
+});
+
+describe("ambient workflow context", () => {
+  it("routes top-level phase and log to the active run", async () => {
+    const worker = fakeAgent<number, number>("worker", (value) => value);
+    const events: WorkflowEvent[] = [];
+    const definition = workflow({
+      meta: { name: "ambient", description: "ambient helpers" },
+      body: async ({ call }) => {
+        phase("Work");
+        log("started");
+        return call(worker, 1);
+      },
+    });
+
+    await expect(runWorkflow(definition, { onEvent: (event) => events.push(event) })).resolves.toBe(1);
+    expect(events.find((event) => event.type === "phase_start")).toMatchObject({ phase: "Work" });
+    expect(events.find((event) => event.type === "log")).toMatchObject({ message: "started", phase: "Work" });
+    expect(events.find((event) => event.type === "agent_start")).toMatchObject({ phase: "Work" });
+  });
+
+  it("exposes the run context through currentWorkflow and clears it afterwards", async () => {
+    const definition = workflow({
+      meta: { name: "context", description: "context lookup" },
+      body: async () => {
+        await Promise.resolve();
+        return currentWorkflow()?.budget.total;
+      },
+    });
+
+    await expect(runWorkflow(definition, { limits: { maxAgents: 7 } })).resolves.toBe(7);
+    expect(currentWorkflow()).toBeUndefined();
+  });
+
+  it("ignores top-level phase and log outside a run", () => {
+    expect(() => {
+      phase("Work");
+      log("no run");
+    }).not.toThrow();
   });
 });
