@@ -60,6 +60,9 @@ Defaults: `name: "agent"`, `model: "small"`, `maxTurns: 4`, string input/output,
 | Numeric schema choice | `s.int` for counts/line numbers; `s.number` for measurements and ratios |
 | Optional versus nullable | `s.optional(shape)` for omission; `s.nullable(shape)` for explicit `null` |
 | Deterministic TypeScript fan-out | `workflow({ meta, input?, body })` + `export default`; use `call`, `pipeline`, `parallel`, `until` inside `body` |
+| One-off prompt inside a workflow | `call.text(prompt)` for a string, `call.json(prompt, schema)` for structured output |
+| Reusable workflow step | Define an `agent({ input, output })` and `call(worker, input, { label, phase })` |
+| Phase or log from an agent program | Import `phase` / `log` from `rig` and call them at top level; the launcher runs every program inside a workflow |
 | Custom model-callable operation | `defineTool(name, { description, parameters, handler })` |
 | Structured-output retries | `maxTurns` on the agent plus `addons: [repair()]` |
 | Retry with final-turn warning | `addons: [steering(), repair()]` in that order |
@@ -103,6 +106,7 @@ Read only when the task needs the listed detail:
 - [Agent API and schemas](references/agent-api.md) — spec fields, schema overloads, tools, and invocation options.
 - [Prompt intents](references/prompt-intents.md) — complete helper semantics, dynamic inputs, writes, and failure behavior.
 - [Composition and addons](references/composition.md) — delegation patterns, dynamic sets, repair, steering, and addon lifecycle.
-- [Dynamic workflows](references/dynamic-workflows.md) — bounded fan-out, failure semantics, limits, events, and convergence loops.
+- [Dynamic workflows](references/dynamic-workflows.md) — bounded fan-out, failure semantics, limits, budget, events, and convergence loops.
+- [Claude workflow conversion](references/claude-workflow-conversion.md) — mapping Claude Code dynamic-workflow scripts onto rig primitives.
 - [Running and engines](references/runtime.md) — markdown/file launch modes, typechecking, Agentic Workflows, and SDK adapters.
 - [Linting](references/linting.md) — linter usage, autofixes, rules, and rule development.

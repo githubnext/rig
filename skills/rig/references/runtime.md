@@ -39,6 +39,12 @@ Stdin coercion follows the root schema:
 
 The launcher writes string results, or the string `text` field of an object result, directly to stdout. It JSON-serializes other results.
 
+Both modes evaluate the program and run its root inside a workflow run, so
+top-level `phase()` and `log()` work in any program and `currentWorkflow()` is
+defined from module scope. A `workflow` default export nests into that run
+instead of starting a second one. Run events are emitted under the
+`workflow:event` debug category.
+
 Add `--server` in either mode to start the Copilot server over stdio and force the Copilot engine. Without it, `copilotEngine()` connects over HTTP using `COPILOT_SDK_URI`, then `localhost:7777`.
 
 Use `--help`, `-h`, `help`, `/help`, or `/?` to print launcher usage.

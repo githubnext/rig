@@ -37,8 +37,10 @@ const results = await runWorkflow(audit, {
 });
 ```
 
-`meta` describes the workflow for tools and progress displays. `input` preserves
-Rig schema inference in both `body` and `runWorkflow({ args })`.
+`meta` describes the workflow for tools and progress displays: `name`,
+`description`, optional `phases` (each `"Title"` or `{ title, detail }`), and
+optional `whenToUse`. `input` preserves Rig schema inference in both `body` and
+`runWorkflow({ args })`.
 
 ## Workflow as default export
 
@@ -75,6 +77,28 @@ export default linter;
 - Omit `input` for a no-input program (inline mode) or add `input: s.object({ ... })` for file-mode programs that read stdin JSON.
 - Use `agent()` with `agents:` when an LLM should improvise the coordination order. Use `workflow()` when TypeScript owns the orchestration (fan-out, branching, convergence).
 
+## Top-level constructs in agent programs
+
+The launcher runs every program inside a workflow run, including programs whose
+root export is an `agent`, a string, or a prompt builder. Module evaluation
+happens inside that run, so `phase()` and `log()` imported from `rig` work at the
+program's top level without declaring a `workflow()`:
+
+```ts
+import { agent, log, phase } from "rig";
+
+phase("Review");
+log("reviewing the staged diff");
+
+export default agent({ instructions: "Review the staged diff." });
+```
+
+`currentWorkflow()` returns the active run context (`call`, `budget`, `signal`,
+`phase`, `log`) or `undefined` outside a run; `phase()` and `log()` are no-ops
+outside a run. A `workflow()` default export is nested into the same run, so it
+shares the launcher's limiter, budget, and event stream instead of starting a
+second run.
+
 ## Context
 
 | Member | Behavior |
@@ -82,15 +106,33 @@ export default linter;
 | `input` | Typed workflow arguments |
 | `call(worker, input, options?)` | Runs a typed agent; returns its output or `null` on agent failure |
 | `call.text(prompt, options?)` | Runs a one-off string-output agent |
-| `pipeline(items, fn)` | Starts every item immediately; agent calls flow through the shared limiter |
+| `call.json(prompt, schema, options?)` | Runs a one-off agent constrained to `schema`; returns typed output or `null` |
+| `call.workflow(child, args?, options?)` | Runs another workflow inline on the same limiter, budget, and event stream |
+| `pipeline(items, ...stages)` | Streams each item through every stage independently; agent calls flow through the shared limiter |
 | `parallel(thunks)` | Runs all thunks as a barrier and preserves their order |
 | `until(options, step)` | Runs a bounded convergence loop |
 | `phase(name)` | Sets the phase attached to subsequent events |
 | `log(message)` | Emits a structured log event |
+| `budget` | Agent-call meter: `total`, `spent()`, `remaining()` |
 | `signal` | Run cancellation signal for non-agent work |
 
-Call options support `label` plus the normal per-call `model`, `timeout`,
-`maxTurns`, and `signal` overrides.
+Call options support `label` and `phase` (a per-call phase override) plus the
+normal per-call `model`, `timeout`, `maxTurns`, and `signal` overrides.
+
+Each `pipeline` stage receives `(previous, item, index)`. The first stage's
+`previous` is the item itself, so a single-stage pipeline is just
+`pipeline(items, (item) => ...)`. Stages run per item with no barrier between
+them, so one item can be in stage 3 while another is still in stage 1.
+
+`budget` is denominated in agent calls, not tokens: `budget.total` is the
+effective `limits.maxAgents`, `spent()` counts started calls, and `remaining()`
+is what is left before the run fails. Use it to scale depth:
+`while (budget.remaining() > 10) { ... }`.
+
+`call.workflow` runs a child `workflow()` inline. It shares the parent's
+concurrency limiter, agent budget, cancellation signal, and `onEvent` stream, and
+brackets the child with `log` events. Restore a phase after the nested run if the
+child called `phase()`.
 
 `parallel` turns rejected thunks into `null` holes. Agent failures passed through
 `pipeline` are already `null` because `call` handles them; other pipeline callback
@@ -146,3 +188,10 @@ const final = await until(
 
 The loop stops when `done` is true, after `max` rounds, or after
 `noProgressRounds` consecutive equal defined progress keys.
+
+## Porting from Claude dynamic workflows
+
+The rig primitives mirror the Claude Code dynamic-workflow globals (`meta`,
+`args`, `agent`, `parallel`, `pipeline`, `phase`, `log`, `budget`, nested
+`workflow`). See [Converting Claude dynamic workflows to rig](claude-workflow-conversion.md)
+for the full mapping, schema translation table, and behavior differences.

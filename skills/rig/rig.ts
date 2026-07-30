@@ -98,6 +98,7 @@ import { writeSync } from "node:fs";
 import { access, mkdir, mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
 import { execFile } from "node:child_process";
 import { promisify } from "node:util";
+import { AsyncLocalStorage } from "node:async_hooks";
 import { CopilotClient, RuntimeConnection, approveAll } from "@github/copilot-sdk";
 import type { CopilotClientOptions } from "@github/copilot-sdk";
 
@@ -1462,7 +1463,9 @@ export async function launchRigProgram(programPath: string, options: LaunchOptio
 
   debugLauncherProgram({ mode: "import", program: resolvedPath, cwd, server: options.startServer === true });
   configureAgent(defaultAgentFactory({ cwd, ...(options.startServer ? { startServer: true } : {}) }));
-  await import(pathToFileURL(resolvedPath).href);
+  await runInRootWorkflow("launcher-program", async () => {
+    await import(pathToFileURL(resolvedPath).href);
+  });
 }
 
 async function readStdin(stream: NodeJS.ReadableStream): Promise<string> {
@@ -1514,7 +1517,12 @@ function asRootProgram(value: unknown, name: string): AgentFn | undefined {
     const hasInput = "inputSchema" in w;
     const inputSchema: Schema = hasInput ? (w.inputSchema as Schema) : defaultStringSchema;
     const fn = Object.assign(
-      async (input: unknown) => runWorkflow(w, hasInput ? { args: input } : {}),
+      async (input: unknown) => {
+        const args = hasInput ? input : undefined;
+        const ambient = currentWorkflow();
+        // Nest into the launcher's root run so limits, budget, and events are shared.
+        return ambient ? ambient.call.workflow(w, args) : runWorkflow(w, { args });
+      },
       {
         inputSchema,
         outputSchema: defaultStringSchema as Schema,
@@ -1527,6 +1535,19 @@ function asRootProgram(value: unknown, name: string): AgentFn | undefined {
     return agent({ name, instructions: value }) as AgentFn;
   }
   return undefined;
+}
+
+/**
+ * Runs a launcher program inside a workflow run so a program that exports an
+ * agent (or a plain prompt) can still use top-level workflow constructs such as
+ * `phase()` and `log()`.  Module evaluation happens inside `body`, so top-level
+ * program statements observe the ambient run too.
+ */
+async function runInRootWorkflow<Output>(name: string, body: () => Promise<Output>): Promise<Output> {
+  return runWorkflow<undefined, Output>(
+    { meta: { name, description: "Rig program root" }, body },
+    { onEvent: (event) => debugWorkflowEvent(event) },
+  );
 }
 
 function noInputInvocation(agentFn: AgentFn): unknown | undefined {
@@ -1731,16 +1752,19 @@ async function runRootAgentFromStdin(
   }
 
   configureAgent(defaultAgentFactory({ cwd, ...(options.startServer ? { startServer: true } : {}) }));
-  const mod = await import(pathToFileURL(resolvedPath).href);
-  const rootAgent = asRootProgram(mod.default, "launcher-root");
-  if (!rootAgent) {
-    throw new Error("Expected program to export a root value (agent, workflow, string, or prompt builder) as default export.");
-  }
-  debugLauncherProgram({ mode: "file", program: resolvedPath, root: rootAgent.agentName, promptLength: prompt.length });
-
-  const result = await rootAgent(coerceStdinInput(rootAgent, prompt));
+  let rootName = "launcher-root";
+  const result = await runInRootWorkflow("launcher-root", async () => {
+    const mod = await import(pathToFileURL(resolvedPath).href);
+    const rootAgent = asRootProgram(mod.default, "launcher-root");
+    if (!rootAgent) {
+      throw new Error("Expected program to export a root value (agent, workflow, string, or prompt builder) as default export.");
+    }
+    rootName = rootAgent.agentName;
+    debugLauncherProgram({ mode: "file", program: resolvedPath, root: rootAgent.agentName, promptLength: prompt.length });
+    return rootAgent(coerceStdinInput(rootAgent, prompt));
+  });
   const rendered = renderStdout(result);
-  debugLauncherResult({ mode: "file", root: rootAgent.agentName, bytes: Buffer.byteLength(rendered) });
+  debugLauncherResult({ mode: "file", root: rootName, bytes: Buffer.byteLength(rendered) });
   io.stdout.write(rendered);
 }
 
@@ -1768,19 +1792,23 @@ async function runProgramCodeFromStdin(
       return;
     }
     configureAgent(defaultAgentFactory({ cwd, ...(options.startServer ? { startServer: true } : {}) }));
-    const mod = await import(pathToFileURL(tempProgramPath).href);
-    const rootAgent = asRootProgram(mod.default, "launcher-inline-root");
-    if (!rootAgent) {
-      throw new Error("Expected program to export a root value (agent, workflow, string, or prompt builder) as default export.");
-    }
-    debugLauncherProgram({ mode: "stdin", program: tempProgramPath, root: rootAgent.agentName, codeLength: programCode.length });
-    const input = noInputInvocation(rootAgent);
-    if (input === undefined) {
-      throw new Error("Expected stdin program root agent to have no input (omit input or use input: s.object({})).");
-    }
-    const result = await rootAgent(input);
+    let rootName = "launcher-inline-root";
+    const result = await runInRootWorkflow("launcher-inline-root", async () => {
+      const mod = await import(pathToFileURL(tempProgramPath).href);
+      const rootAgent = asRootProgram(mod.default, "launcher-inline-root");
+      if (!rootAgent) {
+        throw new Error("Expected program to export a root value (agent, workflow, string, or prompt builder) as default export.");
+      }
+      rootName = rootAgent.agentName;
+      debugLauncherProgram({ mode: "stdin", program: tempProgramPath, root: rootAgent.agentName, codeLength: programCode.length });
+      const input = noInputInvocation(rootAgent);
+      if (input === undefined) {
+        throw new Error("Expected stdin program root agent to have no input (omit input or use input: s.object({})).");
+      }
+      return rootAgent(input);
+    });
     const rendered = renderStdout(result);
-    debugLauncherResult({ mode: "stdin", root: rootAgent.agentName, bytes: Buffer.byteLength(rendered) });
+    debugLauncherResult({ mode: "stdin", root: rootName, bytes: Buffer.byteLength(rendered) });
     io.stdout.write(rendered);
   } finally {
     await rm(tempDir, { recursive: true, force: true });
@@ -2011,14 +2039,36 @@ export function agent(spec: AgentSpec<any, any>): AgentFn<any, any> {
 
 export type AgentDefinitionFactory = typeof agent;
 
+/** One declared phase of a workflow. A bare string is shorthand for `{ title }`. */
+export type WorkflowPhase = {
+  title: string;
+  detail?: string;
+};
+
 export type WorkflowMeta = {
   name: string;
   description: string;
-  phases: readonly string[];
+  /** Declared phases, in order. Each entry is a title or `{ title, detail }`. */
+  phases?: readonly (string | WorkflowPhase)[];
+  /** Guidance describing when this workflow should be selected. */
+  whenToUse?: string;
 };
 
 export type WorkflowCallOptions = CallOptions & {
+  /** Display label for this call in events and progress output. */
   label?: string;
+  /** Phase recorded for this call, overriding the ambient `phase()`. */
+  phase?: string;
+};
+
+/** Token-free budget meter, denominated in agent calls. */
+export type WorkflowBudget = {
+  /** Total agent calls allowed in this run (`limits.maxAgents`). */
+  readonly total: number;
+  /** Agent calls started so far. */
+  spent(): number;
+  /** Agent calls still available before the run fails. */
+  remaining(): number;
 };
 
 export type WorkflowEvent =
@@ -2048,22 +2098,36 @@ export type WorkflowCall = {
     input: AgentInputValue<Input>,
     options?: WorkflowCallOptions,
   ): Promise<Output | null>;
+  /** Runs a one-off string-output agent built from `prompt`. */
   text(prompt: string | PromptBuilder, options?: WorkflowCallOptions): Promise<string | null>;
+  /** Runs a one-off agent built from `prompt` and constrained to `output`. */
+  json<const Output extends Schema>(
+    prompt: string | PromptBuilder,
+    output: Output,
+    options?: WorkflowCallOptions,
+  ): Promise<InferSchema<Output> | null>;
+  /** Runs another workflow inline, sharing this run's limiter, budget, and events. */
+  workflow<Input, Output>(
+    child: Workflow<Input, Output>,
+    args?: Input,
+    options?: WorkflowNestedOptions,
+  ): Promise<Output>;
+};
+
+export type WorkflowNestedOptions = {
+  /** Display label for the nested run in log events. */
+  label?: string;
 };
 
 export type WorkflowContext<Input> = {
   input: Input;
   call: WorkflowCall;
-  pipeline<Item, Result>(
-    items: readonly Item[],
-    fn: (item: Item, index: number) => Promise<Result> | Result,
-  ): Promise<(Result | null)[]>;
-  parallel<Result>(
-    thunks: readonly (() => Promise<Result> | Result)[],
-  ): Promise<(Result | null)[]>;
+  pipeline: typeof pipeline;
+  parallel: typeof parallel;
   until<S>(options: UntilOptions, step: UntilStep<S>): Promise<S>;
   phase(name: string): void;
   log(message: string): void;
+  budget: WorkflowBudget;
   signal: AbortSignal;
 };
 
@@ -2096,6 +2160,27 @@ export function workflow(
     ...("input" in spec && { inputSchema: spec.input }),
     body: spec.body as (context: WorkflowContext<unknown>) => unknown,
   };
+}
+
+const workflowStore = new AsyncLocalStorage<WorkflowContext<unknown>>();
+
+/**
+ * Returns the context of the innermost active workflow run, or `undefined`
+ * outside a run.  Launcher programs always run inside a workflow, so a rig
+ * program can reach `call`, `budget`, and `signal` from module scope.
+ */
+export function currentWorkflow(): WorkflowContext<unknown> | undefined {
+  return workflowStore.getStore();
+}
+
+/** Sets the ambient phase of the active workflow run.  No-op outside a run. */
+export function phase(name: string): void {
+  currentWorkflow()?.phase(name);
+}
+
+/** Emits a structured log event on the active workflow run.  No-op outside a run. */
+export function log(message: string): void {
+  currentWorkflow()?.log(message);
 }
 
 export type WorkflowLimits = {
@@ -2176,11 +2261,52 @@ export async function parallel<Result>(
   }));
 }
 
-export async function pipeline<Item, Result>(
+/**
+ * One pipeline stage.  The first stage receives the item itself as `previous`,
+ * matching the `(previous, item, index)` shape of dynamic-workflow stages.
+ */
+export type PipelineStage<Previous, Item, Next> = (
+  previous: Previous,
+  item: Item,
+  index: number,
+) => Promise<Next> | Next;
+
+export async function pipeline<Item, R1>(
   items: readonly Item[],
-  fn: (item: Item, index: number) => Promise<Result> | Result,
-): Promise<(Result | null)[]> {
-  return Promise.all(items.map((item, index) => fn(item, index)));
+  stage1: PipelineStage<Item, Item, R1>,
+): Promise<(R1 | null)[]>;
+export async function pipeline<Item, R1, R2>(
+  items: readonly Item[],
+  stage1: PipelineStage<Item, Item, R1>,
+  stage2: PipelineStage<R1, Item, R2>,
+): Promise<(R2 | null)[]>;
+export async function pipeline<Item, R1, R2, R3>(
+  items: readonly Item[],
+  stage1: PipelineStage<Item, Item, R1>,
+  stage2: PipelineStage<R1, Item, R2>,
+  stage3: PipelineStage<R2, Item, R3>,
+): Promise<(R3 | null)[]>;
+export async function pipeline<Item, R1, R2, R3, R4>(
+  items: readonly Item[],
+  stage1: PipelineStage<Item, Item, R1>,
+  stage2: PipelineStage<R1, Item, R2>,
+  stage3: PipelineStage<R2, Item, R3>,
+  stage4: PipelineStage<R3, Item, R4>,
+): Promise<(R4 | null)[]>;
+export async function pipeline<Item>(
+  items: readonly Item[],
+  ...stages: PipelineStage<any, Item, any>[]
+): Promise<(unknown | null)[]> {
+  if (stages.length === 0) {
+    throw new Error("pipeline requires at least one stage.");
+  }
+  return Promise.all(items.map(async (item, index) => {
+    let value: unknown = item;
+    for (const stage of stages) {
+      value = await stage(value, item, index);
+    }
+    return value;
+  }));
 }
 
 export async function until<S>(options: UntilOptions, step: UntilStep<S>): Promise<S> {
@@ -2276,8 +2402,8 @@ export async function runWorkflow<Input, Output>(
 
     const id = agentCount;
     const agentName = worker.agentName;
-    const phase = currentPhase;
-    const { label, signal: callSignal, ...agentOptions } = callOptions;
+    const { label, phase: phaseOverride, signal: callSignal, ...agentOptions } = callOptions;
+    const phase = phaseOverride ?? currentPhase;
     const fields = eventFields(phase, label);
     const callStarted = Date.now();
     emit({ type: "agent_start", id, agent: agentName, ...fields, ts: callStarted });
@@ -2311,6 +2437,25 @@ export async function runWorkflow<Input, Output>(
     return call(textAgent, "", callOptions);
   };
 
+  call.json = (<const Output extends Schema>(
+    prompt: string | PromptBuilder,
+    output: Output,
+    callOptions: WorkflowCallOptions = {},
+  ) => {
+    const jsonAgent = agent({
+      name: callOptions.label ?? "workflow-json",
+      instructions: prompt,
+      output,
+    });
+    return call(jsonAgent, "", callOptions);
+  }) as WorkflowCall["json"];
+
+  const budget: WorkflowBudget = {
+    total: maxAgents,
+    spent: () => agentCount,
+    remaining: () => Math.max(0, maxAgents - agentCount),
+  };
+
   const runUntil = <S>(untilOptions: UntilOptions, step: UntilStep<S>): Promise<S> =>
     until(untilOptions, async (state, round) => {
       signal.throwIfAborted();
@@ -2319,24 +2464,53 @@ export async function runWorkflow<Input, Output>(
       return result;
     });
 
-  const context: WorkflowContext<Input> = {
-    input: options.args as Input,
+  const setPhase = (name: string): void => {
+    currentPhase = name;
+    emit({ type: "phase_start", phase: name, ts: Date.now() });
+  };
+
+  const writeLog = (message: string): void => {
+    emit({ type: "log", message, ...(currentPhase !== undefined && { phase: currentPhase }), ts: Date.now() });
+  };
+
+  const makeContext = <ContextInput>(input: ContextInput): WorkflowContext<ContextInput> => ({
+    input,
     call,
     pipeline,
     parallel,
     until: runUntil,
-    phase(name) {
-      currentPhase = name;
-      emit({ type: "phase_start", phase: name, ts: Date.now() });
-    },
-    log(message) {
-      emit({ type: "log", message, ...(currentPhase !== undefined && { phase: currentPhase }), ts: Date.now() });
-    },
+    phase: setPhase,
+    log: writeLog,
+    budget,
     signal,
-  };
+  });
+
+  call.workflow = (async <ChildInput, ChildOutput>(
+    child: Workflow<ChildInput, ChildOutput>,
+    args?: ChildInput,
+    nestedOptions: WorkflowNestedOptions = {},
+  ): Promise<ChildOutput> => {
+    const name = nestedOptions.label ?? child.meta.name;
+    const outerPhase = currentPhase;
+    const childContext = makeContext(args as ChildInput);
+    writeLog(`workflow ${name} started`);
+    try {
+      return await workflowStore.run(
+        childContext as WorkflowContext<unknown>,
+        () => child.body(childContext),
+      );
+    } finally {
+      currentPhase = outerPhase;
+      writeLog(`workflow ${name} finished`);
+    }
+  }) as WorkflowCall["workflow"];
+
+  const context = makeContext(options.args as Input);
 
   try {
-    const body = Promise.resolve(definition.body(context));
+    const body = Promise.resolve(
+      workflowStore.run(context as WorkflowContext<unknown>, () => definition.body(context)),
+    );
     const output = await (wallLimit === undefined ? body : Promise.race([body, wallLimit]));
     emit({
       type: "run_done",

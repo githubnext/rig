@@ -114,6 +114,24 @@ it("supports stdin mode for string input/output root agents", async () => {
   expect(output.join("")).toBe("done");
 });
 
+it("wraps an agent program in a workflow so top-level constructs work", async () => {
+  const fixturePath = resolve(dirname(fileURLToPath(import.meta.url)), "./launcher.stdin-ambient.fixture.ts");
+  const stdin = Readable.from(["Review this patch"]);
+  const output: string[] = [];
+  const stdout = new Writable({
+    write(chunk, _encoding, callback) {
+      output.push(chunk.toString());
+      callback();
+    },
+  });
+
+  mocks.setSendAndWaitImpl(async () => JSON.stringify("done"));
+  await runLauncherCli([fixturePath], {}, { stdin, stdout });
+
+  expect((globalThis as { __launcherAmbientRun?: boolean }).__launcherAmbientRun).toBe(true);
+  expect(output.join("")).toBe("done");
+});
+
 it("supports stdin mode when root default export is a string", async () => {
   const fixturePath = resolve(dirname(fileURLToPath(import.meta.url)), "./launcher.stdin-default-string.fixture.ts");
   const stdin = Readable.from(["Review this patch"]);
