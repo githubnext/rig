@@ -5,6 +5,7 @@ import type { Models } from "@earendil-works/pi-ai";
 import { builtinModels } from "@earendil-works/pi-ai/providers/all";
 import { debug } from "../rig.ts";
 import type { AgentFactory, Tool } from "../rig.ts";
+import { objectToolSchema, toolResultText } from "./utils.ts";
 
 const debugCreate = debug("engine:pi:create");
 const debugAsk = debug("engine:pi:ask");
@@ -90,24 +91,6 @@ function toPiTool(tool: Tool<any>): PiAgentTool {
       };
     },
   };
-}
-
-function objectToolSchema(tool: Tool<any>): Record<string, unknown> {
-  const parameters = tool.parameters ?? { type: "object", properties: {} };
-  if (parameters["type"] !== "object") {
-    throw new TypeError(`${tool.name} tool parameters must be an object schema`);
-  }
-  return parameters;
-}
-
-function toolResultText(result: unknown): string {
-  if (typeof result === "string") {
-    return result;
-  }
-  if (result === undefined) {
-    return "";
-  }
-  return JSON.stringify(result);
 }
 
 function contentText(content: unknown): string {
