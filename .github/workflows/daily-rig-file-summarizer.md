@@ -17,7 +17,7 @@ engine:
 strict: true
 timeout-minutes: 30
 skills:
-  - githubnext/rig/skills/rig/SKILL.md@31d2dbdf686db9fa8bcb3fbc1792011faabc0c89
+  - githubnext/rig/skills/rig/SKILL.md@eb773e967a67f11ccdeb5e3f68f271489825fe0a
 tools:
   bash: ["*"]
 network:
