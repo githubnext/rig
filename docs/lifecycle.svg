@@ -1,0 +1,207 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1100 540" width="1100" height="540" role="img" aria-label="Agentic Workflow Lifecycle">
+  <title>Agentic Workflow Lifecycle</title>
+  <defs>
+    <style>
+      text { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Helvetica, Arial, sans-serif; }
+      .mono { font-family: 'SFMono-Regular', Consolas, 'Liberation Mono', Menlo, monospace; font-size: 6.5px; }
+
+      /* Light mode defaults are applied via SVG attributes; dark overrides below */
+      @media (prefers-color-scheme: dark) {
+        .bg-outer    { fill: #0d1117; }
+        .bg-container{ fill: #161b22; stroke: #30363d; }
+        .phone-frame { fill: #161b22; }
+        .phone-screen{ fill: #21262d; }
+        .phone-notch { fill: #0d1117; }
+        .card-blue   { fill: #162032; }
+        .card-yellow { fill: #21180a; }
+        .step3-btn-a { fill: #0d2b0d; }
+        .step3-btn-b { fill: #121e12; }
+        .step4-btn   { fill: #2b0d0d; }
+        .step5-card  { fill: #21262d; stroke: #30363d; }
+        .step5-rule  { stroke: #30363d; }
+        .t-main      { fill: #c9d1d9; }
+        .t-sub       { fill: #8b949e; }
+        .t-code      { fill: #b0bec5; }
+        .t-footer    { fill: #8b949e; }
+        .t-step5     { fill: #c9d1d9; }
+        .t-step5b    { fill: #8b949e; }
+        .t-check     { fill: #3fb950; }
+        .t-cross     { fill: #f85149; }
+        .t-pr        { fill: #58a6ff; }
+        .t-issue     { fill: #d29922; }
+      }
+    </style>
+
+    <marker id="arrowP" markerWidth="7" markerHeight="7" refX="5" refY="2.5" orient="auto">
+      <path d="M0,0 L0,5 L7,2.5 z" fill="#7b4fa6"/>
+    </marker>
+    <marker id="arrowG" markerWidth="7" markerHeight="7" refX="5" refY="2.5" orient="auto">
+      <path d="M0,0 L0,5 L7,2.5 z" fill="#2a8a3a"/>
+    </marker>
+    <marker id="arrowR" markerWidth="7" markerHeight="7" refX="2.5" refY="5" orient="auto">
+      <path d="M0,0 L5,0 L2.5,7 z" fill="#c0392b"/>
+    </marker>
+    <marker id="arrowO" markerWidth="7" markerHeight="7" refX="5" refY="2.5" orient="auto">
+      <path d="M0,0 L0,5 L7,2.5 z" fill="#d4860a"/>
+    </marker>
+  </defs>
+
+  <!-- Background -->
+  <rect class="bg-outer" width="1100" height="540" fill="#f6f8fa"/>
+
+  <!-- Titles -->
+  <text x="550" y="36" text-anchor="middle" font-size="20" font-weight="bold" class="t-main" fill="#1a1a2e">Agentic Workflow Lifecycle</text>
+  <text x="550" y="57" text-anchor="middle" font-size="13" class="t-sub" fill="#555">How a Markdown brief becomes a live, AI-powered GitHub Actions workflow</text>
+
+  <!-- Container card -->
+  <rect x="30" y="70" width="1040" height="380" rx="14" class="bg-container" fill="#ffffff" stroke="#d1d5db" stroke-width="1.5"/>
+
+  <!-- ── STEP 1 ──────────────────────────────────────────── -->
+  <circle cx="135" cy="102" r="15" fill="#4a90d9"/>
+  <text x="135" y="107" text-anchor="middle" font-size="14" font-weight="bold" fill="white">1</text>
+
+  <rect x="82" y="115" width="106" height="186" rx="11" class="phone-frame" fill="#1a1a2e"/>
+  <rect x="88" y="121" width="94" height="174" rx="7"  class="phone-screen" fill="#2a2a4a"/>
+  <rect x="116" y="121" width="32" height="6"  rx="3"  class="phone-notch"  fill="#0d0d1a"/>
+
+  <rect x="91" y="130" width="88" height="53" rx="4" class="card-blue"   fill="#ddeeff"/>
+  <text x="135" y="143" text-anchor="middle" font-size="7.5" font-weight="bold" fill="#4a90d9" class="mono">YAML Frontmatter</text>
+  <text x="95"  y="154" font-size="6" class="t-code mono" fill="#aaa">on: schedule</text>
+  <text x="95"  y="163" font-size="6" class="t-code mono" fill="#aaa">cron: '0 8 * * *'</text>
+  <text x="95"  y="172" font-size="6" class="t-code mono" fill="#aaa">permissions:</text>
+  <text x="95"  y="181" font-size="6" class="t-code mono" fill="#aaa">  issues: write</text>
+
+  <rect x="91" y="187" width="88" height="65" rx="4" class="card-yellow"  fill="#fff8d6"/>
+  <text x="135" y="200" text-anchor="middle" font-size="7.5" font-weight="bold" fill="#c8960c">Task Brief</text>
+  <text x="95"  y="211" font-size="6" class="t-sub" fill="#666">Summarize open issues</text>
+  <text x="95"  y="220" font-size="6" class="t-sub" fill="#666">by theme, flag urgent</text>
+  <text x="95"  y="229" font-size="6" class="t-sub" fill="#666">ones, and post a</text>
+  <text x="95"  y="238" font-size="6" class="t-sub" fill="#666">short triage summary.</text>
+  <text x="95"  y="248" font-size="6" fill="#8a9" font-style="italic" class="t-sub">(plain English goal)</text>
+
+  <text x="135" y="316" text-anchor="middle" font-size="11" font-weight="bold" fill="#4a90d9">workflow.md</text>
+  <text x="135" y="436" text-anchor="middle" font-size="11" class="t-footer" fill="#555">You write this</text>
+
+  <!-- ── ARROW 1→2 ─────────────────────────────────────── -->
+  <line x1="198" y1="211" x2="252" y2="211" stroke="#7b4fa6" stroke-width="2" marker-end="url(#arrowP)"/>
+  <text x="225" y="204" text-anchor="middle" font-size="10" fill="#7b4fa6">gh aw compile</text>
+
+  <!-- ── STEP 2 ──────────────────────────────────────────── -->
+  <circle cx="330" cy="102" r="15" fill="#7b4fa6"/>
+  <text x="330" y="107" text-anchor="middle" font-size="14" font-weight="bold" fill="white">2</text>
+
+  <rect x="277" y="115" width="106" height="186" rx="11" class="phone-frame" fill="#1a1a2e"/>
+  <rect x="283" y="121" width="94" height="174" rx="7"  class="phone-screen" fill="#2a2a4a"/>
+  <rect x="311" y="121" width="32" height="6"  rx="3"  class="phone-notch"  fill="#0d0d1a"/>
+
+  <text x="287" y="136" font-size="6" class="t-code mono" fill="#aaa">on:</text>
+  <text x="287" y="146" font-size="6" class="t-code mono" fill="#aaa">  schedule:</text>
+  <text x="287" y="156" font-size="6" class="t-code mono" fill="#aaa">  - cron: '0 8 * * *'</text>
+  <text x="287" y="166" font-size="6" class="t-code mono" fill="#aaa">jobs:</text>
+  <text x="287" y="176" font-size="6" class="t-code mono" fill="#aaa">  agent:</text>
+  <text x="287" y="186" font-size="6" class="t-code mono" fill="#aaa">    runs-on: ubuntu</text>
+  <text x="287" y="196" font-size="6" class="t-code mono" fill="#aaa">    steps:</text>
+  <text x="287" y="206" font-size="6" class="t-code mono" fill="#aaa">    # agent bootstrap</text>
+  <text x="287" y="216" font-size="6" class="t-code mono" fill="#aaa">    # task brief (enc.)</text>
+  <text x="287" y="226" font-size="6" class="t-code mono" fill="#aaa">    # safe-outputs</text>
+  <text x="287" y="236" font-size="6" class="t-code mono" fill="#aaa">    ...</text>
+  <text x="330" y="273" text-anchor="middle" font-size="8" fill="#888" font-style="italic">Standard Actions YAML</text>
+  <text x="330" y="284" text-anchor="middle" font-size="8" fill="#888" font-style="italic">(do not edit by hand)</text>
+
+  <text x="330" y="316" text-anchor="middle" font-size="11" font-weight="bold" fill="#7b4fa6">workflow.lock.yml</text>
+  <text x="330" y="436" text-anchor="middle" font-size="11" class="t-footer" fill="#555">Compiled output</text>
+
+  <!-- ── ARROW 2→3 ─────────────────────────────────────── -->
+  <line x1="393" y1="211" x2="447" y2="211" stroke="#2a8a3a" stroke-width="2" marker-end="url(#arrowG)"/>
+  <text x="420" y="204" text-anchor="middle" font-size="10" fill="#2a8a3a">trigger</text>
+
+  <!-- ── STEP 3 ──────────────────────────────────────────── -->
+  <circle cx="525" cy="102" r="15" fill="#2a8a3a"/>
+  <text x="525" y="107" text-anchor="middle" font-size="14" font-weight="bold" fill="white">3</text>
+
+  <rect x="472" y="115" width="106" height="186" rx="11" class="phone-frame" fill="#1a1a2e"/>
+  <rect x="478" y="121" width="94" height="174" rx="7"  class="phone-screen" fill="#2a2a4a"/>
+  <rect x="506" y="121" width="32" height="6"  rx="3"  class="phone-notch"  fill="#0d0d1a"/>
+
+  <text x="525" y="146" text-anchor="middle" font-size="9" font-weight="bold" fill="#4caf50">GitHub Actions</text>
+  <text x="525" y="159" text-anchor="middle" font-size="8" fill="#888">Runner environment</text>
+
+  <rect x="485" y="168" width="80" height="20" rx="4" class="step3-btn-a" fill="#d4f5d4"/>
+  <text x="497" y="181" font-size="8" fill="#2a8a3a">🔒 </text>
+  <text x="525" y="181" text-anchor="middle" font-size="9" font-weight="bold" fill="#2a8a3a">Sandbox</text>
+
+  <rect x="485" y="194" width="80" height="20" rx="4" class="step3-btn-b" fill="#e8f0e8"/>
+  <text x="497" y="207" font-size="8" fill="#8bc34a">○ </text>
+  <text x="525" y="207" text-anchor="middle" font-size="9" fill="#558b55">Firewall</text>
+
+  <rect x="485" y="220" width="80" height="20" rx="4" class="step3-btn-a" fill="#d4f5d4"/>
+  <text x="497" y="233" font-size="8" fill="#2a8a3a">✓ </text>
+  <text x="525" y="233" text-anchor="middle" font-size="9" fill="#2a8a3a">Safe-outputs</text>
+
+  <text x="525" y="316" text-anchor="middle" font-size="11" font-weight="bold" fill="#2a8a3a">GitHub Actions</text>
+  <text x="525" y="436" text-anchor="middle" font-size="11" class="t-footer" fill="#555">Runner environment</text>
+
+  <!-- ── ARROW 3↓4 ─────────────────────────────────────── -->
+  <line x1="525" y1="305" x2="525" y2="348" stroke="#c0392b" stroke-width="2" marker-end="url(#arrowR)"/>
+  <text x="540" y="331" font-size="10" fill="#c0392b">runs</text>
+
+  <!-- ── STEP 4 ──────────────────────────────────────────── -->
+  <circle cx="525" cy="368" r="15" fill="#c0392b"/>
+  <text x="525" y="373" text-anchor="middle" font-size="14" font-weight="bold" fill="white">4</text>
+
+  <rect x="472" y="382" width="106" height="112" rx="11" class="phone-frame" fill="#1a1a2e"/>
+  <rect x="478" y="388" width="94" height="100" rx="7"  class="phone-screen" fill="#2a2a4a"/>
+
+  <text x="525" y="405" text-anchor="middle" font-size="9" font-weight="bold" fill="#e74c3c">AI Agent</text>
+
+  <rect x="483" y="412" width="84" height="16" rx="3" class="step4-btn" fill="#ffd5d5"/>
+  <text x="525" y="423" text-anchor="middle" font-size="8" fill="#e74c3c">reads repo data</text>
+
+  <rect x="483" y="432" width="84" height="16" rx="3" class="step4-btn" fill="#ffd5d5"/>
+  <text x="525" y="443" text-anchor="middle" font-size="8" fill="#e74c3c">calls tools (gh, APIs)</text>
+
+  <rect x="483" y="452" width="84" height="16" rx="3" class="step4-btn" fill="#ffd5d5"/>
+  <text x="525" y="463" text-anchor="middle" font-size="8" fill="#e74c3c">reasons at runtime</text>
+
+  <!-- ── ARROW 4→5 ─────────────────────────────────────── -->
+  <line x1="590" y1="440" x2="644" y2="440" stroke="#d4860a" stroke-width="2" marker-end="url(#arrowO)"/>
+  <text x="617" y="433" text-anchor="middle" font-size="10" fill="#d4860a">posts</text>
+
+  <!-- ── STEP 5 ──────────────────────────────────────────── -->
+  <circle cx="800" cy="102" r="15" fill="#c8960c"/>
+  <text x="800" y="107" text-anchor="middle" font-size="14" font-weight="bold" fill="white">5</text>
+
+  <rect x="655" y="115" width="212" height="330" rx="12" class="step5-card" fill="#ffffff" stroke="#d1d5db" stroke-width="1"/>
+  <text x="761" y="143" text-anchor="middle" font-size="13" font-weight="bold" fill="#c8960c">Structured Output</text>
+
+  <line x1="667" y1="152" x2="855" y2="152" class="step5-rule" stroke="#d1d5db" stroke-width="0.5"/>
+  <text x="667" y="169" font-size="11" font-weight="bold" class="t-step5" fill="#1a1a2e">## Daily Status – July 12</text>
+  <line x1="667" y1="177" x2="855" y2="177" class="step5-rule" stroke="#d1d5db" stroke-width="0.5"/>
+
+  <text x="667" y="194" font-size="10" class="t-check" fill="#2d8a2d">✅ CI: 18 workflows passed</text>
+  <text x="667" y="210" font-size="10" class="t-cross" fill="#c0392b">❌ 1 failed: docs-link-check</text>
+  <text x="667" y="226" font-size="10" class="t-pr"    fill="#1a6eb5">🔵 PRs: 7 open (2 need review)</text>
+  <text x="667" y="242" font-size="10" class="t-issue"  fill="#b7850a">🟡 Issues: 4 new, 3 closed</text>
+
+  <line x1="667" y1="254" x2="855" y2="254" class="step5-rule" stroke="#d1d5db" stroke-width="0.5"/>
+  <text x="667" y="271" font-size="11" font-weight="bold" class="t-step5" fill="#1a1a2e">### Recommended actions</text>
+  <text x="667" y="288" font-size="10" class="t-step5b" fill="#444">1. Re-run docs-link-check</text>
+  <text x="667" y="303" font-size="10" class="t-step5b" fill="#444">2. Review PR #412 before noon</text>
+  <text x="667" y="318" font-size="10" class="t-step5b" fill="#444">3. Triage issue #398 with team</text>
+
+  <line x1="667" y1="330" x2="855" y2="330" class="step5-rule" stroke="#d1d5db" stroke-width="0.5"/>
+  <text x="667" y="347" font-size="9" fill="#888" font-style="italic">Posted automatically by the agent</text>
+  <text x="667" y="360" font-size="9" fill="#888" font-style="italic">to GitHub Issues / Discussions</text>
+
+  <text x="761" y="399" text-anchor="middle" font-size="11" fill="#888" font-style="italic">Agent composes this at runtime</text>
+
+  <text x="761" y="436" text-anchor="middle" font-size="11" class="t-footer" fill="#555">Agent composes this at runtime</text>
+
+  <!-- ── FOOTER ─────────────────────────────────────────── -->
+  <text x="550" y="476" text-anchor="middle" font-size="11.5" class="t-footer" fill="#555">
+    The <tspan font-family="'SFMono-Regular',Consolas,monospace" fill="#4a90d9">gh aw compile</tspan> step runs once when you author the workflow. Steps 3–5 repeat on every trigger.
+  </text>
+  <text x="550" y="498" text-anchor="middle" font-size="11.5" class="t-footer" fill="#555">
+    The agent decides <tspan font-style="italic">how</tspan> to complete the task at runtime — you only write <tspan font-style="italic">what</tspan> you want.
+  </text>
+</svg>
