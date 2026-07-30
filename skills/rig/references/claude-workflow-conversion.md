@@ -31,6 +31,7 @@ primitives from its context instead of from globals.
 | `log(message)` | `log(message)` | Same |
 | `budget.total / spent() / remaining()` | `budget.total / spent() / remaining()` | rig meters **agent calls** (`limits.maxAgents`), not tokens |
 | `workflow(ref, args)` | `call.workflow(child, args, options?)` | Shares the limiter, budget, phase, and event stream |
+| open-ended `while` convergence loop | `until({ max, noProgressRounds }, step)` | Bounded; stops on `done`, after `max` rounds, or after `noProgressRounds` equal progress keys — prefer over unbounded loops |
 | top-level `return value` | `return value` from `body` | Same |
 | `Workflow({ scriptPath, args })` from a session | `cat args.json \| node skills/rig/rig.ts program.ts` | See [runtime](runtime.md) |
 
