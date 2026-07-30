@@ -1,7 +1,14 @@
 import Anthropic from "@anthropic-ai/sdk";
 import type { ClientOptions } from "@anthropic-ai/sdk";
 import { betaTool } from "@anthropic-ai/sdk/helpers/beta/json-schema";
+import { debug } from "../rig.ts";
 import type { AgentFactory, Tool } from "../rig.ts";
+
+const debugCreate = debug("engine:anthropic:create");
+const debugAsk = debug("engine:anthropic:ask");
+const debugResponse = debug("engine:anthropic:response");
+const debugTool = debug("engine:anthropic:tool");
+const debugClose = debug("engine:anthropic:close");
 
 export type AnthropicEngineOptions = ClientOptions & {
   maxTokens?: number;
@@ -11,12 +18,14 @@ export type AnthropicEngineOptions = ClientOptions & {
 export function anthropicEngine(options: AnthropicEngineOptions = {}): AgentFactory {
   const { maxTokens = 8192, maxIterations, ...clientOptions } = options;
   return (agentOptions) => {
+    debugCreate({ model: agentOptions.model, tools: agentOptions.tools?.map((tool) => tool.name) ?? [] });
     const client = new Anthropic(clientOptions);
     let messages: any[] = [];
     const tools = agentOptions.tools?.map(toAnthropicTool) ?? [];
 
     return {
       async ask(prompt, askOptions = {}) {
+        debugAsk({ model: agentOptions.model, prompt });
         const requestMessages = [...messages, { role: "user" as const, content: prompt }];
         const runner = client.beta.messages.toolRunner({
           model: agentOptions.model,
@@ -28,9 +37,13 @@ export function anthropicEngine(options: AnthropicEngineOptions = {}): AgentFact
         }, askOptions.signal ? { signal: askOptions.signal } : undefined);
         const response = await runner.runUntilDone();
         messages = [...runner.params.messages];
-        return contentText(response.content);
+        const text = contentText(response.content);
+        debugResponse({ model: agentOptions.model, response: text });
+        return text;
       },
-      async close() {},
+      async close() {
+        debugClose({ model: agentOptions.model });
+      },
     };
   };
 }
@@ -44,6 +57,7 @@ function toAnthropicTool(tool: Tool<any>) {
       if (!tool.handler) {
         throw new Error(`${tool.name} tool has no handler`);
       }
+      debugTool({ tool: tool.name, args });
       return toolResultText(await tool.handler(args));
     },
   });
