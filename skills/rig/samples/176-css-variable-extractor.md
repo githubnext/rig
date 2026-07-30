@@ -1,8 +1,7 @@
 # 176 - CSS Variable Extractor
 
 ```rig
-import { agent, p, s } from "rig";
-import { defineTool } from "rig";
+import { agent, defineTool, p, s } from "rig";
 
 const parseCssVar = defineTool("parseCssVar", {
   description: "Parse a CSS custom property declaration line and extract name and value",
