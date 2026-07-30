@@ -15,8 +15,11 @@ engine:
   copilot-sdk: true
 strict: true
 timeout-minutes: 40
-skills:
-  - githubnext/rig/skills/rig/SKILL.md@eb773e967a67f11ccdeb5e3f68f271489825fe0a
+steps:
+  - name: Install rig skill from local path
+    env:
+      GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+    run: gh skill install . rig --from-local --force
 tools:
   bash: ["*"]
 network:
