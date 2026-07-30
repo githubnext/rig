@@ -14,7 +14,7 @@ engine:
   id: copilot
   copilot-sdk: true
 strict: true
-timeout-minutes: 40
+timeout-minutes: 50
 steps:
   - name: Install rig skill from local path
     env:
