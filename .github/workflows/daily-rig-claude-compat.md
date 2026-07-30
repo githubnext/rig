@@ -18,8 +18,6 @@ engine:
   max-continuations: 6
 strict: true
 timeout-minutes: 45
-skills:
-  - githubnext/rig/skills/rig/SKILL.md@5bc52e398de3e25b0dd6d01664a2edcd3e789fd2
 tools:
   github:
     mode: gh-proxy
@@ -29,6 +27,10 @@ tools:
 network:
   allowed: [defaults, github, node]
 steps:
+  - name: Install local Rig skill
+    env:
+      GH_TOKEN: ${{ github.token }}
+    run: gh skill install skills/rig rig --from-local --force
   - name: Install dependencies
     run: npm ci
 safe-outputs:
