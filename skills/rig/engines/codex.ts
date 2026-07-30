@@ -1,6 +1,12 @@
 import { Codex } from "@openai/codex-sdk";
 import type { CodexOptions, ThreadOptions } from "@openai/codex-sdk";
+import { debug } from "../rig.ts";
 import type { AgentFactory } from "../rig.ts";
+
+const debugCreate = debug("engine:codex:create");
+const debugAsk = debug("engine:codex:ask");
+const debugResponse = debug("engine:codex:response");
+const debugClose = debug("engine:codex:close");
 
 export type CodexEngineOptions = CodexOptions & {
   thread?: Omit<ThreadOptions, "model">;
@@ -12,6 +18,7 @@ export function codexEngine(options: CodexEngineOptions = {}): AgentFactory {
     if (agentOptions.tools && agentOptions.tools.length > 0) {
       throw new Error("codexEngine does not support Rig tools");
     }
+    debugCreate({ model: agentOptions.model });
     const systemMessage = stringSystemMessage(agentOptions.systemMessage);
     const codex = new Codex({
       ...clientOptions,
@@ -31,6 +38,7 @@ export function codexEngine(options: CodexEngineOptions = {}): AgentFactory {
 
     return {
       async ask(prompt, askOptions = {}) {
+        debugAsk({ model: agentOptions.model, prompt, structured: askOptions.outputSchema !== undefined });
         throwIfAborted(closeController.signal);
         const signal = askOptions.signal
           ? AbortSignal.any([askOptions.signal, closeController.signal])
@@ -42,15 +50,15 @@ export function codexEngine(options: CodexEngineOptions = {}): AgentFactory {
         activeTurns.add(activeTurn);
         try {
           const turn = await activeTurn;
-          if (typeof turn.finalResponse === "string") {
-            return turn.finalResponse;
-          }
-          return JSON.stringify(turn.finalResponse);
+          const text = typeof turn.finalResponse === "string" ? turn.finalResponse : JSON.stringify(turn.finalResponse);
+          debugResponse({ model: agentOptions.model, response: text });
+          return text;
         } finally {
           activeTurns.delete(activeTurn);
         }
       },
       async close() {
+        debugClose({ model: agentOptions.model });
         closeController.abort(new DOMException("Agent closed", "AbortError"));
         await Promise.allSettled(activeTurns);
       },

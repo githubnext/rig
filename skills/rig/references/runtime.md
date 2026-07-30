@@ -131,6 +131,22 @@ RIG_DEBUG="engine,agent:turn,-engine:copilot:event" node skills/rig/rig.ts src/p
 
 Debug records are `rig.*` JSONL events on stderr and never replace the final stdout result.
 
+| Category | Emitted when |
+|---|---|
+| `launcher:start` | CLI starts, with script name and argv |
+| `launcher:program` | Root program is resolved (file, stdin, or import mode) |
+| `launcher:typecheck` | Typecheck starts, passes, or fails |
+| `launcher:result` | Root result is rendered to stdout |
+| `agent:invoke` / `agent:turn` / `agent:response` | Agent call starts, each turn prompt, each raw response |
+| `agent:parse` | Response parse/validation outcome (`parse`, `validation`, `ok`) |
+| `agent:tools` | Tools registered on an agent spec |
+| `agent:complete` / `agent:retry` / `agent:error` / `agent:failure` / `agent:close` | Agent lifecycle outcomes |
+| `workflow:event` | Every workflow event (`run_start`, `phase_start`, `agent_start`, `log`, …) |
+| `engine:select` | Default engine selection |
+| `engine:copilot:*` | Copilot session create, event, ask, response, close |
+| `engine:anthropic:*` / `engine:pi:*` | Engine create, ask, response, tool call, close |
+| `engine:codex:*` / `engine:gemini:*` | Engine create, ask, response, close |
+
 ## Operational conventions
 
 - Assume Node.js 24.

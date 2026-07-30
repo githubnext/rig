@@ -1,7 +1,13 @@
 import { randomUUID } from "node:crypto";
 import { spawn } from "node:child_process";
 import type { ChildProcessWithoutNullStreams } from "node:child_process";
+import { debug } from "../rig.ts";
 import type { AgentFactory } from "../rig.ts";
+
+const debugCreate = debug("engine:gemini:create");
+const debugAsk = debug("engine:gemini:ask");
+const debugResponse = debug("engine:gemini:response");
+const debugClose = debug("engine:gemini:close");
 
 export type GeminiEngineOptions = {
   command?: string;
@@ -32,6 +38,7 @@ export function geminiEngine(options: GeminiEngineOptions = {}): AgentFactory {
     if (agentOptions.tools && agentOptions.tools.length > 0) {
       throw new Error("geminiEngine does not support Rig tools");
     }
+    debugCreate({ model: agentOptions.model, command, ...(cwd !== undefined && { cwd }) });
     const systemMessage = stringSystemMessage(agentOptions.systemMessage);
     const closeController = new AbortController();
     const activeTurns = new Set<Promise<unknown>>();
@@ -40,6 +47,7 @@ export function geminiEngine(options: GeminiEngineOptions = {}): AgentFactory {
 
     return {
       async ask(prompt, askOptions = {}) {
+        debugAsk({ model: agentOptions.model, prompt, resumed: sessionId !== undefined });
         throwIfAborted(closeController.signal);
         if (activeProcess) {
           throw new Error("geminiEngine does not support concurrent turns");
@@ -78,13 +86,16 @@ export function geminiEngine(options: GeminiEngineOptions = {}): AgentFactory {
           if (output.error) {
             throw new Error(output.error.message ?? "Gemini CLI request failed");
           }
-          return output.response ?? "";
+          const text = output.response ?? "";
+          debugResponse({ model: agentOptions.model, session: sessionId, response: text });
+          return text;
         } finally {
           activeProcess = undefined;
           activeTurns.delete(activeTurn);
         }
       },
       async close() {
+        debugClose({ model: agentOptions.model, session: sessionId });
         closeController.abort(new DOMException("Agent closed", "AbortError"));
         await Promise.allSettled(activeTurns);
       },
