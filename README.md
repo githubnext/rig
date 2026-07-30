@@ -65,5 +65,7 @@ cat program.ts | node skills/rig/rig.ts --typecheck
 
 ## Docs
 
-See [skills/rig/SKILL.md](skills/rig/SKILL.md) for construction rules and
-[skills/rig/references/runtime.md](skills/rig/references/runtime.md) for launcher and engine details.
+See [skills/rig/SKILL.md](skills/rig/SKILL.md) for construction rules,
+[skills/rig/references/runtime.md](skills/rig/references/runtime.md) for launcher and engine details, and
+[skills/rig/references/claude-workflow-conversion.md](skills/rig/references/claude-workflow-conversion.md)
+for porting Claude Code dynamic workflows to rig.
