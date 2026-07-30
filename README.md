@@ -22,32 +22,83 @@ skills:
   - githubnext/rig/skills/rig/SKILL.md@<full-commit-sha>
 ```
 
-Then write a Rig program:
+Then write a Rig program. Here is a full release pipeline with specialized sub-agents:
 
 ```ts
 import { agent, p, s } from "rig";
 
-// Agent role: review the current diff and return prioritized findings.
-const reviewDiff = agent({
-  model: "small",
-  instructions: p`Review ${p.bash("git diff -- .")} and return only the declared output.`,
-  output: s.object({
-    summary: s.string,
-    risk: s.enum("low", "medium", "high"),
-  }),
+// Agent role: summarize the release candidate changes.
+const analyzeChanges = agent({ model: "small",
+  input: s.object({ diff: s.string, commits: s.string }),
+  output: s.object({ summary: s.string, highlights: s.array(s.string) }),
+  instructions: "Summarize the release candidate changes.",
+});
+// Agent role: choose the safest semantic version bump.
+const chooseVersion = agent({ model: "small",
+  input: s.object({ summary: s.string, highlights: s.array(s.string) }),
+  output: s.object({ bump: s.enum("patch", "minor", "major"), rationale: s.string }),
+  instructions: "Choose the safest semantic version bump.",
+});
+// Agent role: draft the release note from the chosen version bump.
+const draftRelease = agent({ model: "small",
+  input: s.object({ bump: s.enum("patch", "minor", "major"), rationale: s.string, summary: s.string }),
+  output: s.object({ title: s.string, checklist: s.array(s.string), risks: s.array(s.string) }),
+  instructions: "Draft the release note from the chosen version bump.",
+});
+// Agent role: plan the next release using the provided specialists.
+const releaseAgent = agent({ model: "small",
+  instructions: p`Plan the next release using ${p.bash("git diff --stat -- .")} and ${p.bash("git log --oneline -20")}.`,
+  output: s.object({ title: s.string, bump: s.enum("patch", "minor", "major"), checklist: s.array(s.string), risks: s.array(s.string) }),
+  agents: { analyzeChanges, chooseVersion, draftRelease },
 });
 
-export default reviewDiff;
+export default releaseAgent;
 ```
 
 ### 2) Run a Rig program directly with `skills/rig/rig.ts`
 
-Pipe an inline program to the launcher:
+**Design on the fly** — just describe what you want as a string and let the model figure out the rest:
 
 ```bash
 cat <<'RIG' | node skills/rig/rig.ts
-// Agent role: summarize this repository in one sentence.
-export default "Summarize this repository in one sentence.";
+export default "Run npm test, diagnose any failures, apply the smallest safe fix, and repeat up to 3 times.";
+RIG
+```
+
+Or ask Copilot (with the skill) to generate a full program for you. Describe your goal in natural language and Copilot returns a runnable `rig` markdown fence like this:
+
+````markdown
+```rig
+import { agent, p, s } from "rig";
+// Agent role: diagnose failing tests and decide if the loop is done.
+const diagnose = agent({
+  model: "small",
+  input: s.object({ ok: s.boolean, stdout: s.string, exitCode: s.number }),
+  output: s.object({ done: s.boolean, rootCause: s.string }),
+  instructions: "Diagnose test failures. Set done to true if all tests passed.",
+});
+// Agent role: apply the smallest safe fix for the root cause.
+const fix = agent({
+  model: "small",
+  output: s.object({ summary: s.string, changed: s.boolean }),
+  instructions: "Apply the smallest safe fix for the root cause.",
+});
+// Agent role: run a RALF loop iterating diagnose-fix cycles until tests pass.
+const ralfLoop = agent({
+  model: "large",
+  output: s.object({ iterations: s.number, fixed: s.boolean }),
+  agents: { diagnose, fix },
+  instructions: p`Run ${p.bash("npm test")} then loop: diagnose failures, fix, repeat up to 3 times.`,
+});
+export default ralfLoop;
+```
+````
+
+Extract the fence contents and pipe them directly to the launcher:
+
+```bash
+cat <<'RIG' | node skills/rig/rig.ts
+# paste the rig fence contents here
 RIG
 ```
 

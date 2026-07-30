@@ -156,9 +156,35 @@ describe("debug logging", () => {
       "rig.agent:invoke",
       "rig.agent:turn",
       "rig.agent:response",
+      "rig.agent:parse",
       "rig.agent:complete",
       "rig.agent:close",
     ]);
+  });
+
+  it("logs response parse failures with their kind", () => {
+    process.env["RIG_DEBUG"] = "agent:parse";
+
+    analyzeResponse("not json", s.string, "parse-debug", 1);
+    analyzeResponse(JSON.stringify(1), s.string, "parse-debug", 2);
+
+    const events = fsMocks.writeSync.mock.calls.map(([, line]) => JSON.parse(String(line)));
+    expect(events.map((event) => event.data.kind)).toEqual(["parse", "validation"]);
+    expect(events[0].type).toBe("rig.agent:parse");
+  });
+
+  it("logs registered tool names for an agent", () => {
+    process.env["RIG_DEBUG"] = "agent:tools";
+
+    agent({
+      name: "tool-debug",
+      tools: [defineTool("lookup", { description: "Lookup", parameters: s.object({ id: s.string }), handler: () => "ok" })],
+    });
+
+    expect(JSON.parse(String(fsMocks.writeSync.mock.calls[0]?.[1]))).toEqual({
+      type: "rig.agent:tools",
+      data: { agent: "tool-debug", tools: ["lookup"] },
+    });
   });
 });
 

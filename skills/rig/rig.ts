@@ -695,6 +695,12 @@ const debugAgentComplete = debug("agent:complete");
 const debugAgentRetry = debug("agent:retry");
 const debugAgentFailure = debug("agent:failure");
 const debugAgentClose = debug("agent:close");
+const debugAgentTools = debug("agent:tools");
+const debugAgentParse = debug("agent:parse");
+const debugLauncherStart = debug("launcher:start");
+const debugLauncherProgram = debug("launcher:program");
+const debugLauncherTypecheck = debug("launcher:typecheck");
+const debugLauncherResult = debug("launcher:result");
 const debugWorkflowEvent = debug("workflow:event");
 
 export type AgentAddonContext = {
@@ -1455,6 +1461,7 @@ export async function launchRigProgram(programPath: string, options: LaunchOptio
   const cwd = options.cwd ?? process.cwd();
   const resolvedPath = isAbsolute(programPath) ? programPath : resolve(cwd, programPath);
 
+  debugLauncherProgram({ mode: "import", program: resolvedPath, cwd, server: options.startServer === true });
   configureAgent(defaultAgentFactory({ cwd, ...(options.startServer ? { startServer: true } : {}) }));
   await runInRootWorkflow("launcher-program", async () => {
     await import(pathToFileURL(resolvedPath).href);
@@ -1648,6 +1655,7 @@ async function hasEsmPackageContext(filePath: string): Promise<boolean> {
 }
 
 async function typecheckProgram(programPath: string, cwd: string, displayPath = programPath): Promise<void> {
+  debugLauncherTypecheck({ phase: "start", program: displayPath, cwd });
   const execFileAsync = promisify(execFile);
   const skillTsconfigPath = resolve(dirname(fileURLToPath(import.meta.url)), "tsconfig.json");
   const candidateTsconfigPaths = [resolve(cwd, "tsconfig.json"), skillTsconfigPath];
@@ -1694,6 +1702,7 @@ async function typecheckProgram(programPath: string, cwd: string, displayPath = 
         env: { ...process.env, npm_config_ignore_scripts: "true" },
       },
     );
+    debugLauncherTypecheck({ phase: "passed", program: displayPath });
   } catch (error) {
     const execError = error as NodeJS.ErrnoException & { stdout?: string; stderr?: string };
     if (execError.code === "ENOENT") {
@@ -1713,6 +1722,7 @@ async function typecheckProgram(programPath: string, cwd: string, displayPath = 
       .replaceAll(relativeShadowPath, displayPath);
     const detail = diagnostics ? `\n${diagnostics}` : "";
     const hasCjsEsmMismatch = diagnostics.includes("TS1295") || diagnostics.includes("TS1479");
+    debugLauncherTypecheck({ phase: "failed", program: displayPath, diagnostics });
     const hint = hasCjsEsmMismatch
       ? "\nHint: add {\"type\":\"module\"} to a package.json in the same directory as your rig program."
       : "";
@@ -1742,15 +1752,20 @@ async function runRootAgentFromStdin(
   }
 
   configureAgent(defaultAgentFactory({ cwd, ...(options.startServer ? { startServer: true } : {}) }));
+  let rootName = "launcher-root";
   const result = await runInRootWorkflow("launcher-root", async () => {
     const mod = await import(pathToFileURL(resolvedPath).href);
     const rootAgent = asRootProgram(mod.default, "launcher-root");
     if (!rootAgent) {
       throw new Error("Expected program to export a root value (agent, workflow, string, or prompt builder) as default export.");
     }
+    rootName = rootAgent.agentName;
+    debugLauncherProgram({ mode: "file", program: resolvedPath, root: rootAgent.agentName, promptLength: prompt.length });
     return rootAgent(coerceStdinInput(rootAgent, prompt));
   });
-  io.stdout.write(renderStdout(result));
+  const rendered = renderStdout(result);
+  debugLauncherResult({ mode: "file", root: rootName, bytes: Buffer.byteLength(rendered) });
+  io.stdout.write(rendered);
 }
 
 async function runProgramCodeFromStdin(
@@ -1777,19 +1792,24 @@ async function runProgramCodeFromStdin(
       return;
     }
     configureAgent(defaultAgentFactory({ cwd, ...(options.startServer ? { startServer: true } : {}) }));
+    let rootName = "launcher-inline-root";
     const result = await runInRootWorkflow("launcher-inline-root", async () => {
       const mod = await import(pathToFileURL(tempProgramPath).href);
       const rootAgent = asRootProgram(mod.default, "launcher-inline-root");
       if (!rootAgent) {
         throw new Error("Expected program to export a root value (agent, workflow, string, or prompt builder) as default export.");
       }
+      rootName = rootAgent.agentName;
+      debugLauncherProgram({ mode: "stdin", program: tempProgramPath, root: rootAgent.agentName, codeLength: programCode.length });
       const input = noInputInvocation(rootAgent);
       if (input === undefined) {
         throw new Error("Expected stdin program root agent to have no input (omit input or use input: s.object({})).");
       }
       return rootAgent(input);
     });
-    io.stdout.write(renderStdout(result));
+    const rendered = renderStdout(result);
+    debugLauncherResult({ mode: "stdin", root: rootName, bytes: Buffer.byteLength(rendered) });
+    io.stdout.write(rendered);
   } finally {
     await rm(tempDir, { recursive: true, force: true });
   }
@@ -1850,6 +1870,7 @@ export async function runLauncherCli(
   io: LauncherIo = process,
 ): Promise<void> {
   const scriptName = process.argv[1] ? basename(process.argv[1]) : "launcher";
+  debugLauncherStart({ script: scriptName, argv });
   if (argv.some(isLauncherHelpArg)) {
     io.stdout.write(`${renderLauncherUsage(scriptName)}\n`);
     return;
@@ -2353,6 +2374,7 @@ export async function runWorkflow<Input, Output>(
   timer?.unref();
 
   const emit = (event: WorkflowEvent): void => {
+    debugWorkflowEvent(() => ({ workflow: definition.meta.name, event }));
     try {
       options.onEvent?.(event);
     } catch {
@@ -2545,6 +2567,7 @@ function normalizeToolConfig<T extends { skipPermission?: boolean }>(tool: T): T
 }
 
 function normalizeTools(tools: Tool<any>[], agentName: string): Tool<any>[] {
+  debugAgentTools(() => ({ agent: agentName, tools: tools.map((tool) => tool?.name) }));
   return tools.map((tool, index) => {
     if (!tool || typeof tool !== "object") {
       throw new Error(`Invalid tool for agent "${agentName}" at tools[${index}]. Expected a tool definition object.`);
@@ -2885,6 +2908,7 @@ export type ResponseAnalysisResult = { ok: true; output: unknown } | { ok: false
 export function analyzeResponse(response: string, outputSchema: Schema, agentName: string, turn: number): ResponseAnalysisResult {
   const parsed = parseJson(response);
   if (!parsed.ok) {
+    debugAgentParse({ agent: agentName, turn, kind: "parse", error: parsed.error });
     return {
       ok: false,
       error: new AgentError({
@@ -2900,6 +2924,7 @@ export function analyzeResponse(response: string, outputSchema: Schema, agentNam
 
   const result = validate(parsed.value, outputSchema);
   if (!result.ok) {
+    debugAgentParse({ agent: agentName, turn, kind: "validation", error: result.error });
     return {
       ok: false,
       error: new AgentError({
@@ -2913,6 +2938,7 @@ export function analyzeResponse(response: string, outputSchema: Schema, agentNam
     };
   }
 
+  debugAgentParse({ agent: agentName, turn, kind: "ok" });
   return { ok: true, output: parsed.value };
 }
 
