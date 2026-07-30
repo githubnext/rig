@@ -1,7 +1,7 @@
 /**
- * @file skills/rig/rig.ts @last-analyzed d697b7b @edit-time 2026-07-28T03:15:11Z
+ * @file skills/rig/rig.ts @last-analyzed 35bd710 @edit-time 2026-07-29T10:33:46Z
  * @purpose Minimal TypeScript multi-agent harness: typed input/output schemas, prompt intents, sub-agent delegation, Copilot SDK runtime
- * @deps @github/copilot-sdk (CopilotClient,RuntimeConnection,approveAll); node:path,url,fs/promises,child_process,util
+ * @deps @github/copilot-sdk (CopilotClient,RuntimeConnection,approveAll); node:path,url,os,fs,fs/promises,child_process,util
  * T:Json type null|bool|num|str|Json[]|{[k]:Json}
  * T:Schema type StringSchema|NumberSchema|IntegerSchema|BooleanSchema|NullSchema|UnknownSchema|ArraySchema|ObjectSchema|RecordSchema|EnumSchema|OptionalSchema|NullableSchema
  * T:NullableSchema<Inner> type {nullable:true;inner:Inner;description?} accepts inner|null
@@ -12,24 +12,29 @@
  * T:AgentSpec<I,O> type {name,description,input,output,prompt,addons?,maxTurns?,agents?} agent declaration; agents? enables sub-agent delegation
  * T:AgentFn<I,O> type callable agent with .use(addons) and .spec property
  * T:AgentFactory type (options:AgentOptions)=>Agent|Promise<Agent>
- * T:Agent interface {ask(input,opts?):Promise<unknown>,close():Promise<void>}
+ * T:AgentOptions type {model,systemMessage?,tools?} passed to AgentFactory [NEW]
+ * T:AgentAskOptions type {signal?,outputSchema?} per-ask overrides on Agent.ask [NEW]
+ * T:Agent interface {ask(input,opts?):Promise<string>,close():Promise<void>}
  * T:AgentAddon type middleware (ctx,next)=>Promise<void>; ctx exposes spec,turn,prompt,output,completed,nextPrompt
  * T:AgentAddonContext type context passed to each addon in the chain
  * T:AgentDefinitionFactory type typeof agent (for passing agent constructor as value)
  * T:AgentError class error carrying kind,agent,turn,response,schema,schemaText fields
+ * T:CallOptions type {signal?,timeout?,model?,maxTurns?} per-call overrides for AgentFn [NEW]
  * T:SteeringOptions type {message?:string} options for steering addon
  * T:TimeoutOptions type {timeout:number} options for timeout addon
  * T:AgentRegistration type callback invoked once per unique Agent instance for oncePerAgent
  * T:Tool<TArgs> type ToolConfig+name; created by defineTool
  * T:ToolConfig<TArgs> type {description,parameters,handler}
+ * T:ToolHandler<TArgs> type (args:TArgs)=>unknown|Promise<unknown> handler signature [NEW]
+ * T:ToolParameters type Schema|Record<string,unknown> for tool parameter schema [NEW]
  * T:PromptIntent type declarative placeholder {kind:'bash'|'bashEach'|'read'|'readAll'|'write'|'writeOutput'|'writeInput'|'glob'|'env',…} resolved into prompt text
  * T:PromptBuilder class template-tag result; composes intents+strings into a prompt fragment
  * T:PromptHelpers type shape of exported p object
  * T:PromptVariable<T> type {__rig:'prompt.var';name:string;value:T} named prompt variable
  * T:ResponseAnalysisResult type {ok:true;output}|{ok:false;error:AgentError}
  * T:CopilotEngineOptions type CopilotClientOptions minus connection, plus server/token/headers fields
- * T:LaunchOptions type options for launchRigProgram (server,token,headers,cwd,args)
- * T:LauncherIo type {stdin,stdout,stderr} override for launcher subprocess
+ * T:LaunchOptions type {cwd?,startServer?,typecheck?} options for launchRigProgram
+ * T:LauncherIo type {stdin,stdout} override for launcher subprocess
  * T:JsonSchemaObject type {[key:string]:unknown} plain JSON Schema object
  * T:DebugLogger type lazy category-bound logger controlled by RIG_DEBUG
  * s.string/number/integer/boolean/null SchemaHelperFactory primitives; call as value or fn(desc)
