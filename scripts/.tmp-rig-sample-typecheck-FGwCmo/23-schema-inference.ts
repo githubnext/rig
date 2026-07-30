@@ -1,0 +1,11 @@
+import { agent, s } from "rig";
+// Agent role: normalize the config into a JSON-compatible object.
+const normalize = agent({
+    model: "typecheck",
+    output: s.object({
+        normalized: s.unknown,
+        warnings: s.array(s.string)
+    }),
+    instructions: `Normalize the config into a JSON-compatible object.`,
+});
+export default normalize;

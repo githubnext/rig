@@ -1,0 +1,12 @@
+import { agent, s } from "rig";
+// Agent role: diagnose the CI log. Prefer the first real failure over cascading errors.
+const ciDiagnosis = agent({
+    model: "typecheck",
+    output: s.object({
+        failure: s.string,
+        likelyCause: s.string,
+        commandsToTry: s.array(s.string)
+    }),
+    instructions: `Diagnose the CI log. Prefer the first real failure over cascading errors.`,
+});
+export default ciDiagnosis;
