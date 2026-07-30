@@ -842,14 +842,10 @@ export type LauncherIo = {
 export type AgentFn<Input = unknown, Output = unknown> = ((input: AgentInputValue<Input>, options?: CallOptions) => Promise<Output>) & {
   /** Resolved name used in logs and error messages. */
   agentName: string;
-  /** The resolved input schema for this agent. Alias of `inputShape`. */
+  /** The resolved input schema for this agent. */
   inputSchema: Schema;
-  /** The resolved output schema for this agent. Alias of `outputShape`. */
+  /** The resolved output schema for this agent. */
   outputSchema: Schema;
-  /** The resolved input schema for this agent. Alias of `inputSchema`. */
-  inputShape: Schema;
-  /** The resolved output schema for this agent. Alias of `outputSchema`. */
-  outputShape: Schema;
   /** The fully normalized spec used to construct this agent. */
   spec: NormalizedAgentSpec<any, any>;
   _namespace: string;
@@ -2023,8 +2019,6 @@ export function agent(spec: AgentSpec<any, any>): AgentFn<any, any> {
   fn.agentName = normalizedSpec.name;
   fn.inputSchema = inputSchema;
   fn.outputSchema = outputSchema;
-  fn.inputShape = inputSchema;
-  fn.outputShape = outputSchema;
   fn.spec = normalizedSpec;
   fn._namespace = normalizedSpec.name;
   fn.use = (addons) => {
