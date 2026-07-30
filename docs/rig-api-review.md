@@ -187,10 +187,52 @@ Known remaining gaps versus Claude dynamic workflows, unchanged by this review:
 journals, worktree isolation, and human checkpoints are runtime features rather
 than API surface.
 
-## 6. Suggested sequencing
+## 6. Sample audit
 
-1. **This PR** — the review, plus removal of the dead `inputShape`/`outputShape`
-   aliases (no sample impact).
+All 58 TypeScript samples (`src/samples/*.ts`) and 331 markdown samples
+(`skills/rig/samples/*.md`) were audited against the current API.
+
+- **No compilation issues.** `npm run typecheck` is clean, and the extracted
+  markdown programs typecheck (`npm run sample --
+  --testNamePattern="skill markdown samples typecheck"`). No sample referenced
+  the removed `inputShape`/`outputShape` aliases, so no migration was required
+  for this PR's deletion.
+- **Nine samples were repaired** — defects unrelated to the deletion but found
+  while running the suite:
+  - `99`, `109`, `113`, `172`, `181`, `182` declared an input on the *root*
+    agent, so the launcher refused to run them (`Expected stdin program root
+    agent to have no input`). They now source their operands from a delegated
+    child agent, a literal, or `p.env`.
+  - `174`, `176` imported from `"rig"` twice; merged into a single import.
+  - `102` embedded `console.log` inside a `p.bash` snippet; switched to
+    `node -p`.
+- **Remaining suite failures are the 30-line budget only.** 192 markdown
+  samples exceed the per-sample line cap asserted in `scripts/run-sample.test.ts`.
+  This predates the review, is not an API problem, and is left for a dedicated
+  sample-trimming pass — CI only runs the typecheck portion of the suite.
+
+Intent usage across markdown samples quantifies the migration cost of the §3.3
+consolidation:
+
+| Intent | Uses | Post-consolidation form |
+| --- | --- | --- |
+| `p.bash` | 300 | unchanged |
+| `p.readOptional` | 57 | `p.read(path, { optional: true, fallback })` |
+| `p.read` | 29 | unchanged |
+| `p.readInput` | 26 | `p.read(p.input(field))` |
+| `p.writeOutput` | 18 | `p.write(path, p.output(field))` |
+| `p.write` | 15 | unchanged |
+| `p.writeInput` | 3 | `p.write(p.input(field), p.output(field))` |
+| `p.bashEach` | 2 | `p.bash(template, { each: p.input(field) })` |
+| `p.readAll` / `p.readAllInput` | 0 | `p.read([...])` / `p.read(p.input(field))` |
+
+Roughly 110 call sites change, all mechanically — which supports doing the
+migration as one lint-autofixed PR rather than by hand.
+
+## 7. Suggested sequencing
+
+1. **This PR** — the review, removal of the dead `inputShape`/`outputShape`
+   aliases (no sample impact), and the nine unrelated sample repairs from §6.
 2. **Next PR** — additive consolidation: introduce `p.input`/`p.output` and the
    unified `p.read`/`p.write`/`p.bash` signatures alongside the existing intents,
    with lint rules and autofixes.
@@ -202,7 +244,7 @@ than API surface.
 Staging it this way keeps every intermediate commit green and confines sample
 churn to a single reviewable PR.
 
-## 7. Related references
+## 8. Related references
 
 - [Converting Claude dynamic workflows to rig](../skills/rig/references/claude-workflow-conversion.md)
 - [Dynamic workflows](../skills/rig/references/dynamic-workflows.md)

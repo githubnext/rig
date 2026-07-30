@@ -1,8 +1,7 @@
 # 174 - Changelog Entry Gen
 
 ```rig
-import { agent, p, s } from "rig";
-import { defineTool } from "rig";
+import { agent, defineTool, p, s } from "rig";
 
 const validateSemverBump = defineTool("validateSemverBump", {
   description: "Validate that a semver bump type string is one of major/minor/patch",

@@ -6,10 +6,7 @@ import { agent, p, s, steering } from "rig";
 // Agent role: identify hot-spot files by git churn and top contributors.
 const gitHotspotAnalyzer = agent({
   model: "mini",
-  addons: steering({ message: "Focus only on the top N files by change frequency. Skip binary files and node_modules." }),
-  input: s.object({
-    topN: s.int,
-  }),
+  addons: steering({ message: "Focus only on the top 10 files by change frequency. Skip binary files and node_modules." }),
   instructions: p`Analyze git history to find the most frequently changed files.
 
 Changed files from git log:
@@ -18,7 +15,7 @@ ${p.bash("git log --follow --name-only --format='' -- . | sort | uniq -c | sort 
 For the top files identified, get contributor info:
 ${p.bash("git shortlog -sn --all -- . 2>/dev/null | head -10")}
 
-Select the top \${input.topN} files by churn score. For each file compute a churnScore
+Select the top 10 files by churn score. For each file compute a churnScore
 (number of commits) and list topContributors. Return only the declared output as a record
 keyed by file path.`,
   output: s.record(

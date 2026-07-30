@@ -18,7 +18,7 @@ const checkThresholds = defineTool("checkThresholds", {
 // Agent role: inspect the runtime environment and report overall health.
 const runtimeEnvChecker = agent({
   model: "small",
-  instructions: p`Inspect the runtime environment: Node version ${p.bash("node --version")}, OS info ${p.bash("uname -a")}, and heap memory ${p.bash("node -e \"console.log(Math.round(process.memoryUsage().heapTotal/1024/1024))\"")}MB. Use the checkThresholds tool to validate. Report health as ok, degraded, or critical.`,
+  instructions: p`Inspect the runtime environment: Node version ${p.bash("node --version")}, OS info ${p.bash("uname -a")}, and heap memory ${p.bash("node -p \"Math.round(process.memoryUsage().heapTotal/1024/1024)\"")}MB. Use the checkThresholds tool to validate. Report health as ok, degraded, or critical.`,
   output: s.object({
     health: s.enum("ok", "degraded", "critical"),
     nodeVersion: s.string,

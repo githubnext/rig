@@ -18,8 +18,7 @@ const parseGitLogLine = defineTool("parseGitLogLine", {
 const gitMetadataTemplateRenderer = agent({
   model: "small",
   tools: [parseGitLogLine],
-  input: s.object({ templatePath: s.path, outputPath: s.path }),
-  instructions: p`Read the template at the input templatePath using ${p.readInput("templatePath")}. Gather recent commit metadata: ${p.bash("git log --format='%H|%an|%ae|%ai|%s' -10 2>/dev/null || echo ''")} and current branch: ${p.bash("git rev-parse --abbrev-ref HEAD 2>/dev/null || echo 'unknown'")}. Use parseGitLogLine to parse each log line. Replace {{commit}}, {{author}}, {{branch}}, {{date}}, {{message}} placeholders in the template with actual values. Write the rendered content to the path from input.outputPath using ${p.writeInput("outputPath", "renderedContent")}. Return which placeholders were replaced.`,
+  instructions: p`Read the template using ${p.read("docs/commit-template.md")}. Gather recent commit metadata: ${p.bash("git log --format='%H|%an|%ae|%ai|%s' -10 2>/dev/null || echo ''")} and current branch: ${p.bash("git rev-parse --abbrev-ref HEAD 2>/dev/null || echo 'unknown'")}. Use parseGitLogLine to parse each log line. Replace {{commit}}, {{author}}, {{branch}}, {{date}}, {{message}} placeholders in the template with actual values. Write the rendered content using ${p.writeOutput("renderedContent", "docs/commit-rendered.md")}. Return which placeholders were replaced.`,
   output: s.object({
     rendered: s.boolean,
     placeholdersReplaced: s.array(s.string),

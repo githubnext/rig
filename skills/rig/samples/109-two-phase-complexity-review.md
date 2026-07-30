@@ -15,8 +15,7 @@ const extractor = agent({
 const complexityReviewer = agent({
   name: "complexityReviewer",
   model: "small",
-  instructions: p`You will receive a JSON record of function names to line counts. Classify each function as: simple (<10 lines), moderate (10-29), complex (30-59), or critical (≥60). Count the total number of complex+critical functions for the summary.`,
-  input: s.object({ functionLineCounts: s.record(s.number) }),
+  instructions: p`Delegate to extractor to obtain a JSON record of function names to line counts. Classify each function as: simple (<10 lines), moderate (10-29), complex (30-59), or critical (≥60). Count the total number of complex+critical functions for the summary.`,
   output: s.object({
     functions: s.record(s.object({
       lineCount: s.number,
