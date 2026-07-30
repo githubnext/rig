@@ -39,7 +39,7 @@ Run this Rig program:
 ```rig
 import { agent, configureAgent, copilotEngine, defineTool, p, s } from "rig";
 
-configureAgent(copilotEngine());
+configureAgent(copilotEngine({ server: true }));
 
 const SampleRun = s.object({
   path: s.path,
@@ -69,7 +69,7 @@ const runRigSample = defineTool("run_rig_sample", {
     }
 
     return await new Promise((resolveRun, rejectRun) => {
-      const child = spawn(process.execPath, ["skills/rig/rig.ts"], {
+      const child = spawn(process.execPath, ["skills/rig/rig.ts", "--server"], {
         cwd: process.cwd(),
         env: {
           ...process.env,
