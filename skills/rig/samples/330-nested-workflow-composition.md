@@ -34,17 +34,18 @@ const scanDir = workflow({
 // Workflow role: run scanDir on each root area, then produce a combined report.
 // Mirrors Claude dynamic-workflow pattern: `await workflow(ref, args)` becomes
 // `await call.workflow(child, args)` — the child runs inline on the same budget.
+// Use `parallel(thunks)` so failures become null holes and WorkflowLimitError propagates.
 const fullAudit = workflow({
   meta: {
     name: "fullAudit",
     description: "Audit several directories and produce a combined report",
     phases: ["Audit", "Report"],
   },
-  body: async ({ call, phase }) => {
+  body: async ({ call, parallel, phase }) => {
     phase("Audit");
     const dirs = ["src", "skills", "scripts"];
-    const results = await Promise.all(
-      dirs.map((dir) => call.workflow(scanDir, { dir }, { label: dir })),
+    const results = await parallel(
+      dirs.map((dir) => () => call.workflow(scanDir, { dir }, { label: dir })),
     );
 
     phase("Report");
