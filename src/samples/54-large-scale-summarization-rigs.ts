@@ -1,4 +1,4 @@
-import { agent, p, s } from "rig";
+import { agent, p, parallel, s } from "rig";
 
 const LARGE = "large";
 const MINI = "mini";
@@ -83,7 +83,7 @@ const summarizeAtScale = agent({
 - summarize 24h of API surface changes by consumer impact
 - summarize 24h of cross-package monorepo changes by owner area
 
-Use deterministic evidence collection first, then parallel Promise fan-out with small models, and finish with one large-model reducer only when needed.
+Use deterministic evidence collection first, then parallel(thunks) fan-out with small models, and finish with one large-model reducer only when needed.
 Use evidence such as ${p.bash("git diff -- .")} and ${p.bash("git log --since='24 hours ago' --name-status --pretty=format:'%h %s'")} and ${p.bash("git log --since='24 hours ago' -- src '*.md' '*.ts' '*.js' --name-only --pretty=format:'%h %s' || true")}.`,
 });
 
@@ -91,24 +91,24 @@ const searchPlanPromise = planDeterministicSearch({
   query: "Where did auth, exports, and schema behavior change in the last 24h?",
 });
 
-const [diffShard, commitsShard, docsShard, searchPlan] = await Promise.all([
-  summarizeShard({
+const [diffShard, commitsShard, docsShard] = await parallel([
+  () => summarizeShard({
     scenario: "git-diff-summary",
     shardLabel: "diff",
     evidence: p.bash("git diff -- ."),
   }),
-  summarizeShard({
+  () => summarizeShard({
     scenario: "repo-24h-summary",
     shardLabel: "commits-24h",
     evidence: p.bash("git log --since='24 hours ago' --name-status --pretty=format:'%h %s'"),
   }),
-  summarizeShard({
+  () => summarizeShard({
     scenario: "docs-exported-changes-24h",
     shardLabel: "exports-and-docs",
     evidence: p.bash("git log --since='24 hours ago' -- 'src/**' 'docs/**' --name-only --pretty=format:'%h %s' || true"),
   }),
-  searchPlanPromise,
 ]);
+const searchPlan = await searchPlanPromise;
 
 const semanticSearchShard = await summarizeShard({
   scenario: "semantic-search-pipeline",
@@ -116,9 +116,11 @@ const semanticSearchShard = await summarizeShard({
   evidence: JSON.stringify(searchPlan),
 });
 
+const shardSummaries = [diffShard, commitsShard, docsShard, semanticSearchShard].filter((shard): shard is NonNullable<typeof shard> => shard !== null);
+
 await reduceScenario({
   scenario: "core-scenarios",
-  shardSummaries: [diffShard, commitsShard, docsShard, semanticSearchShard],
+  shardSummaries,
 });
 
 await summarizeAtScale({ text: p`` });

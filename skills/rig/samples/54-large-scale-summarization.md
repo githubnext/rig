@@ -11,7 +11,7 @@ const summarizeAtScale = agent({
   model: "large",
   output: s.object({ scenarios: s.array(s.object({ id: s.string, summary: s.string })), costNotes: s.array(s.string) }),
   agents: { summarizeShard, reduceScenario },
-  instructions: p`Cover: git diff, 24h repo changes, 24h exported/doc updates, semantic search (query->rg shards->shard summaries->final), plus 24h CI failures, auth/permission changes, dependency risk, API impact, and monorepo owner impact. Use ${p.bash("rg -n \"export|auth|permission|schema\" src docs || true")} and ${p.bash("git log --since='24 hours ago' --name-status --pretty=format:'%h %s'")} first, then parallelize shard work with Promises and use large-model reduction only once per scenario.`,
+  instructions: p`Cover: git diff, 24h repo changes, 24h exported/doc updates, semantic search (query->rg shards->shard summaries->final), plus 24h CI failures, auth/permission changes, dependency risk, API impact, and monorepo owner impact. Use ${p.bash("rg -n \"export|auth|permission|schema\" src docs || true")} and ${p.bash("git log --since='24 hours ago' --name-status --pretty=format:'%h %s'")} first, then parallelize shard work with parallel(thunks) and use large-model reduction only once per scenario.`,
 });
 export default summarizeAtScale;
 ```
