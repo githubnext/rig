@@ -1,7 +1,7 @@
 /**
- * @file skills/rig/rig.ts @last-analyzed 35bd710 @edit-time 2026-07-29T10:33:46Z
- * @purpose Minimal TypeScript multi-agent harness: typed input/output schemas, prompt intents, sub-agent delegation, Copilot SDK runtime
- * @deps @github/copilot-sdk (CopilotClient,RuntimeConnection,approveAll); node:path,url,os,fs,fs/promises,child_process,util
+ * @file skills/rig/rig.ts @last-analyzed 33f6959 @edit-time 2026-07-31T03:16:04Z
+ * @purpose Minimal TypeScript multi-agent harness: typed input/output schemas, prompt intents, sub-agent delegation, workflow orchestration, Copilot SDK runtime
+ * @deps @github/copilot-sdk (CopilotClient,RuntimeConnection,approveAll); node:path,url,os,fs,fs/promises,child_process,util,async_hooks
  * T:Json type null|bool|num|str|Json[]|{[k]:Json}
  * T:Schema type StringSchema|NumberSchema|IntegerSchema|BooleanSchema|NullSchema|UnknownSchema|ArraySchema|ObjectSchema|RecordSchema|EnumSchema|OptionalSchema|NullableSchema
  * T:NullableSchema<Inner> type {nullable:true;inner:Inner;description?} accepts inner|null
@@ -12,21 +12,21 @@
  * T:AgentSpec<I,O> type {name,description,input,output,prompt,addons?,maxTurns?,agents?} agent declaration; agents? enables sub-agent delegation
  * T:AgentFn<I,O> type callable agent with .use(addons) and .spec property
  * T:AgentFactory type (options:AgentOptions)=>Agent|Promise<Agent>
- * T:AgentOptions type {model,systemMessage?,tools?} passed to AgentFactory [NEW]
- * T:AgentAskOptions type {signal?,outputSchema?} per-ask overrides on Agent.ask [NEW]
+ * T:AgentOptions type {model,systemMessage?,tools?} passed to AgentFactory
+ * T:AgentAskOptions type {signal?,outputSchema?} per-ask overrides on Agent.ask
  * T:Agent interface {ask(input,opts?):Promise<string>,close():Promise<void>}
  * T:AgentAddon type middleware (ctx,next)=>Promise<void>; ctx exposes spec,turn,prompt,output,completed,nextPrompt
  * T:AgentAddonContext type context passed to each addon in the chain
  * T:AgentDefinitionFactory type typeof agent (for passing agent constructor as value)
  * T:AgentError class error carrying kind,agent,turn,response,schema,schemaText fields
- * T:CallOptions type {signal?,timeout?,model?,maxTurns?} per-call overrides for AgentFn [NEW]
+ * T:CallOptions type {signal?,timeout?,model?,maxTurns?} per-call overrides for AgentFn
  * T:SteeringOptions type {message?:string} options for steering addon
  * T:TimeoutOptions type {timeout:number} options for timeout addon
  * T:AgentRegistration type callback invoked once per unique Agent instance for oncePerAgent
  * T:Tool<TArgs> type ToolConfig+name; created by defineTool
  * T:ToolConfig<TArgs> type {description,parameters,handler}
- * T:ToolHandler<TArgs> type (args:TArgs)=>unknown|Promise<unknown> handler signature [NEW]
- * T:ToolParameters type Schema|Record<string,unknown> for tool parameter schema [NEW]
+ * T:ToolHandler<TArgs> type (args:TArgs)=>unknown|Promise<unknown> handler signature
+ * T:ToolParameters type Schema|Record<string,unknown> for tool parameter schema
  * T:PromptIntent type declarative placeholder {kind:'bash'|'bashEach'|'read'|'readAll'|'write'|'writeOutput'|'writeInput'|'glob'|'env',…} resolved into prompt text
  * T:PromptBuilder class template-tag result; composes intents+strings into a prompt fragment
  * T:PromptHelpers type shape of exported p object
@@ -37,48 +37,54 @@
  * T:LauncherIo type {stdin,stdout} override for launcher subprocess
  * T:JsonSchemaObject type {[key:string]:unknown} plain JSON Schema object
  * T:DebugLogger type lazy category-bound logger controlled by RIG_DEBUG
+ * T:WorkflowSpec<I,O> type {meta,input,body(ctx)} workflow declaration [NEW]
+ * T:Workflow<I,O> type {meta,inputSchema?,body} compiled workflow object [NEW]
+ * T:WorkflowContext<I> type {input,call,pipeline,parallel,until,phase,log,budget,signal} ambient run context [NEW]
+ * T:WorkflowCall type fn(agent,input,opts?)+.text()+.json()+.workflow() for agent invocation inside workflow [NEW]
+ * T:WorkflowMeta type {name,description,phases?,whenToUse?} workflow metadata [NEW]
+ * T:WorkflowEvent union of run_start|phase_start|agent_start|agent_done|agent_failed|log|warning|run_done|run_failed events [NEW]
+ * T:WorkflowLimits type {concurrency?,maxAgents?,maxWallMs?,warnAgents?} run-time resource limits [NEW]
+ * T:WorkflowBudget type {total,spent(),remaining()} token-free agent-call budget meter [NEW]
+ * T:RunWorkflowOptions<I> type {args?,limits?,onEvent?,signal?} options for runWorkflow [NEW]
+ * T:WorkflowLimitError class thrown when WorkflowLimits are exceeded [NEW]
+ * T:UntilOptions type {max,noProgressRounds?} loop control for until() [NEW]
+ * T:PipelineStage type (prev,item,next)=>Promise<next> pipeline step [NEW]
  * s.string/number/integer/boolean/null SchemaHelperFactory primitives; call as value or fn(desc)
  * s.int alias for s.integer; s.nonEmptyString string with minLength:1; s.url string with format:"uri"; s.path string with format:"path"; s.date string with format:"date" validated as YYYY-MM-DD
  * s.positiveInt integer with minimum:1; s.nonNegativeInt integer with minimum:0; s.percent number with minimum:0,maximum:100; NumberSchema/IntegerSchema support minimum/maximum constraints
- * s.array(items,desc?) ArraySchema; use for homogeneous lists, e.g. s.array(s.string)
- * s.nonEmptyArray(items,desc?) ArraySchema with minItems:1; validates array has at least one element
+ * s.array(items,desc?) ArraySchema; s.nonEmptyArray(items,desc?) ArraySchema with minItems:1
  * s.object(props,desc?) ObjectSchema; s.optional(inner) marks field optional; s.nullable(inner) accepts inner|null; use for fixed-key shapes
- * s.record(valSchema,desc?) RecordSchema keyed by string; use for open-ended key→value maps
- * s.nonEmptyObject(valSchema,desc?) RecordSchema with minProperties:1; validates record has at least one key
- * s.enum(...values|values,desc) EnumSchema
- * s.literal(value,desc?) EnumSchema with a single value; clearer than s.enum for single-value constraints
- * s.unknown unconstrained JSON; call as value or s.unknown("description")
+ * s.record(valSchema,desc?) RecordSchema keyed by string; s.nonEmptyObject(valSchema,desc?) RecordSchema with minProperties:1
+ * s.enum(...values|values,desc) EnumSchema; s.literal(value,desc?) EnumSchema single-value; s.unknown unconstrained JSON
  * p`...` PromptBuilder template tag; interpolates PromptIntent|string|PromptBuilder
- * p.bash(cmd,opts?) PromptIntent bash execution declaration (not run in-process); escape backslashes as in TS strings
- * p.bashRaw`cmd` PromptIntent bash execution using tagged template (no TypeScript string escape needed)
- * p.read(path,opts?) PromptIntent file read declaration
- * p.readOptional(path,fallback?,opts?) PromptIntent file read declaration; returns fallback (default "") if file absent
- * p.write(path,content,opts?) PromptIntent file write declaration; does NOT expand to path in template — hard-code path in output schema
- * p.writeOutput(field,path,opts?) PromptIntent post-generation write declaration; writes output field value to path
- * p.writeInput(inputPathField,contentOutputField,opts?) PromptIntent post-generation write declaration; writes output field value to the path given by input.<inputPathField>
- * p.glob(pattern,opts?) PromptIntent glob file-list declaration (not run in-process)
- * p.readAll(paths,opts?) PromptIntent multi-file read declaration; reads all listed paths and concatenates their contents
- * p.readInput(field,opts?) PromptIntent file read declaration using a runtime input field as the path; reads the file at the single path given by input.<field>
- * p.readAllInput(field,opts?) PromptIntent multi-file read declaration using a runtime input array field; reads all paths in input.<field> and concatenates their contents
- * p.bashEach(template,inputArrayField,opts?) PromptIntent bash-per-element declaration; runs template once per element in input.<inputArrayField>, substituting {} with each element
- * p.env(name,fallback?,opts?) PromptIntent env var read declaration; returns fallback (default "") if not set
- * p.json(value) string JSON.stringify helper for inlining structured values in prompt templates
- * p.inputField(field) string returns "input.<field>" for explicit, documented reference to a caller-supplied input field in prompt prose
- * p.var(name,value) PromptVariable<T> named variable binding for prompt templates
- * p.region(language,body) string wraps body in a fenced code block for the given language
+ * p.bash(cmd,opts?) PromptIntent bash declaration; p.bashRaw`cmd` tagged-template variant (no TS escape)
+ * p.read(path,opts?) PromptIntent file read; p.readOptional(path,fallback?,opts?) read with fallback
+ * p.readAll(paths,opts?) multi-file read; p.readInput(field) reads path from input field; p.readAllInput(field) reads array of paths
+ * p.write(path,content,opts?) file write; p.writeOutput(field,path) writes output field; p.writeInput(pathField,contentField) writes using input path
+ * p.glob(pattern,opts?) glob declaration; p.bashEach(template,field,opts?) bash per element in input array
+ * p.env(name,fallback?,opts?) env var read; p.json(value) JSON.stringify; p.inputField(field) "input.<field>" reference
+ * p.var(name,value) PromptVariable binding; p.region(language,body) fenced code block
  * F:agent(spec) AgentFn<I,O>; spec={name,description,input,output,prompt,addons,maxTurns}
  * F:copilotEngine(opts?) AgentFactory wrapping CopilotClient+RuntimeConnection
  * F:configureAgent(factory) sets global AgentFactory used by agent() calls at module scope
  * F:launchRigProgram(path,opts?) runs .ts agent file as subprocess via tsx
  * F:runLauncherCli(opts?) entry-point CLI: parses argv, wires copilotEngine, runs agent
  * F:defineTool(name,config) Tool with handler+parameters schema
- * F:analyzeResponse(resp,schema,name,turn) ResponseAnalysisResult parse+validate JSON from raw response text (tries direct parse, then fenced ```json block, then balanced-brace extraction)
+ * F:analyzeResponse(resp,schema,name,turn) ResponseAnalysisResult; tries direct parse, fenced ```json, balanced-brace extraction
  * F:defaultRepairPrompt(spec,err) string re-prompt on parse/validation failure
  * F:toJsonSchema(schema) JsonSchemaObject converts Schema to plain JSON Schema
  * F:debug(category) creates a lazy category-filtered JSONL logger
  * F:steering(opts?) AgentAddon appends last-turn warning to prompt when model must correct output
  * F:timeout(opts) AgentAddon applies AbortSignal timeout to each turn
  * F:oncePerAgent(register) AgentAddon runs registration callback exactly once per unique Agent instance
+ * F:workflow(spec) Workflow<I,O> compiles WorkflowSpec into a reusable Workflow [NEW]
+ * F:runWorkflow(workflow,opts?) runs a Workflow with limits, events, and abort signal [NEW]
+ * F:currentWorkflow() WorkflowContext|undefined returns ambient workflow run context via AsyncLocalStorage [NEW]
+ * F:phase(name) sets ambient workflow phase (no-op outside run) [NEW]
+ * F:log(message) emits structured log event on active workflow run (no-op outside run) [NEW]
+ * F:parallel(tasks) runs array of async tasks concurrently [NEW]
+ * F:pipeline(items,...stages) runs pipeline stages over items concurrently [NEW]
+ * F:until(options,step) loops step until done or max rounds [NEW]
  * addon:repair re-prompts on JSON/schema failure up to maxTurns (built-in via defaultRepairPrompt)
  * addon:steering appends warning on last turn so model knows it must correct output now
  * addon:timeout wraps each turn with AbortSignal from TimeoutOptions.timeout ms
@@ -90,6 +96,7 @@
  * INV:json-extraction model response is parsed directly as JSON; fallback strategies: extract ```json fenced block, then extract first balanced {…}/[…] value
  * INV:schema-symbol Schema objects carry private SCHEMA_SYMBOL; toJSON serializes via serializeSchema
  * INV:p-write-no-path p.write() contributes a write instruction to the prompt; it does NOT return the path; hard-code path in agent output
+ * INV:workflow-context WorkflowContext is available via currentWorkflow() inside any agent called within runWorkflow
  */
 import { basename, dirname, isAbsolute, resolve } from "node:path";
 import { availableParallelism } from "node:os";
