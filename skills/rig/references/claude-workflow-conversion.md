@@ -49,9 +49,12 @@ Dynamic workflows pass OpenAI-strict JSON Schema literals. rig schemas are
 | --- | --- |
 | `{ type: "string" }` | `s.string` |
 | `{ type: "string", description: "d" }` | `s.string("d")` |
+| `{ type: "number" }` | `s.number` |
+| `{ type: "number", description: "d" }` | `s.number("d")` |
 | `{ type: "integer" }` | `s.int` |
 | `{ type: "boolean" }` | `s.boolean` |
 | `{ type: "string", enum: [...] }` | `s.enum("a", "b")` |
+| `{ type: "string", const: "done" }` | `s.literal("done")` |
 | `{ type: "array", items: X }` | `s.array(X)` |
 | `{ type: "object", properties, required, additionalProperties: false }` | `s.object({ ... })` |
 | `{ anyOf: [X, { type: "null" }] }` | `s.nullable(X)` |
