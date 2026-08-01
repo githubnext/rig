@@ -14,7 +14,7 @@ engine:
   id: copilot
   copilot-sdk: true
 strict: true
-timeout-minutes: 50
+timeout-minutes: 60
 steps:
   - name: Install rig skill from local path
     env:
@@ -98,7 +98,7 @@ const runRigSample = defineTool("run_rig_sample", {
 // Agent role: execute one Rig sample as a delegated task and record its result.
 const runSample = agent({
   name: "sample-runner",
-  model: "mini",
+  model: "small",
   input: s.object({ path: s.path }),
   tools: [runRigSample],
   instructions: p`Call run_rig_sample exactly once with ${p.inputField("path")}.
