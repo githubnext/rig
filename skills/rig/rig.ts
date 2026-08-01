@@ -1,5 +1,5 @@
 /**
- * @file skills/rig/rig.ts @last-analyzed 33f6959 @edit-time 2026-07-31T03:16:04Z
+ * @file skills/rig/rig.ts @last-analyzed c23f3bd @edit-time 2026-08-01T01:59:39Z
  * @purpose Minimal TypeScript multi-agent harness: typed input/output schemas, prompt intents, sub-agent delegation, workflow orchestration, Copilot SDK runtime
  * @deps @github/copilot-sdk (CopilotClient,RuntimeConnection,approveAll); node:path,url,os,fs,fs/promises,child_process,util,async_hooks
  * T:Json type null|bool|num|str|Json[]|{[k]:Json}
@@ -37,18 +37,22 @@
  * T:LauncherIo type {stdin,stdout} override for launcher subprocess
  * T:JsonSchemaObject type {[key:string]:unknown} plain JSON Schema object
  * T:DebugLogger type lazy category-bound logger controlled by RIG_DEBUG
- * T:WorkflowSpec<I,O> type {meta,input,body(ctx)} workflow declaration [NEW]
- * T:Workflow<I,O> type {meta,inputSchema?,body} compiled workflow object [NEW]
- * T:WorkflowContext<I> type {input,call,pipeline,parallel,until,phase,log,budget,signal} ambient run context [NEW]
- * T:WorkflowCall type fn(agent,input,opts?)+.text()+.json()+.workflow() for agent invocation inside workflow [NEW]
- * T:WorkflowMeta type {name,description,phases?,whenToUse?} workflow metadata [NEW]
- * T:WorkflowEvent union of run_start|phase_start|agent_start|agent_done|agent_failed|log|warning|run_done|run_failed events [NEW]
- * T:WorkflowLimits type {concurrency?,maxAgents?,maxWallMs?,warnAgents?} run-time resource limits [NEW]
- * T:WorkflowBudget type {total,spent(),remaining()} token-free agent-call budget meter [NEW]
- * T:RunWorkflowOptions<I> type {args?,limits?,onEvent?,signal?} options for runWorkflow [NEW]
- * T:WorkflowLimitError class thrown when WorkflowLimits are exceeded [NEW]
- * T:UntilOptions type {max,noProgressRounds?} loop control for until() [NEW]
- * T:PipelineStage type (prev,item,next)=>Promise<next> pipeline step [NEW]
+ * T:WorkflowSpec<I,O> type {meta,input,body(ctx)} workflow declaration
+ * T:Workflow<I,O> type {meta,inputSchema?,body} compiled workflow object
+ * T:WorkflowContext<I> type {input,call,pipeline,parallel,until,phase,log,budget,signal} ambient run context
+ * T:WorkflowCall type fn(agent,input,opts?)+.text()+.json()+.workflow() for agent invocation inside workflow
+ * T:WorkflowCallOptions type CallOptions+{label?,phase?} per-call workflow overrides [NEW]
+ * T:WorkflowMeta type {name,description,phases?,whenToUse?} workflow metadata
+ * T:WorkflowPhase type {title,detail?} phase descriptor [NEW]
+ * T:WorkflowEvent union of run_start|phase_start|agent_start|agent_done|agent_failed|log|warning|run_done|run_failed events
+ * T:WorkflowLimits type {concurrency?,maxAgents?,maxWallMs?,warnAgents?} run-time resource limits
+ * T:WorkflowBudget type {total,spent(),remaining()} token-free agent-call budget meter
+ * T:WorkflowNestedOptions type {signal?,phase?,label?} for nested workflow invocation inside context [NEW]
+ * T:RunWorkflowOptions<I> type {args?,limits?,onEvent?,signal?} options for runWorkflow
+ * T:WorkflowLimitError class thrown when WorkflowLimits are exceeded
+ * T:UntilOptions type {max,noProgressRounds?} loop control for until()
+ * T:UntilStep<S> type (state,round)=>Promise<{state,done?,progressKey?}> step function [NEW]
+ * T:PipelineStage type (prev,item,next)=>Promise<next> pipeline step
  * s.string/number/integer/boolean/null SchemaHelperFactory primitives; call as value or fn(desc)
  * s.int alias for s.integer; s.nonEmptyString string with minLength:1; s.url string with format:"uri"; s.path string with format:"path"; s.date string with format:"date" validated as YYYY-MM-DD
  * s.positiveInt integer with minimum:1; s.nonNegativeInt integer with minimum:0; s.percent number with minimum:0,maximum:100; NumberSchema/IntegerSchema support minimum/maximum constraints
@@ -77,14 +81,14 @@
  * F:steering(opts?) AgentAddon appends last-turn warning to prompt when model must correct output
  * F:timeout(opts) AgentAddon applies AbortSignal timeout to each turn
  * F:oncePerAgent(register) AgentAddon runs registration callback exactly once per unique Agent instance
- * F:workflow(spec) Workflow<I,O> compiles WorkflowSpec into a reusable Workflow [NEW]
- * F:runWorkflow(workflow,opts?) runs a Workflow with limits, events, and abort signal [NEW]
- * F:currentWorkflow() WorkflowContext|undefined returns ambient workflow run context via AsyncLocalStorage [NEW]
- * F:phase(name) sets ambient workflow phase (no-op outside run) [NEW]
- * F:log(message) emits structured log event on active workflow run (no-op outside run) [NEW]
- * F:parallel(tasks) runs array of async tasks concurrently [NEW]
- * F:pipeline(items,...stages) runs pipeline stages over items concurrently [NEW]
- * F:until(options,step) loops step until done or max rounds [NEW]
+ * F:workflow(spec) Workflow<I,O> compiles WorkflowSpec into a reusable Workflow
+ * F:runWorkflow(workflow,opts?) runs a Workflow with limits, events, and abort signal
+ * F:currentWorkflow() WorkflowContext|undefined returns ambient workflow run context via AsyncLocalStorage
+ * F:phase(name) sets ambient workflow phase (no-op outside run)
+ * F:log(message) emits structured log event on active workflow run (no-op outside run)
+ * F:parallel(tasks) runs array of async tasks concurrently
+ * F:pipeline(items,...stages) runs pipeline stages over items concurrently
+ * F:until(options,step) loops step until done or max rounds
  * addon:repair re-prompts on JSON/schema failure up to maxTurns (built-in via defaultRepairPrompt)
  * addon:steering appends warning on last turn so model knows it must correct output now
  * addon:timeout wraps each turn with AbortSignal from TimeoutOptions.timeout ms
