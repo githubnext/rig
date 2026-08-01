@@ -47,7 +47,7 @@ const FileSummary = s.object({ path: s.path, summary: s.string });
 // Agent role: read one TypeScript file and return a 1-2 sentence summary.
 const summarizeFile = agent({
   name: "file-summarizer",
-  model: "mini",
+  model: "small",
   input: { path: s.path },
   instructions: p`Summarize the following file in 1-2 sentences:\n${p.readInput("path")}`,
   output: FileSummary,
