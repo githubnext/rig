@@ -5,6 +5,7 @@ import {
   currentWorkflow,
   log,
   phase,
+  pipeline,
   WorkflowLimitError,
   parallel,
   runWorkflow,
@@ -13,6 +14,7 @@ import {
   type WorkflowEvent,
 } from "rig";
 import { s } from "rig";
+import { call as ambientCall } from "rig/globals";
 
 function fakeAgent<Input, Output>(
   name: string,
@@ -147,6 +149,14 @@ describe("workflow primitives", () => {
       async () => { throw new Error("no"); },
       async () => 3,
     ])).resolves.toEqual([1, null, 3]);
+  });
+
+  it("pipeline skips subsequent stages when a stage returns null", async () => {
+    const stage2 = vi.fn((_prev: unknown, item: number) => item);
+    await expect(
+      pipeline([1, 2, 3], (_item: number) => _item === 2 ? null : _item * 10, stage2),
+    ).resolves.toEqual([1, null, 3]);
+    expect(stage2).toHaveBeenCalledTimes(2);
   });
 
   it("until stops on completion or repeated progress keys", async () => {
@@ -331,5 +341,48 @@ describe("ambient workflow context", () => {
       phase("Work");
       log("no run");
     }).not.toThrow();
+  });
+});
+
+describe("rig/globals", () => {
+  it("call() delegates to the active workflow context", async () => {
+    const worker = fakeAgent<number, number>("worker", (value) => value * 2);
+    const definition = workflow({
+      meta: { name: "globals-call", description: "ambient call" },
+      body: () => ambientCall(worker, 7),
+    });
+
+    await expect(runWorkflow(definition)).resolves.toBe(14);
+  });
+
+  it("call.text() delegates to the active workflow context", async () => {
+    configureAgent(() => ({
+      ask: async () => '"pong"',
+      close: async () => {},
+    }));
+    const definition = workflow({
+      meta: { name: "globals-call-text", description: "ambient call.text" },
+      body: () => ambientCall.text("ping"),
+    });
+
+    await expect(runWorkflow(definition)).resolves.toBe("pong");
+  });
+
+  it("call.workflow() delegates to the active workflow context", async () => {
+    const child = workflow({
+      meta: { name: "child-globals", description: "child run" },
+      body: () => 42,
+    });
+    const definition = workflow({
+      meta: { name: "globals-call-workflow", description: "ambient call.workflow" },
+      body: () => ambientCall.workflow(child),
+    });
+
+    await expect(runWorkflow(definition)).resolves.toBe(42);
+  });
+
+  it("call() throws outside a workflow run", () => {
+    const worker = fakeAgent<number, number>("worker", (value) => value);
+    expect(() => ambientCall(worker, 1)).toThrow("requires an active workflow run");
   });
 });

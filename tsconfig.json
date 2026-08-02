@@ -1,6 +1,5 @@
 {
   "compilerOptions": {
-    "baseUrl": ".",
     "target": "ES2022",
     "module": "Node16",
     "moduleResolution": "Node16",
@@ -20,6 +19,8 @@
     "noEmit": true,
     "paths": {
       "rig": ["./skills/rig/rig.ts"],
+      "rig/eslint": ["./skills/rig/eslint/index.js"],
+      "rig/globals": ["./skills/rig/globals.ts"],
       "rig/engines/anthropic": ["./skills/rig/engines/anthropic.ts"],
       "rig/engines/codex": ["./skills/rig/engines/codex.ts"],
       "rig/engines/gemini": ["./skills/rig/engines/gemini.ts"],

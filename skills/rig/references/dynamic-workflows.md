@@ -99,6 +99,19 @@ outside a run. A `workflow()` default export is nested into the same run, so it
 shares the launcher's limiter, budget, and event stream instead of starting a
 second run.
 
+To use `call`, `pipeline`, and `parallel` at module scope without destructuring
+from `body`, import them from `"rig/globals"`:
+
+```ts
+import { call, pipeline } from "rig/globals";
+```
+
+These are ambient proxies that delegate to the active workflow context
+automatically.  They throw if no workflow run is active.  Prefer explicit
+`body({ call })` destructuring inside `workflow()` bodies and reserve
+`"rig/globals"` for top-level launcher programs ported from Claude dynamic
+workflows.  Do not import `"rig/globals"` unless you need it.
+
 ## Context
 
 | Member | Behavior |
@@ -135,11 +148,13 @@ brackets the child with `log` events. Restore a phase after the nested run if th
 child called `phase()`.
 
 `parallel` turns rejected thunks into `null` holes. Agent failures passed through
-`pipeline` are already `null` because `call` handles them; other pipeline callback
-errors fail the run rather than hiding programming bugs. `WorkflowLimitError` is
-never converted to `null`: exceeding `maxAgents` fails the whole run so runaway
-scheduling cannot be hidden as an ordinary worker failure. Exceptions thrown
-elsewhere in `body` also fail the run.
+`pipeline` are already `null` because `call` handles them. When a `pipeline`
+stage returns `null`, subsequent stages for that item are skipped and `null`
+propagates to the output — this prevents passing a failed result to the next
+stage. Other pipeline callback errors fail the run rather than hiding programming
+bugs. `WorkflowLimitError` is never converted to `null`: exceeding `maxAgents`
+fails the whole run so runaway scheduling cannot be hidden as an ordinary worker
+failure. Exceptions thrown elsewhere in `body` also fail the run.
 
 ## Limits
 
