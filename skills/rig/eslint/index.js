@@ -7,6 +7,8 @@ import noImplicitAnyInToolHandler from "./rules/no-implicit-any-in-tool-handler.
 import preferPGlobOverBashFind from "./rules/prefer-p-glob-over-bash-find.js";
 import noInvalidAgentFields from "./rules/no-invalid-agent-fields.js";
 import enumReturnNeedsAsConst from "./rules/enum-return-needs-as-const.js";
+import workflowContextImports from "./rules/workflow-context-imports.js";
+import intForCountFields from "./rules/int-for-count-fields.js";
 
 export default {
   meta: {
@@ -22,5 +24,7 @@ export default {
     "prefer-p-glob-over-bash-find": preferPGlobOverBashFind,
     "no-invalid-agent-fields": noInvalidAgentFields,
     "enum-return-needs-as-const": enumReturnNeedsAsConst,
+    "workflow-context-imports": workflowContextImports,
+    "int-for-count-fields": intForCountFields,
   },
 };

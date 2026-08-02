@@ -59,9 +59,11 @@ Defaults: `name: "agent"`, `model: "small"`, `maxTurns: 4`, string input/output,
 | URL and file-path fields | `s.url` for URIs, `s.path` for paths, and wrappers like `s.array(s.path)` for path lists |
 | Numeric schema choice | `s.int` for counts/line numbers; `s.number` for measurements and ratios |
 | Optional versus nullable | `s.optional(shape)` for omission; `s.nullable(shape)` for explicit `null` |
-| Deterministic TypeScript fan-out | `workflow({ meta, input?, body })` + `export default`; use `call`, `pipeline`, `parallel`, `until` inside `body` |
+| Deterministic TypeScript fan-out | `workflow({ meta, input?, body })` + `export default`; use `call`, `pipeline`, `parallel`, `until` inside `body` — they are NOT exported from `"rig"` |
 | One-off prompt inside a workflow | `call.text(prompt)` for a string, `call.json(prompt, schema)` for structured output |
 | Reusable workflow step | Define an `agent({ input, output })` and `call(worker, input, { label, phase })` |
+| Agent with no input schema | `call(agent, "string prompt")` — pass a string, not `{}` |
+| Parallel heterogeneous subagents | `Promise.all([call(a, inputA), call(b, inputB)])` — `parallel()` requires all thunks to return the same type |
 | Phase or log from an agent program | Import `phase` / `log` from `rig` and call them at top level; the launcher runs every program inside a workflow |
 | Custom model-callable operation | `defineTool(name, { description, parameters, handler })` |
 | Structured-output retries | `maxTurns` on the agent plus `addons: [repair()]` |
@@ -77,6 +79,7 @@ Prompt intents are declarative instructions, not in-process operations. Prefer f
 - `repair()` takes no arguments. Turn budgets belong on the agent spec or invocation. Repair turns are parse/schema retry turns; a steering turn is only the last warning prepended to the final repair retry.
 - Stable settings belong in `agent({ ... })`; per-run `model`, `maxTurns`, `timeout`, and `signal` belong on invocation; `agent.use()` accepts only addons.
 - Valid `agent()` fields: `name`, `instructions`, `input`, `output`, `model`, `maxTurns`, `addons`, `agents`, `systemMessage`, `tools`. Misspelled keys (e.g. `instructions2`) are silently dropped; the linter flags them.
+- `workflow({ meta, ... })` meta fields: `name`, `description`, `phases`, `whenToUse`. `model` is NOT a meta field; set it on individual `agent()` calls.
 - Handler functions that return string literals must use `as const` to preserve the literal type for enum schema comparison. Example: `return "stable" as const`.
 
 ## Runnable output

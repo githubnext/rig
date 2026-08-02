@@ -42,6 +42,7 @@ export function scanTokens(tokens) {
       start: object.start,
       end: tokens[closingIndex].end,
       message: "Wrap object-valued record fields with s.object(...).",
+      kind: "no-object-literal-record",
       edits: [
         { start: object.start, text: "s.object(" },
         { start: tokens[closingIndex].end, text: ")" },

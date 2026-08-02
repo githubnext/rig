@@ -40,7 +40,8 @@ const results = await runWorkflow(audit, {
 `meta` describes the workflow for tools and progress displays: `name`,
 `description`, optional `phases` (each `"Title"` or `{ title, detail }`), and
 optional `whenToUse`. `input` preserves Rig schema inference in both `body` and
-`runWorkflow({ args })`.
+`runWorkflow({ args })`. `meta` does **not** accept a `model` key; set `model`
+on individual `agent()` calls, not on the workflow.
 
 ## Workflow as default export
 
@@ -109,12 +110,14 @@ second run.
 | `call.json(prompt, schema, options?)` | Runs a one-off agent constrained to `schema`; returns typed output or `null` |
 | `call.workflow(child, args?, options?)` | Runs another workflow inline on the same limiter, budget, and event stream |
 | `pipeline(items, ...stages)` | Streams each item through every stage independently; agent calls flow through the shared limiter |
-| `parallel(thunks)` | Runs all thunks as a barrier and preserves their order |
+| `parallel(thunks)` | Runs all thunks as a barrier and preserves their order; all thunks must return the same type |
 | `until(options, step)` | Runs a bounded convergence loop |
 | `phase(name)` | Sets the phase attached to subsequent events |
 | `log(message)` | Emits a structured log event |
 | `budget` | Agent-call meter: `total`, `spent()`, `remaining()` |
 | `signal` | Run cancellation signal for non-agent work |
+
+`call`, `pipeline`, `parallel`, and `until` are destructured from the body context and are not exported from `"rig"`. Do not import them at the top level.
 
 Call options support `label` and `phase` (a per-call phase override) plus the
 normal per-call `model`, `timeout`, `maxTurns`, and `signal` overrides.
@@ -140,6 +143,28 @@ errors fail the run rather than hiding programming bugs. `WorkflowLimitError` is
 never converted to `null`: exceeding `maxAgents` fails the whole run so runaway
 scheduling cannot be hidden as an ordinary worker failure. Exceptions thrown
 elsewhere in `body` also fail the run.
+
+`parallel` requires all thunks to return the same type. When two subagents have
+different output schemas use `Promise.all` instead:
+
+```ts
+// heterogeneous subagent results — use Promise.all
+const [aResult, bResult] = await Promise.all([
+  call(agentA, { file: "src/a.ts" }),
+  call(agentB, "summarize the repo"),
+]);
+```
+
+When an agent has no `input` schema, pass a string prompt to `call` rather than
+an object:
+
+```ts
+// Agent with no input schema — prompt is a string
+const summary = await call(summarize, "Summarize the staged diff.");
+
+// Agent with input schema — pass the typed object
+const result = await call(review, { file: "src/a.ts" });
+```
 
 ## Limits
 

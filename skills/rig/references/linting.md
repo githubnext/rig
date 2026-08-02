@@ -154,6 +154,34 @@ handler: ({ risk }) => {
 
 The rule autofixes by inserting `as const` after the string literal.
 
+### `rig/workflow-context-imports`
+
+`call`, `pipeline`, and `parallel` are not top-level exports from `"rig"`. They are only available as destructured context props inside a `workflow` body. Trying to import them gives a TypeScript error but wastes a full typecheck cycle.
+
+```ts
+// Invalid
+import { call, pipeline, parallel } from "rig";
+
+// Valid — destructure from the body context
+workflow({ body: async ({ call, pipeline, parallel }) => { ... } })
+```
+
+No autofix (the correct pattern is to remove the import and destructure from the body).
+
+### `rig/int-for-count-fields`
+
+Fields whose names contain `count`, `total`, `length`, `lines`, `files`, or `items` (case-insensitive) should use `s.int` rather than `s.number`. Count fields are always integers; `s.number` allows floats and is semantically wrong.
+
+```ts
+// Invalid
+s.object({ totalFiles: s.number, missingCount: s.number })
+
+// Valid
+s.object({ totalFiles: s.int, missingCount: s.int })
+```
+
+The rule autofixes by replacing `s.number` with `s.int` when the field name matches the pattern.
+
 ## Adding rules
 
 Put rule implementations in `skills/rig/eslint/rules/`, export them from `skills/rig/eslint/index.js`, add the equivalent skill-local check to `skills/rig/eslint/lint.js`, and cover both in `src/eslint-rules.test.js`.

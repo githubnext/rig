@@ -11,9 +11,11 @@ import { scanTokens as scanAddonOrder } from "./rules/addon-order.js";
 import { scanTokens as scanNoImplicitAnyInToolHandler } from "./rules/no-implicit-any-in-tool-handler.js";
 import { scanTokens as scanPreferPGlobOverBashFind } from "./rules/prefer-p-glob-over-bash-find.js";
 import { scanTokens as scanNoInvalidAgentFields } from "./rules/no-invalid-agent-fields.js";
+import { scanTokens as scanWorkflowContextImports } from "./rules/workflow-context-imports.js";
+import { scanTokens as scanIntForCountFields } from "./rules/int-for-count-fields.js";
 
 const ignoredDirectories = new Set([".git", "node_modules"]);
-const tokenRules = [scanDefineToolArgCount, scanAgentsMustBeObject, scanNoObjectLiteralRecord, scanRepairNoArgs, scanAddonOrder, scanNoImplicitAnyInToolHandler, scanPreferPGlobOverBashFind, scanNoInvalidAgentFields];
+const tokenRules = [scanDefineToolArgCount, scanAgentsMustBeObject, scanNoObjectLiteralRecord, scanRepairNoArgs, scanAddonOrder, scanNoImplicitAnyInToolHandler, scanPreferPGlobOverBashFind, scanNoInvalidAgentFields, scanWorkflowContextImports, scanIntForCountFields];
 
 function tokenize(source) {
   const tokens = [];

@@ -9,6 +9,8 @@ import noImplicitAnyRule from "../skills/rig/eslint/rules/no-implicit-any-in-too
 import preferPGlobRule from "../skills/rig/eslint/rules/prefer-p-glob-over-bash-find.js";
 import noInvalidAgentFieldsRule from "../skills/rig/eslint/rules/no-invalid-agent-fields.js";
 import enumReturnNeedsAsConstRule from "../skills/rig/eslint/rules/enum-return-needs-as-const.js";
+import workflowContextImportsRule from "../skills/rig/eslint/rules/workflow-context-imports.js";
+import intForCountFieldsRule from "../skills/rig/eslint/rules/int-for-count-fields.js";
 
 describe("define-tool-arg-count", () => {
   it.each([
@@ -191,7 +193,8 @@ describe("no-object-literal-record", () => {
     "const output = config.s.record({ count: s.number });",
     "const text = 's.record({ count: s.number })';",
   ])("accepts %s", (source) => {
-    expect(lintSource(source)).toEqual([]);
+    const problems = lintSource(source).filter((p) => p.kind === "no-object-literal-record");
+    expect(problems).toEqual([]);
   });
 
   it.each([
@@ -208,7 +211,7 @@ describe("no-object-literal-record", () => {
       "const output = s.record((s.object({ count: s.number })));",
     ],
   ])("fixes %s", (source, expected) => {
-    const problems = lintSource(source);
+    const problems = lintSource(source).filter((p) => p.kind === "no-object-literal-record");
     expect(problems).toHaveLength(1);
     expect(fixSource(source, problems)).toBe(expected);
   });
@@ -922,6 +925,248 @@ describe("enum-return-needs-as-const", () => {
       },
     };
     visitor.ReturnStatement(retNode);
+
+    expect(reports).toHaveLength(0);
+  });
+});
+
+describe("workflow-context-imports", () => {
+  it.each([
+    // Valid: no workflow-context names imported from "rig"
+    "import { agent, s, p } from \"rig\";",
+    "import { workflow, repair } from \"rig\";",
+    // call/pipeline/parallel imported from another module — not flagged
+    "import { call, pipeline, parallel } from \"other\";",
+    // call as a local alias target (foo as call) — not flagged
+    "import { foo as call } from \"rig\";",
+    // Inside a string — not tokenized
+    "const text = 'import { call } from \"rig\"';",
+  ])("accepts %s", (source) => {
+    const problems = lintSource(source).filter((p) => p.kind === "workflow-context-imports");
+    expect(problems).toEqual([]);
+  });
+
+  it.each([
+    "import { call } from \"rig\";",
+    "import { pipeline } from \"rig\";",
+    "import { parallel } from \"rig\";",
+    "import { agent, call } from \"rig\";",
+  ])("flags %s", (source) => {
+    const problems = lintSource(source).filter((p) => p.kind === "workflow-context-imports");
+    expect(problems).toHaveLength(1);
+  });
+
+  it("flags multiple workflow-context names in one import", () => {
+    const source = "import { call, pipeline, parallel } from \"rig\";";
+    const problems = lintSource(source).filter((p) => p.kind === "workflow-context-imports");
+    expect(problems).toHaveLength(3);
+  });
+
+  it("does not autofix (no edits)", () => {
+    const source = "import { call } from \"rig\";";
+    const problems = lintSource(source).filter((p) => p.kind === "workflow-context-imports");
+    expect(problems[0].edits).toEqual([]);
+    expect(fixSource(source, problems)).toBe(source);
+  });
+
+  it("keeps the ESLint rule aligned", () => {
+    const reports = [];
+    const visitor = workflowContextImportsRule.create({
+      sourceCode: {},
+      report: (problem) => reports.push(problem),
+    });
+
+    visitor.ImportDeclaration({
+      source: { value: "rig" },
+      specifiers: [
+        {
+          type: "ImportSpecifier",
+          imported: { type: "Identifier", name: "call" },
+          local: { type: "Identifier", name: "call" },
+        },
+        {
+          type: "ImportSpecifier",
+          imported: { type: "Identifier", name: "agent" },
+          local: { type: "Identifier", name: "agent" },
+        },
+      ],
+    });
+
+    expect(reports).toHaveLength(1);
+    expect(reports[0].messageId).toBe("notExported");
+    expect(reports[0].data.name).toBe("call");
+  });
+
+  it("does not flag non-rig imports via ESLint rule", () => {
+    const reports = [];
+    const visitor = workflowContextImportsRule.create({
+      sourceCode: {},
+      report: (problem) => reports.push(problem),
+    });
+
+    visitor.ImportDeclaration({
+      source: { value: "other-module" },
+      specifiers: [
+        {
+          type: "ImportSpecifier",
+          imported: { type: "Identifier", name: "call" },
+          local: { type: "Identifier", name: "call" },
+        },
+      ],
+    });
+
+    expect(reports).toHaveLength(0);
+  });
+
+  it("does not flag alias target via ESLint rule", () => {
+    const reports = [];
+    const visitor = workflowContextImportsRule.create({
+      sourceCode: {},
+      report: (problem) => reports.push(problem),
+    });
+
+    // import { foo as call } from "rig" — "foo" is the imported name, not "call"
+    visitor.ImportDeclaration({
+      source: { value: "rig" },
+      specifiers: [
+        {
+          type: "ImportSpecifier",
+          imported: { type: "Identifier", name: "foo" },
+          local: { type: "Identifier", name: "call" },
+        },
+      ],
+    });
+
+    expect(reports).toHaveLength(0);
+  });
+});
+
+describe("int-for-count-fields", () => {
+  it.each([
+    // Already using s.int — not flagged
+    "const output = s.object({ totalFiles: s.int });",
+    "const output = s.object({ missingCount: s.int });",
+    // Field name does not match the pattern — not flagged
+    "const output = s.object({ score: s.number });",
+    "const output = s.object({ ratio: s.number });",
+    "const output = s.object({ percentage: s.number });",
+    // Inside a string
+    "const text = 'totalFiles: s.number';",
+  ])("accepts %s", (source) => {
+    const problems = lintSource(source).filter((p) => p.kind === "int-for-count-fields");
+    expect(problems).toEqual([]);
+  });
+
+  it.each([
+    [
+      "const output = s.object({ totalFiles: s.number });",
+      "const output = s.object({ totalFiles: s.int });",
+    ],
+    [
+      "const output = s.object({ missingCount: s.number });",
+      "const output = s.object({ missingCount: s.int });",
+    ],
+    [
+      "const output = s.object({ lineCount: s.number });",
+      "const output = s.object({ lineCount: s.int });",
+    ],
+    [
+      "const output = s.object({ totalLines: s.number });",
+      "const output = s.object({ totalLines: s.int });",
+    ],
+    [
+      "const output = s.object({ itemCount: s.number });",
+      "const output = s.object({ itemCount: s.int });",
+    ],
+    [
+      "const output = s.object({ totalLength: s.number });",
+      "const output = s.object({ totalLength: s.int });",
+    ],
+  ])("fixes %s", (source, expected) => {
+    const problems = lintSource(source).filter((p) => p.kind === "int-for-count-fields");
+    expect(problems).toHaveLength(1);
+    expect(fixSource(source, problems)).toBe(expected);
+  });
+
+  it("is idempotent", () => {
+    const source = "const output = s.object({ totalFiles: s.number });";
+    const once = fixSource(source);
+    const twice = fixSource(once);
+    expect(twice).toBe(once);
+    expect(lintSource(once).filter((p) => p.kind === "int-for-count-fields")).toEqual([]);
+  });
+
+  it("flags multiple count fields in one object", () => {
+    const source = "const output = s.object({ fileCount: s.number, totalLines: s.number });";
+    const problems = lintSource(source).filter((p) => p.kind === "int-for-count-fields");
+    expect(problems).toHaveLength(2);
+    expect(fixSource(source, problems)).toBe("const output = s.object({ fileCount: s.int, totalLines: s.int });");
+  });
+
+  it("keeps the ESLint rule aligned", () => {
+    const reports = [];
+    const visitor = intForCountFieldsRule.create({
+      sourceCode: {
+        getText: () => "s.number",
+      },
+      report: (problem) => reports.push(problem),
+    });
+
+    visitor.Property({
+      computed: false,
+      key: { type: "Identifier", name: "totalFiles" },
+      value: {
+        type: "MemberExpression",
+        computed: false,
+        object: { type: "Identifier", name: "s" },
+        property: { type: "Identifier", name: "number" },
+      },
+    });
+
+    expect(reports).toHaveLength(1);
+    expect(reports[0].messageId).toBe("useInt");
+    expect(reports[0].data.field).toBe("totalFiles");
+    expect(reports[0].fix({ replaceText: (_node, text) => text })).toBe("s.int");
+  });
+
+  it("does not flag non-count fields via ESLint rule", () => {
+    const reports = [];
+    const visitor = intForCountFieldsRule.create({
+      sourceCode: {},
+      report: (problem) => reports.push(problem),
+    });
+
+    visitor.Property({
+      computed: false,
+      key: { type: "Identifier", name: "score" },
+      value: {
+        type: "MemberExpression",
+        computed: false,
+        object: { type: "Identifier", name: "s" },
+        property: { type: "Identifier", name: "number" },
+      },
+    });
+
+    expect(reports).toHaveLength(0);
+  });
+
+  it("does not flag s.int for count fields via ESLint rule", () => {
+    const reports = [];
+    const visitor = intForCountFieldsRule.create({
+      sourceCode: {},
+      report: (problem) => reports.push(problem),
+    });
+
+    visitor.Property({
+      computed: false,
+      key: { type: "Identifier", name: "totalFiles" },
+      value: {
+        type: "MemberExpression",
+        computed: false,
+        object: { type: "Identifier", name: "s" },
+        property: { type: "Identifier", name: "int" },
+      },
+    });
 
     expect(reports).toHaveLength(0);
   });
