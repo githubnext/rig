@@ -2309,6 +2309,7 @@ export async function pipeline<Item>(
   return Promise.all(items.map(async (item, index) => {
     let value: unknown = item;
     for (const stage of stages) {
+      if (value === null) break;
       value = await stage(value, item, index);
     }
     return value;

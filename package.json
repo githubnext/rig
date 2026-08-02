@@ -5,6 +5,7 @@
   "exports": {
     ".": "./skills/rig/rig.ts",
     "./eslint": "./skills/rig/eslint/index.js",
+    "./globals": "./skills/rig/globals.ts",
     "./engines/anthropic": "./skills/rig/engines/anthropic.ts",
     "./engines/codex": "./skills/rig/engines/codex.ts",
     "./engines/gemini": "./skills/rig/engines/gemini.ts",
