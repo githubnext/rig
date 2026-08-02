@@ -1,5 +1,5 @@
 /**
- * @file skills/rig/rig.ts @last-analyzed c23f3bd @edit-time 2026-08-01T01:59:39Z
+ * @file skills/rig/rig.ts @last-analyzed c9fc374 @edit-time 2026-08-01T20:08:51Z
  * @purpose Minimal TypeScript multi-agent harness: typed input/output schemas, prompt intents, sub-agent delegation, workflow orchestration, Copilot SDK runtime
  * @deps @github/copilot-sdk (CopilotClient,RuntimeConnection,approveAll); node:path,url,os,fs,fs/promises,child_process,util,async_hooks
  * T:Json type null|bool|num|str|Json[]|{[k]:Json}
@@ -41,18 +41,19 @@
  * T:Workflow<I,O> type {meta,inputSchema?,body} compiled workflow object
  * T:WorkflowContext<I> type {input,call,pipeline,parallel,until,phase,log,budget,signal} ambient run context
  * T:WorkflowCall type fn(agent,input,opts?)+.text()+.json()+.workflow() for agent invocation inside workflow
- * T:WorkflowCallOptions type CallOptions+{label?,phase?} per-call workflow overrides [NEW]
+ * T:WorkflowCallOptions type CallOptions+{label?,phase?} per-call workflow overrides
  * T:WorkflowMeta type {name,description,phases?,whenToUse?} workflow metadata
- * T:WorkflowPhase type {title,detail?} phase descriptor [NEW]
+ * T:WorkflowPhase type {title,detail?} phase descriptor
  * T:WorkflowEvent union of run_start|phase_start|agent_start|agent_done|agent_failed|log|warning|run_done|run_failed events
  * T:WorkflowLimits type {concurrency?,maxAgents?,maxWallMs?,warnAgents?} run-time resource limits
  * T:WorkflowBudget type {total,spent(),remaining()} token-free agent-call budget meter
- * T:WorkflowNestedOptions type {signal?,phase?,label?} for nested workflow invocation inside context [NEW]
+ * T:WorkflowNestedOptions type {signal?,phase?,label?} for nested workflow invocation inside context
  * T:RunWorkflowOptions<I> type {args?,limits?,onEvent?,signal?} options for runWorkflow
  * T:WorkflowLimitError class thrown when WorkflowLimits are exceeded
  * T:UntilOptions type {max,noProgressRounds?} loop control for until()
- * T:UntilStep<S> type (state,round)=>Promise<{state,done?,progressKey?}> step function [NEW]
+ * T:UntilStep<S> type (state,round)=>Promise<{state,done?,progressKey?}> step function
  * T:PipelineStage type (prev,item,next)=>Promise<next> pipeline step
+ * T:PromptIntentOptions type {cwd?,env?,timeout?,purpose?,signal?} options shared by all p.* helpers [NEW]
  * s.string/number/integer/boolean/null SchemaHelperFactory primitives; call as value or fn(desc)
  * s.int alias for s.integer; s.nonEmptyString string with minLength:1; s.url string with format:"uri"; s.path string with format:"path"; s.date string with format:"date" validated as YYYY-MM-DD
  * s.positiveInt integer with minimum:1; s.nonNegativeInt integer with minimum:0; s.percent number with minimum:0,maximum:100; NumberSchema/IntegerSchema support minimum/maximum constraints
