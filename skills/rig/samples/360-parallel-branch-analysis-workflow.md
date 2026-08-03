@@ -1,64 +1,39 @@
 # 360 - Parallel Branch Analysis Workflow
 
+Uses `parallel(thunks)` — rig's equivalent of `parallel(thunks)` in Claude
+dynamic workflows. `parallel` respects the shared concurrency limiter and
+converts failures to `null` holes. Use it instead of `Promise.all` when porting
+a Claude dynamic workflow.
+
 ```rig
 import { agent, p, s, workflow } from "rig";
 
-// Agent role: analyze git branch count and classify active vs stale branches.
-const branchHealthAgent = agent({
-  model: "small",
-  instructions: p`Analyze git branches and classify active vs stale.
+const metric = s.object({ label: s.string, value: s.number });
 
-Branch list:
-${p.bash("git branch -a 2>/dev/null || echo ''")}
+// Agent role: measure branch staleness as a labeled metric.
+const branchAgent = agent({ model: "small", output: metric,
+  instructions: p`Count stale/total branches.\n${p.bash("git branch -a 2>/dev/null || echo ''")}` });
 
-Count totalBranches (all branches listed). List activeBranches as local branch names (lines not starting with "remotes/").
-staleCount = totalBranches - activeBranches.length.`,
-  output: s.object({
-    totalBranches: s.int,
-    staleCount: s.int,
-    activeBranches: s.array(s.string),
-  }),
-});
+// Agent role: measure average commits per day over the last 30 days.
+const commitAgent = agent({ model: "small", output: metric,
+  instructions: p`Count commits per day.\n${p.bash("git log --since='30 days ago' --format='%h' 2>/dev/null | wc -l || echo 0")}` });
 
-// Agent role: analyze git commit frequency over the last 30 days.
-const commitFrequencyAgent = agent({
-  model: "small",
-  instructions: p`Analyze git commit frequency over the last 30 days.
-
-Commit dates:
-${p.bash("git log --since='30 days ago' --format='%ad' --date=short 2>/dev/null || echo ''")}
-
-totalCommits = number of non-empty lines. activeDays = number of unique dates.
-averagePerDay = totalCommits / 30.`,
-  output: s.object({
-    totalCommits: s.int,
-    activeDays: s.int,
-    averagePerDay: s.number,
-  }),
-});
-
-// Workflow role: run branch health and commit frequency agents, then synthesize an overall health rating.
-const parallelBranchAnalysisWorkflow = workflow({
-  meta: { name: "parallelBranchAnalysis", description: "Parallel branch and commit analysis", phases: ["Analyze", "Synthesize"] },
-  body: async ({ call, phase }) => {
-    phase("Analyze");
-    const [branchHealth, commitFrequency] = await Promise.all([
-      call(branchHealthAgent, "analyze branch health"),
-      call(commitFrequencyAgent, "analyze commit frequency"),
+// Workflow role: run branch and commit agents in parallel, then synthesize a health rating.
+const analysis = workflow({
+  meta: { name: "repoHealth", description: "Parallel repo health analysis", phases: ["Measure", "Rate"] },
+  body: async ({ call, parallel, phase }) => {
+    phase("Measure");
+    const [branches, commits] = await parallel([
+      () => call(branchAgent, "measure"),
+      () => call(commitAgent, "measure"),
     ]);
-
-    phase("Synthesize");
-    const overallHealth = await call.json(
-      `Given branchHealth=${JSON.stringify(branchHealth)} and commitFrequency=${JSON.stringify(commitFrequency)},
-       classify overallHealth as "healthy" (averagePerDay >= 1 and staleCount < 3),
-       "needs-attention" (averagePerDay < 1 or staleCount >= 3), or "critical" (averagePerDay < 0.1 or staleCount >= 10).`,
+    phase("Rate");
+    return call.json(
+      `branches=${JSON.stringify(branches)} commits=${JSON.stringify(commits)}. Rate as "healthy", "needs-attention", or "critical".`,
       s.enum("healthy", "needs-attention", "critical"),
     );
-
-    return { branchHealth, commitFrequency, overallHealth };
   },
 });
 
-export default parallelBranchAnalysisWorkflow;
-
+export default analysis;
 ```
