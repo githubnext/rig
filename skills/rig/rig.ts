@@ -1,5 +1,5 @@
 /**
- * @file skills/rig/rig.ts @last-analyzed c9fc374 @edit-time 2026-08-01T20:08:51Z
+ * @file skills/rig/rig.ts @last-analyzed 083ec24 @edit-time 2026-08-02T16:16:12Z
  * @purpose Minimal TypeScript multi-agent harness: typed input/output schemas, prompt intents, sub-agent delegation, workflow orchestration, Copilot SDK runtime
  * @deps @github/copilot-sdk (CopilotClient,RuntimeConnection,approveAll); node:path,url,os,fs,fs/promises,child_process,util,async_hooks
  * T:Json type null|bool|num|str|Json[]|{[k]:Json}
@@ -53,7 +53,7 @@
  * T:UntilOptions type {max,noProgressRounds?} loop control for until()
  * T:UntilStep<S> type (state,round)=>Promise<{state,done?,progressKey?}> step function
  * T:PipelineStage type (prev,item,next)=>Promise<next> pipeline step
- * T:PromptIntentOptions type {cwd?,env?,timeout?,purpose?,signal?} options shared by all p.* helpers [NEW]
+ * T:PromptIntentOptions type {cwd?,env?,timeout?,purpose?,signal?} options shared by all p.* helpers
  * s.string/number/integer/boolean/null SchemaHelperFactory primitives; call as value or fn(desc)
  * s.int alias for s.integer; s.nonEmptyString string with minLength:1; s.url string with format:"uri"; s.path string with format:"path"; s.date string with format:"date" validated as YYYY-MM-DD
  * s.positiveInt integer with minimum:1; s.nonNegativeInt integer with minimum:0; s.percent number with minimum:0,maximum:100; NumberSchema/IntegerSchema support minimum/maximum constraints
