@@ -1,64 +1,39 @@
 # 360 - Parallel Branch Analysis Workflow
 
+Demonstrates the `parallel(thunks)` pattern from Claude dynamic workflows: fan
+out two independent agents, then synthesize their results. Uses `parallel` (not
+`Promise.all`) so that a failing agent becomes a `null` hole instead of aborting
+the whole run, and both agents share the workflow's concurrency limiter.
+
 ```rig
 import { agent, p, s, workflow } from "rig";
-
-// Agent role: analyze git branch count and classify active vs stale branches.
-const branchHealthAgent = agent({
-  model: "small",
-  instructions: p`Analyze git branches and classify active vs stale.
-
-Branch list:
-${p.bash("git branch -a 2>/dev/null || echo ''")}
-
-Count totalBranches (all branches listed). List activeBranches as local branch names (lines not starting with "remotes/").
-staleCount = totalBranches - activeBranches.length.`,
-  output: s.object({
-    totalBranches: s.int,
-    staleCount: s.int,
-    activeBranches: s.array(s.string),
-  }),
+// Agent role: run a git analysis command and return a structured summary.
+const gitAnalyzer = agent({
+  input: s.object({ command: s.string("git command to run"), aspect: s.string("what to analyse") }),
+  output: s.object({ aspect: s.string, summary: s.string, count: s.int }),
+  instructions: p`Run the given git command and summarise the requested aspect. Return a one-sentence summary and the total count.`,
 });
-
-// Agent role: analyze git commit frequency over the last 30 days.
-const commitFrequencyAgent = agent({
-  model: "small",
-  instructions: p`Analyze git commit frequency over the last 30 days.
-
-Commit dates:
-${p.bash("git log --since='30 days ago' --format='%ad' --date=short 2>/dev/null || echo ''")}
-
-totalCommits = number of non-empty lines. activeDays = number of unique dates.
-averagePerDay = totalCommits / 30.`,
-  output: s.object({
-    totalCommits: s.int,
-    activeDays: s.int,
-    averagePerDay: s.number,
-  }),
-});
-
-// Workflow role: run branch health and commit frequency agents, then synthesize an overall health rating.
+// Workflow role: fan out two analysis calls with parallel(thunks) — the Claude
+// dynamic-workflow pattern — so a failing call becomes a null hole and both
+// calls share the concurrency limiter. Mirrors `parallel(areas.map(...))`.
 const parallelBranchAnalysisWorkflow = workflow({
-  meta: { name: "parallelBranchAnalysis", description: "Parallel branch and commit analysis", phases: ["Analyze", "Synthesize"] },
-  body: async ({ call, phase }) => {
+  meta: { name: "parallelBranchAnalysis", description: "Parallel git analysis", phases: ["Analyze", "Synthesize"] },
+  body: async ({ call, parallel, phase }) => {
     phase("Analyze");
-    const [branchHealth, commitFrequency] = await Promise.all([
-      call(branchHealthAgent, "analyze branch health"),
-      call(commitFrequencyAgent, "analyze commit frequency"),
+    const [branches, commits] = await parallel([
+      () => call(gitAnalyzer,
+        { command: "git branch -a 2>/dev/null || echo ''", aspect: "branch count and staleness" },
+        { label: "branches" }),
+      () => call(gitAnalyzer,
+        { command: "git log --since='30 days ago' --oneline 2>/dev/null || echo ''", aspect: "commit frequency" },
+        { label: "commits" }),
     ]);
-
     phase("Synthesize");
-    const overallHealth = await call.json(
-      `Given branchHealth=${JSON.stringify(branchHealth)} and commitFrequency=${JSON.stringify(commitFrequency)},
-       classify overallHealth as "healthy" (averagePerDay >= 1 and staleCount < 3),
-       "needs-attention" (averagePerDay < 1 or staleCount >= 3), or "critical" (averagePerDay < 0.1 or staleCount >= 10).`,
-      s.enum("healthy", "needs-attention", "critical"),
+    return call.json(
+      `branches=${JSON.stringify(branches)} commits=${JSON.stringify(commits)}. Classify repo health as "healthy", "needs-attention", or "critical".`,
+      s.object({ health: s.enum("healthy", "needs-attention", "critical"), rationale: s.string }),
     );
-
-    return { branchHealth, commitFrequency, overallHealth };
   },
 });
-
 export default parallelBranchAnalysisWorkflow;
-
 ```
