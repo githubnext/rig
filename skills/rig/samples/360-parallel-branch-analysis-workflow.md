@@ -5,6 +5,9 @@ dynamic workflows. `parallel` respects the shared concurrency limiter and
 converts failures to `null` holes. Use it instead of `Promise.all` when porting
 a Claude dynamic workflow.
 
+See [claude-workflow-conversion.md](../references/claude-workflow-conversion.md)
+for the full primitive mapping.
+
 ```rig
 import { agent, p, s, workflow } from "rig";
 

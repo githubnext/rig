@@ -162,6 +162,7 @@ workflow patterns — use them as starting points when converting a script:
 | [310-workflow-audit-verify.md](../samples/310-workflow-audit-verify.md) | `args`→`input`, `parallel`, `pipeline`, `phase`, `call.json` — mirrors the canonical find-and-verify pattern |
 | [320-budget-aware-crawler.md](../samples/320-budget-aware-crawler.md) | `log`, `budget.remaining()`, `until` convergence loop |
 | [330-nested-workflow-composition.md](../samples/330-nested-workflow-composition.md) | `call.workflow` (rig equivalent of `workflow(ref, args)`) sharing the parent's limiter and budget |
+| [360-parallel-branch-analysis-workflow.md](../samples/360-parallel-branch-analysis-workflow.md) | `const [a, b] = await parallel([...])` destructuring — the common Claude pattern for a fixed set of concurrent calls |
 
 ## Related references
 
