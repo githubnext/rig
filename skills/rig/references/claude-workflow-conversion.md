@@ -40,6 +40,27 @@ The launcher runs every program — including one whose root export is an `agent
 inside a workflow run, so a partially ported script can call `phase()` and `log()`
 at top level before the orchestration itself moves into `workflow({ body })`.
 
+For flat scripts that use `call`, `pipeline`, or `parallel` at the top level
+(the Claude dynamic workflow style), import those from `"rig/globals"`:
+
+```ts
+import { call, parallel, pipeline } from "rig/globals";
+import { phase, log, workflow, s } from "rig";
+
+// Flat Claude-style code: runs inside the launcher's workflow context
+phase("Find");
+const result = await call.json("List issues.", s.object({ issues: s.array(s.string) }));
+log(`found ${result?.issues.length ?? 0} issues`);
+
+export default workflow({ meta: { name: "flat-port", description: "direct port" },
+  body: async () => result });
+```
+
+The `rig/globals` proxies route through whatever workflow run is active.
+They throw if called outside a run. Import from `"rig/globals"` only in
+top-level launcher programs ported from flat scripts; prefer explicit
+`body({ call })` destructuring inside `workflow()` bodies.
+
 ## Schema conversion
 
 Dynamic workflows pass OpenAI-strict JSON Schema literals. rig schemas are
@@ -159,6 +180,7 @@ workflow patterns — use them as starting points when converting a script:
 
 | Sample | Demonstrates |
 | --- | --- |
+| [340-flat-workflow-port.md](../samples/340-flat-workflow-port.md) | Flat/top-level script port using `"rig/globals"` ambient `call`/`pipeline` — minimal-change first step when porting a Claude flat workflow |
 | [310-workflow-audit-verify.md](../samples/310-workflow-audit-verify.md) | `args`→`input`, `parallel`, `pipeline`, `phase`, `call.json` — mirrors the canonical find-and-verify pattern |
 | [320-budget-aware-crawler.md](../samples/320-budget-aware-crawler.md) | `log`, `budget.remaining()`, `until` convergence loop |
 | [330-nested-workflow-composition.md](../samples/330-nested-workflow-composition.md) | `call.workflow` (rig equivalent of `workflow(ref, args)`) sharing the parent's limiter and budget |
