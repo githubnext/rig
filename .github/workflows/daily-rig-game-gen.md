@@ -20,7 +20,7 @@ strict: true
 timeout-minutes: 30
 checkout: false
 skills:
-  - githubnext/rig/skills/rig@0a5f8354cf72bbe658a838e42a360b56e811190d
+  - githubnext/rig/skills/rig@e7d6ad85cd93946a8c09ebbdc1280ca62abd9de5
 tools:
   bash: ["*"]
 network:
