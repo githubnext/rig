@@ -114,9 +114,9 @@ const GameGenReport = s.object({
 
 type RunResult = { code: number | null; stdout: string; stderr: string };
 
-function runRigEntry(programSource: string, flags: string[]): Promise<RunResult> {
+async function runRigEntry(programSource: string, flags: string[]): Promise<RunResult> {
+  const { spawn } = await import("node:child_process");
   return new Promise((resolveRun, rejectRun) => {
-    const { spawn } = require("node:child_process");
     const child = spawn(process.execPath, [RIG_ENTRY, ...flags], {
       cwd: process.cwd(),
       stdio: ["pipe", "pipe", "pipe"],
@@ -131,27 +131,38 @@ function runRigEntry(programSource: string, flags: string[]): Promise<RunResult>
   });
 }
 
+type VerifyResult = {
+  typecheckPassed: boolean;
+  typecheckOutput: string;
+  executePassed: boolean;
+  executeOutput: string;
+};
+
+async function verifyProgramSource(source: string): Promise<VerifyResult> {
+  const typecheck = await runRigEntry(source, ["--typecheck"]);
+  if (typecheck.code !== 0) {
+    return {
+      typecheckPassed: false,
+      typecheckOutput: (typecheck.stderr || typecheck.stdout).trim(),
+      executePassed: false,
+      executeOutput: "",
+    };
+  }
+  const execution = await runRigEntry(source, ["--server"]);
+  return {
+    typecheckPassed: true,
+    typecheckOutput: typecheck.stderr.trim(),
+    executePassed: execution.code === 0,
+    executeOutput: (execution.code === 0 ? execution.stdout : (execution.stderr || execution.stdout)).trim(),
+  };
+}
+
 const verifyProgram = defineTool("verify_program", {
   description:
     "Typecheck and, if that passes, execute a rig TypeScript program via the installed rig CLI (piped over stdin; no file path, no repo checkout).",
   parameters: s.object({ source: s.string }),
   async handler({ source }: { source: string }) {
-    const typecheck = await runRigEntry(source, ["--typecheck"]);
-    if (typecheck.code !== 0) {
-      return {
-        typecheckPassed: false,
-        typecheckOutput: (typecheck.stderr || typecheck.stdout).trim(),
-        executePassed: false,
-        executeOutput: "",
-      };
-    }
-    const execution = await runRigEntry(source, ["--server"]);
-    return {
-      typecheckPassed: true,
-      typecheckOutput: typecheck.stderr.trim(),
-      executePassed: execution.code === 0,
-      executeOutput: (execution.code === 0 ? execution.stdout : (execution.stderr || execution.stdout)).trim(),
-    };
+    return verifyProgramSource(source);
   },
 });
 
@@ -224,7 +235,7 @@ const runGameGeneration = defineTool("run_game_generation", {
       const written = await writeGameProgram(writeInput);
       source = written.source;
 
-      const verification = await verifyProgram.handler({ source });
+      const verification = await verifyProgramSource(source);
       attempts.push({
         attempt: attemptNumber,
         typecheckPassed: verification.typecheckPassed,
@@ -273,7 +284,6 @@ const runGameGeneration = defineTool("run_game_generation", {
 const gameGenCoordinator = agent({
   name: "game-gen-coordinator",
   model: "small",
-  agents: { pickConcept, writeGameProgram },
   tools: [verifyProgram, runGameGeneration],
   instructions: "Call run_game_generation exactly once with an empty object and return its result unchanged.",
   output: GameGenReport,
