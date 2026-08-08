@@ -1,0 +1,9 @@
+{
+  "name": "rig",
+  "private": true,
+  "type": "module",
+  "exports": {
+    ".": "./rig.ts",
+    "./globals": "./globals.ts"
+  }
+}
