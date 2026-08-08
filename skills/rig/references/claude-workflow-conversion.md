@@ -17,7 +17,7 @@ primitives from its context instead of from globals.
 | `export const meta = { name, description, phases, whenToUse }` | `workflow({ meta: { name, description, phases, whenToUse } })` | `phases` accepts `"Title"` or `{ title, detail }`; `meta` may reference variables |
 | `args` (JSON string or object) | `input` schema + `context.input` | Parsed and validated by the launcher; no defensive `JSON.parse` |
 | `await agent(prompt)` | `await call.text(prompt, options?)` | Returns `string \| null` |
-| `await agent(prompt, { schema })` | `await call.json(prompt, schema, options?)` | `schema` is `s.object({ ... })`; result is typed and validated |
+| `await agent(prompt, { schema })` | `await call.json(prompt, schema, options?)` | `schema` is any `s.*` value (`s.object`, `s.enum`, `s.array`, …); result is typed and validated |
 | Reused prompt + schema pair | `agent({ input, output, instructions })` then `call(worker, input, options?)` | Preferred for anything invoked more than once |
 | `parallel(thunks)` | `parallel(thunks)` | Same barrier semantics; failures become `null` holes |
 | `pipeline(items, ...stages)` | `pipeline(items, ...stages)` | Stages receive `(previous, item, index)`; the first stage's `previous` is the item |
@@ -162,6 +162,7 @@ workflow patterns — use them as starting points when converting a script:
 | [310-workflow-audit-verify.md](../samples/310-workflow-audit-verify.md) | `args`→`input`, `parallel`, `pipeline`, `phase`, `call.json` — mirrors the canonical find-and-verify pattern |
 | [320-budget-aware-crawler.md](../samples/320-budget-aware-crawler.md) | `log`, `budget.remaining()`, `until` convergence loop |
 | [330-nested-workflow-composition.md](../samples/330-nested-workflow-composition.md) | `call.workflow` (rig equivalent of `workflow(ref, args)`) sharing the parent's limiter and budget |
+| [360-parallel-branch-analysis-workflow.md](../samples/360-parallel-branch-analysis-workflow.md) | `parallel(thunks)` with named agents and `call.json` returning `s.enum` — a standalone parallel fan-in |
 
 ## Related references
 
