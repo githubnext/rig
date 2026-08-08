@@ -21,41 +21,6 @@ timeout-minutes: 30
 checkout: false
 skills:
   - githubnext/rig/skills/rig@4a8dfa2f79a12f09a6171c291c4ef288673674a8
-pre-agent-steps:
-  - name: Prepare standalone rig CLI shim (no repository checkout)
-    run: |
-      set -euo pipefail
-      if [ ! -f .github/skills/rig/rig.ts ]; then
-        echo "::error::rig skill was not installed at .github/skills/rig" >&2
-        exit 1
-      fi
-      cat > package.json <<'PKGJSON'
-      {
-        "name": "rig",
-        "private": true,
-        "type": "module",
-        "exports": {
-          ".": "./.github/skills/rig/rig.ts",
-          "./globals": "./.github/skills/rig/globals.ts"
-        }
-      }
-      PKGJSON
-      cat > tsconfig.json <<'TSCONFIG'
-      {
-        "compilerOptions": {
-          "target": "ES2022",
-          "module": "Node16",
-          "moduleResolution": "Node16",
-          "strict": true,
-          "skipLibCheck": true,
-          "noEmit": true,
-          "allowImportingTsExtensions": true,
-          "paths": { "rig": ["./.github/skills/rig/rig.ts"] }
-        },
-        "include": ["**/*.ts", "**/*.mts"]
-      }
-      TSCONFIG
-      echo "Wrote standalone package.json + tsconfig.json pointing at .github/skills/rig"
 tools:
   bash: ["*"]
 network:
@@ -71,12 +36,12 @@ safe-outputs:
 ## Task
 
 This workflow runs **without checking out the repository**. The `rig` skill is installed
-directly from GitHub via the frontmatter `skills:` field (no `gh skill install --from-local`
-step, no dependency on other repository files such as `skills/rig/samples/`). A
-`pre-agent-steps` step writes a minimal `package.json` (`"name": "rig"`, with `exports`
-pointing at the installed skill) and `tsconfig.json` (with a `paths` alias for `rig`) into
-the workspace root so that generated programs importing `from "rig"` resolve correctly
-both at typecheck time and at runtime, exactly as they would in the full repository.
+directly from GitHub via the frontmatter `skills:` field only — nothing beyond that
+install is prepared: the skill itself ships its own `package.json` (`"name": "rig"`, with
+`exports` pointing at its own `rig.ts`/`globals.ts`) and `tsconfig.json`, so generated
+programs importing `from "rig"` resolve correctly both at typecheck time and at runtime as
+long as the rig CLI subprocess is run with its working directory set to the installed
+skill directory (`.github/skills/rig`).
 
 Run this rig program:
 
@@ -85,7 +50,8 @@ import { agent, configureAgent, copilotEngine, defineTool, p, s } from "rig";
 
 configureAgent(copilotEngine({ server: true }));
 
-const RIG_ENTRY = ".github/skills/rig/rig.ts";
+const RIG_SKILL_DIR = ".github/skills/rig";
+const RIG_ENTRY = `${RIG_SKILL_DIR}/rig.ts`;
 const MAX_ATTEMPTS = 3;
 
 const GameConcept = s.object({
@@ -116,9 +82,17 @@ type RunResult = { code: number | null; stdout: string; stderr: string };
 
 async function runRigEntry(programSource: string, flags: string[]): Promise<RunResult> {
   const { spawn } = await import("node:child_process");
+  const { resolve: resolvePath } = await import("node:path");
+  const rigEntryPath = resolvePath(process.cwd(), RIG_ENTRY);
+  const rigSkillDir = resolvePath(process.cwd(), RIG_SKILL_DIR);
   return new Promise((resolveRun, rejectRun) => {
-    const child = spawn(process.execPath, [RIG_ENTRY, ...flags], {
-      cwd: process.cwd(),
+    const child = spawn(process.execPath, [rigEntryPath, ...flags], {
+      // Run with cwd set to the installed skill directory (not the workspace
+      // root, which has no repository checkout) so that Node's package
+      // self-reference resolves bare `from "rig"` imports via the skill's own
+      // package.json, both for typecheck and for the temp files it writes
+      // under its own `.tmp/` during execution.
+      cwd: rigSkillDir,
       stdio: ["pipe", "pipe", "pipe"],
     });
     let stdout = "";
