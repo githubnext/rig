@@ -2,7 +2,7 @@ import { beforeEach, expect, it, vi } from "vitest";
 import { resolve, dirname } from "node:path";
 import { Readable, Writable } from "node:stream";
 import { fileURLToPath } from "node:url";
-import { mkdtemp, rm, writeFile } from "node:fs/promises";
+import { cp, mkdir, mkdtemp, readdir, rm, symlink, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 
 const mocks = vi.hoisted(() => {
@@ -424,6 +424,58 @@ export default root;
   }
 });
 
+
+it("typechecks a program in a standalone skill install missing optional engine peer deps", async () => {
+  // Simulate the `skills:` frontmatter install: only the skill directory is
+  // present, with node_modules symlinked in but *without* the optional
+  // anthropic/codex/gemini peer dependencies. `--typecheck` must not fail on
+  // those unused engines just because rig.ts references them via dynamic
+  // `import()` inside defaultAgentFactory.
+  const repoRoot = resolve(dirname(fileURLToPath(import.meta.url)), "..");
+  const skillDir = resolve(repoRoot, "skills/rig");
+  const tempDir = await mkdtemp(resolve(tmpdir(), "rig-standalone-skill-"));
+  try {
+    await cp(skillDir, tempDir, { recursive: true });
+    const nodeModulesDir = resolve(tempDir, "node_modules");
+    await mkdir(nodeModulesDir, { recursive: true });
+    const sourceNodeModules = resolve(repoRoot, "node_modules");
+    const excluded = new Set(["@anthropic-ai", "@openai", "@earendil-works"]);
+    const entries = await readdir(sourceNodeModules);
+    for (const entry of entries) {
+      if (excluded.has(entry)) continue;
+      await symlink(resolve(sourceNodeModules, entry), resolve(nodeModulesDir, entry), "junction").catch(() => {});
+    }
+
+    const fixturePath = resolve(tempDir, "program.ts");
+    await writeFile(
+      fixturePath,
+      `
+import { agent, s } from "rig";
+const root = agent({
+  name: "standalone-skill-program",
+  output: s.object({ ok: s.boolean }),
+  instructions: "test",
+});
+export default root;
+`,
+      "utf8",
+    );
+
+    const stdin = Readable.from(["Review this patch"]);
+    const output: string[] = [];
+    const stdout = new Writable({
+      write(chunk, _encoding, callback) {
+        output.push(chunk.toString());
+        callback();
+      },
+    });
+
+    await runLauncherCli([fixturePath, "--typecheck"], { cwd: tempDir }, { stdin, stdout });
+    expect(output.join("")).toBe("typecheck passed\n");
+  } finally {
+    await rm(tempDir, { recursive: true, force: true });
+  }
+});
 
 it("runs an inlined stdin program by invoking the default no-input root agent", async () => {
   const stdin = Readable.from([`

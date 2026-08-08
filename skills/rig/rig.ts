@@ -533,20 +533,32 @@ function resolveDefaultEngineKind(options: DefaultEngineOptions = {}): DefaultEn
   return "copilot";
 }
 
+// Optional engines (anthropic/codex/gemini) depend on peer packages that are
+// not guaranteed to be installed when the `rig` skill is fetched standalone
+// (no repo checkout, no `npm install` of devDependencies). Importing these
+// modules through a non-literal specifier keeps TypeScript from resolving and
+// transitively typechecking them — a literal `import("./engines/x.ts")`
+// forces `tsc` to typecheck that file (and its imports) even though it is
+// only loaded at runtime when that engine is actually selected, which made
+// `--typecheck` fail on unrelated missing-peer-dependency errors.
+async function importOptionalEngine(relativePath: string): Promise<any> {
+  return import(relativePath);
+}
+
 function defaultAgentFactory(options: DefaultEngineOptions = {}): AgentFactory {
   return async (agentOptions) => {
     const kind = resolveDefaultEngineKind(options);
     debugEngineSelect({ kind, model: agentOptions.model });
     if (kind === "anthropic") {
-      const { anthropicEngine } = await import("./engines/anthropic.ts");
+      const { anthropicEngine } = await importOptionalEngine("./engines/anthropic.ts");
       return anthropicEngine()(agentOptions);
     }
     if (kind === "codex") {
-      const { codexEngine } = await import("./engines/codex.ts");
+      const { codexEngine } = await importOptionalEngine("./engines/codex.ts");
       return codexEngine(options.cwd ? { thread: { workingDirectory: options.cwd } } : {})(agentOptions);
     }
     if (kind === "gemini") {
-      const { geminiEngine } = await import("./engines/gemini.ts");
+      const { geminiEngine } = await importOptionalEngine("./engines/gemini.ts");
       return geminiEngine(options.cwd ? { cwd: options.cwd } : {})(agentOptions);
     }
     const copilotOptions = options.cwd
