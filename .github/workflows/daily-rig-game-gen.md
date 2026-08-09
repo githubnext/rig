@@ -101,7 +101,7 @@ async function runRigEntry(programSource: string, flags: string[]): Promise<RunR
     let timedOut = false;
     const timer = setTimeout(() => {
       timedOut = true;
-      stderr += `\n[timed out after ${SUBPROCESS_TIMEOUT_MS}ms]`;
+      stderr += `\n[timed out after ${SUBPROCESS_TIMEOUT_MS / 60000} minutes]`;
       child.kill("SIGKILL");
     }, SUBPROCESS_TIMEOUT_MS);
     child.stdout.on("data", (chunk: Buffer) => { stdout += String(chunk); });
