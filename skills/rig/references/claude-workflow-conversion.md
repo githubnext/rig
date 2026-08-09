@@ -17,7 +17,7 @@ primitives from its context instead of from globals.
 | `export const meta = { name, description, phases, whenToUse }` | `workflow({ meta: { name, description, phases, whenToUse } })` | `phases` accepts `"Title"` or `{ title, detail }`; `meta` may reference variables |
 | `args` (JSON string or object) | `input` schema + `context.input` | Parsed and validated by the launcher; no defensive `JSON.parse` |
 | `await agent(prompt)` | `await call.text(prompt, options?)` | Returns `string \| null` |
-| `await agent(prompt, { schema })` | `await call.json(prompt, schema, options?)` | `schema` is `s.object({ ... })`; result is typed and validated |
+| `await agent(prompt, { schema })` | `await call.json(prompt, schema, options?)` | `schema` is any `s.*` value (`s.object`, `s.enum`, `s.array`, …); result is typed and validated. Claude workflows only support object schemas; rig accepts any schema type. |
 | Reused prompt + schema pair | `agent({ input, output, instructions })` then `call(worker, input, options?)` | Preferred for anything invoked more than once |
 | `parallel(thunks)` | `parallel(thunks)` | Same barrier semantics; failures become `null` holes |
 | `pipeline(items, ...stages)` | `pipeline(items, ...stages)` | Stages receive `(previous, item, index)`; the first stage's `previous` is the item |
@@ -165,6 +165,7 @@ export default audit;
 - **Nesting depth.** `call.workflow` has no one-level restriction, but it shares
   the parent's `maxAgents` and concurrency, so a nested run cannot escape the
   parent's limits.
+- **Richer schema types.** Claude workflows only support object schemas in `agent(prompt, { schema })`; rig's `call.json(prompt, schema)` accepts any `s.*` schema — `s.enum`, `s.array`, `s.string`, or any nested combination — and infers the TypeScript return type automatically.
 - **No sandbox restrictions.** rig programs are normal TypeScript modules:
   `Date.now()`, imports, and Node built-ins are allowed, and the launcher owns
   isolation instead of the runtime.
