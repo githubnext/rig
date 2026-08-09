@@ -5,7 +5,8 @@ const fsMocks = vi.hoisted(() => ({
 }));
 
 const mocks = vi.hoisted(() => {
-  let sendAndWaitImpl: (request: { prompt: string; signal?: AbortSignal }) => unknown | Promise<unknown> = async () => JSON.stringify("default");
+  let sendAndWaitImpl: (request: { prompt: string; signal?: AbortSignal; outputSchema?: unknown }) => unknown | Promise<unknown> = async () => JSON.stringify("default");
+  const sendAndWaitRequests: Array<{ prompt: string; signal?: AbortSignal; outputSchema?: unknown }> = [];
   let onImpl: ((handler: (event: unknown) => void) => void) | undefined;
   const approveAll = vi.fn();
   const disconnectSession = vi.fn(async () => {});
@@ -16,7 +17,8 @@ const mocks = vi.hoisted(() => {
       onImpl?.(handler);
       return () => {};
     }) : undefined,
-    sendAndWait: async (request: { prompt: string; signal?: AbortSignal }) => {
+    sendAndWait: async (request: { prompt: string; signal?: AbortSignal; outputSchema?: unknown }) => {
+      sendAndWaitRequests.push(request);
       const response = await sendAndWaitImpl(request);
       return typeof response === "string" ? response : JSON.stringify(response);
     },
@@ -29,7 +31,7 @@ const mocks = vi.hoisted(() => {
     copilotClientCtor(options);
     return { createSession, stop: stopClient };
   };
-  const setSendAndWaitImpl = (impl: (request: { prompt: string; signal?: AbortSignal }) => unknown | Promise<unknown>) => {
+  const setSendAndWaitImpl = (impl: (request: { prompt: string; signal?: AbortSignal; outputSchema?: unknown }) => unknown | Promise<unknown>) => {
     sendAndWaitImpl = impl;
   };
   const setOnImpl = (impl?: (handler: (event: unknown) => void) => void) => {
@@ -44,6 +46,7 @@ const mocks = vi.hoisted(() => {
     forStdio,
     copilotClientCtor,
     CopilotClient,
+    sendAndWaitRequests,
     setSendAndWaitImpl,
     setOnImpl,
   };
@@ -70,6 +73,7 @@ beforeEach(() => {
   mocks.copilotClientCtor.mockClear();
   mocks.disconnectSession.mockClear();
   mocks.stopClient.mockClear();
+  mocks.sendAndWaitRequests.length = 0;
   fsMocks.writeSync.mockClear();
   fsMocks.writeSync.mockImplementation((_fd, data) => Buffer.byteLength(String(data)));
   mocks.setOnImpl(undefined);
@@ -744,6 +748,21 @@ describe("agent invocation", () => {
         skipPermission: true,
       })],
     });
+  });
+
+  it("passes output schemas to engine calls", async () => {
+    mocks.setSendAndWaitImpl(async () => ({ text: "ok" }));
+    const output = s.object({ text: s.string });
+
+    const call = agent({
+      name: "schema-test",
+      output,
+    });
+    await call("x");
+
+    expect(mocks.sendAndWaitRequests[0]).toEqual(expect.objectContaining({
+      outputSchema: toJsonSchema(output),
+    }));
   });
 
   it("supports timeout and abort signals", async () => {
