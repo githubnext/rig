@@ -589,9 +589,13 @@ export function copilotEngine(options: CopilotEngineOptions = {}): AgentFactory 
 
     return {
       async ask(prompt, askOptions = {}) {
-        debugCopilotAsk({ prompt });
+        debugCopilotAsk({ prompt, structured: askOptions.outputSchema !== undefined });
         const response = await (session.sendAndWait as any)(
-          askOptions.signal ? { prompt, signal: askOptions.signal } : { prompt },
+          {
+            prompt,
+            ...(askOptions.signal ? { signal: askOptions.signal } : {}),
+            ...(askOptions.outputSchema !== undefined ? { outputSchema: askOptions.outputSchema } : {}),
+          },
         );
         const text = responseText(response);
         debugCopilotResponse({ response: text });
