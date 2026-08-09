@@ -17,7 +17,7 @@ engine:
   id: copilot
   copilot-sdk: true
 strict: true
-timeout-minutes: 30
+timeout-minutes: 45
 checkout: false
 skills:
   - githubnext/rig/skills/rig@e7d6ad85cd93946a8c09ebbdc1280ca62abd9de5
@@ -52,7 +52,8 @@ configureAgent(copilotEngine({ server: true }));
 
 const RIG_SKILL_DIR = ".github/skills/rig";
 const RIG_ENTRY = `${RIG_SKILL_DIR}/rig.ts`;
-const MAX_ATTEMPTS = 3;
+const MAX_ATTEMPTS = 2;
+const SUBPROCESS_TIMEOUT_MS = 10 * 60 * 1000;
 
 const GameConcept = s.object({
   title: s.string,
@@ -97,10 +98,19 @@ async function runRigEntry(programSource: string, flags: string[]): Promise<RunR
     });
     let stdout = "";
     let stderr = "";
+    let timedOut = false;
+    const timer = setTimeout(() => {
+      timedOut = true;
+      stderr += `\n[timed out after ${SUBPROCESS_TIMEOUT_MS / 60000} minutes]`;
+      child.kill("SIGKILL");
+    }, SUBPROCESS_TIMEOUT_MS);
     child.stdout.on("data", (chunk: Buffer) => { stdout += String(chunk); });
     child.stderr.on("data", (chunk: Buffer) => { stderr += String(chunk); });
-    child.on("error", rejectRun);
-    child.on("close", (code: number | null) => resolveRun({ code, stdout, stderr }));
+    child.on("error", (error) => { clearTimeout(timer); rejectRun(error); });
+    child.on("close", (code: number | null) => {
+      clearTimeout(timer);
+      resolveRun({ code: timedOut ? null : code, stdout, stderr });
+    });
     child.stdin.end(programSource);
   });
 }
