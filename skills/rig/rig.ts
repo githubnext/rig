@@ -498,6 +498,39 @@ function resolveDefaultCopilotUri(): string {
   return process.env["COPILOT_SDK_URI"] ?? "localhost:7777";
 }
 
+function resolveDefaultCopilotConnection(): NonNullable<CopilotClientOptions["connection"]> {
+  const connectionToken = process.env["COPILOT_CONNECTION_TOKEN"];
+  return connectionToken
+    ? RuntimeConnection.forUri(resolveDefaultCopilotUri(), { connectionToken })
+    : RuntimeConnection.forUri(resolveDefaultCopilotUri());
+}
+
+type CopilotMultiProvider = {
+  model: string;
+  providers: unknown[];
+  models: unknown[];
+};
+
+function resolveCopilotMultiProvider(): CopilotMultiProvider | undefined {
+  const raw = process.env["GH_AW_COPILOT_SDK_MULTI_PROVIDER_JSON"];
+  if (!raw) {
+    return undefined;
+  }
+  try {
+    const value = JSON.parse(raw) as Partial<CopilotMultiProvider>;
+    return typeof value.model === "string" && Array.isArray(value.providers) && Array.isArray(value.models)
+      ? { model: value.model, providers: value.providers, models: value.models }
+      : undefined;
+  } catch {
+    return undefined;
+  }
+}
+
+function copilotSendTimeout(): number {
+  const timeout = Number(process.env["COPILOT_SDK_SEND_TIMEOUT_MS"]);
+  return Number.isFinite(timeout) && timeout > 0 ? timeout : 24 * 60 * 60 * 1000;
+}
+
 type DefaultEngineKind = "copilot" | "anthropic" | "codex" | "gemini";
 
 type DefaultEngineOptions = {
@@ -570,16 +603,18 @@ function defaultAgentFactory(options: DefaultEngineOptions = {}): AgentFactory {
 
 export function copilotEngine(options: CopilotEngineOptions = {}): AgentFactory {
   const { server, connection, ...clientOptions } = options;
+  const multiProvider = resolveCopilotMultiProvider();
   return async (agentOptions) => {
     debugCopilotCreate({ model: agentOptions.model, transport: connection ? "custom" : server ? "stdio" : "uri" });
     const client = new CopilotClient({
       ...clientOptions,
-      connection: connection ?? (server ? RuntimeConnection.forStdio() : RuntimeConnection.forUri(resolveDefaultCopilotUri())),
+      connection: connection ?? (server ? RuntimeConnection.forStdio() : resolveDefaultCopilotConnection()),
     });
     const session = await client.createSession({
-      model: agentOptions.model,
+      model: multiProvider?.model ?? agentOptions.model,
       streaming: false,
       onPermissionRequest: approveAll,
+      ...(multiProvider ? { providers: multiProvider.providers, models: multiProvider.models } as any : {}),
       ...(agentOptions.systemMessage !== undefined && { systemMessage: agentOptions.systemMessage as any }),
       ...(agentOptions.tools !== undefined && { tools: agentOptions.tools as any }),
     });
@@ -590,12 +625,18 @@ export function copilotEngine(options: CopilotEngineOptions = {}): AgentFactory 
     return {
       async ask(prompt, askOptions = {}) {
         debugCopilotAsk({ prompt, structured: askOptions.outputSchema !== undefined });
-        const response = await (session.sendAndWait as any)(
-          {
-            prompt,
-            ...(askOptions.signal ? { signal: askOptions.signal } : {}),
-            ...(askOptions.outputSchema !== undefined ? { outputSchema: askOptions.outputSchema } : {}),
-          },
+        throwIfAborted(askOptions.signal);
+        const response = await abortable(
+          (session.sendAndWait as any)(
+            {
+              prompt,
+              ...(askOptions.signal ? { signal: askOptions.signal } : {}),
+              ...(askOptions.outputSchema !== undefined ? { outputSchema: askOptions.outputSchema } : {}),
+            },
+            copilotSendTimeout(),
+          ),
+          askOptions.signal,
+          () => (session as any).abort?.(),
         );
         const text = responseText(response);
         debugCopilotResponse({ response: text });
@@ -3281,6 +3322,24 @@ function throwIfAborted(signal?: AbortSignal): void {
   if (signal?.aborted) {
     throw signal.reason ?? new DOMException("Aborted", "AbortError");
   }
+}
+
+function abortable<T>(promise: Promise<T>, signal?: AbortSignal, onAbort?: () => void): Promise<T> {
+  throwIfAborted(signal);
+  if (!signal) {
+    return promise;
+  }
+  return new Promise<T>((resolve, reject) => {
+    const abort = () => {
+      try {
+        onAbort?.();
+      } finally {
+        reject(signal.reason ?? new DOMException("Aborted", "AbortError"));
+      }
+    };
+    signal.addEventListener("abort", abort, { once: true });
+    promise.then(resolve, reject).finally(() => signal.removeEventListener("abort", abort));
+  });
 }
 
 function timeoutSignal(parent?: AbortSignal, timeout?: number): AbortSignal | undefined {
