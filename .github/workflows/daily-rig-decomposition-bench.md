@@ -49,28 +49,26 @@ skill directory (`.github/skills/rig`).
 Run this rig program:
 
 ```rig
-import { agent, configureAgent, copilotEngine, defineTool, p, s } from "rig";
+import { agent, configureAgent, copilotEngine, p, s, workflow } from "rig";
 
 configureAgent(copilotEngine({ server: true }));
 
 const RIG_SKILL_DIR = ".github/skills/rig";
 const RIG_ENTRY = `${RIG_SKILL_DIR}/rig.ts`;
 const MAX_ATTEMPTS = 2;
-const SUBPROCESS_TIMEOUT_MS = 10 * 60 * 1000;
+const TYPECHECK_TIMEOUT_MS = 2 * 60 * 1000;
+const EXECUTE_TIMEOUT_MS = 5 * 60 * 1000;
+// Hard wall-clock budget for the whole benchmark, well below the job's
+// `timeout-minutes`, so the outer agent always has time left to file the issue.
+const BENCH_DEADLINE = Date.now() + 25 * 60 * 1000;
+
+const msLeft = () => BENCH_DEADLINE - Date.now();
 
 const TaskSpec = s.object({
   title: s.string,
   domain: s.string,
   description: s.string,
   successCriteria: s.array(s.string),
-});
-
-const Attempt = s.object({
-  attempt: s.int,
-  typecheckPassed: s.boolean,
-  typecheckOutput: s.string,
-  executePassed: s.boolean,
-  executeOutput: s.string,
 });
 
 const Grading = s.object({
@@ -80,21 +78,16 @@ const Grading = s.object({
   rationale: s.string,
 });
 
-const BenchReport = s.object({
-  task: TaskSpec,
-  singleCallDurationMs: s.number,
-  singleCallSolution: s.string,
-  decomposedAttempts: s.array(Attempt),
-  decomposedFinalStatus: s.enum("passed", "failed"),
-  decomposedDurationMs: s.number,
-  decomposedProgramSource: s.string,
-  decomposedSolution: s.string,
-  grading: Grading,
-});
-
 type RunResult = { code: number | null; stdout: string; stderr: string };
 
-async function runRigEntry(programSource: string, flags: string[]): Promise<RunResult> {
+async function runRigEntry(
+  programSource: string,
+  flags: string[],
+  timeoutMs: number,
+): Promise<RunResult> {
+  if (timeoutMs <= 0) {
+    return { code: null, stdout: "", stderr: "[skipped: benchmark time budget exhausted]" };
+  }
   const { spawn } = await import("node:child_process");
   const { resolve: resolvePath } = await import("node:path");
   const rigEntryPath = resolvePath(process.cwd(), RIG_ENTRY);
@@ -114,9 +107,9 @@ async function runRigEntry(programSource: string, flags: string[]): Promise<RunR
     let timedOut = false;
     const timer = setTimeout(() => {
       timedOut = true;
-      stderr += `\n[timed out after ${SUBPROCESS_TIMEOUT_MS / 60000} minutes]`;
+      stderr += `\n[timed out after ${Math.round(timeoutMs / 1000)}s]`;
       child.kill("SIGKILL");
-    }, SUBPROCESS_TIMEOUT_MS);
+    }, timeoutMs);
     child.stdout.on("data", (chunk: Buffer) => { stdout += String(chunk); });
     child.stderr.on("data", (chunk: Buffer) => { stderr += String(chunk); });
     child.on("error", (error) => { clearTimeout(timer); rejectRun(error); });
@@ -136,7 +129,11 @@ type VerifyResult = {
 };
 
 async function verifyProgramSource(source: string): Promise<VerifyResult> {
-  const typecheck = await runRigEntry(source, ["--typecheck"]);
+  const typecheck = await runRigEntry(
+    source,
+    ["--typecheck"],
+    Math.min(TYPECHECK_TIMEOUT_MS, msLeft()),
+  );
   if (typecheck.code !== 0) {
     return {
       typecheckPassed: false,
@@ -145,7 +142,11 @@ async function verifyProgramSource(source: string): Promise<VerifyResult> {
       executeOutput: "",
     };
   }
-  const execution = await runRigEntry(source, ["--server"]);
+  const execution = await runRigEntry(
+    source,
+    ["--server"],
+    Math.min(EXECUTE_TIMEOUT_MS, msLeft()),
+  );
   return {
     typecheckPassed: true,
     typecheckOutput: typecheck.stderr.trim(),
@@ -153,15 +154,6 @@ async function verifyProgramSource(source: string): Promise<VerifyResult> {
     executeOutput: (execution.code === 0 ? execution.stdout : (execution.stderr || execution.stdout)).trim(),
   };
 }
-
-const verifyProgram = defineTool("verify_program", {
-  description:
-    "Typecheck and, if that passes, execute a rig TypeScript program via the installed rig CLI (piped over stdin; no file path, no repo checkout).",
-  parameters: s.object({ source: s.string }),
-  async handler({ source }: { source: string }) {
-    return verifyProgramSource(source);
-  },
-});
 
 // Agent role: pick one concrete, complicated daily task that is naturally suited to
 // being split across multiple sub-agents and sub-models rather than solved in one shot.
@@ -248,25 +240,28 @@ criteria. Return "singleCallScore" for A's score, "decomposedScore" for B's scor
 "winner" of "single-call", "decomposed", or "tie", and a "rationale" explaining the
 comparison. Judge on correctness and completeness of content only — do not let solution
 length or which approach produced it bias the score.`,
-  output: s.object({
-    singleCallScore: s.number,
-    decomposedScore: s.number,
-    winner: s.enum("single-call", "decomposed", "tie"),
-    rationale: s.string,
-  }),
+  output: Grading,
 });
 
-const runDecompositionBenchmark = defineTool("run_decomposition_benchmark", {
-  description:
-    "Pick a task suited to decomposition, solve it once with a single model call and once with a decomposed rig program, then grade both solutions against the same criteria.",
-  parameters: s.object({}),
-  async handler() {
+// Workflow role: orchestrate the benchmark deterministically in TypeScript — no LLM
+// coordinator relays the (large) report, so nothing is spent re-emitting it as JSON.
+const decompositionBenchmark = workflow({
+  meta: {
+    name: "decomposition-bench",
+    description:
+      "Pick a task suited to decomposition, solve it once with a single model call and once with a decomposed rig program, then grade both solutions against the same criteria.",
+    phases: ["Pick task", "Single call", "Decompose", "Grade"],
+  },
+  body: async ({ phase, log }) => {
+    phase("Pick task");
     const task = await pickTask("");
 
+    phase("Single call");
     const singleCallStart = Date.now();
     const singleCall = await solveSingleCall({ task });
     const singleCallDurationMs = Date.now() - singleCallStart;
 
+    phase("Decompose");
     const decomposedAttempts: Array<{
       attempt: number;
       typecheckPassed: boolean;
@@ -282,6 +277,10 @@ const runDecompositionBenchmark = defineTool("run_decomposition_benchmark", {
     let passed = false;
 
     for (let attemptNumber = 1; attemptNumber <= MAX_ATTEMPTS; attemptNumber += 1) {
+      if (msLeft() <= TYPECHECK_TIMEOUT_MS) {
+        log(`stopping after ${attemptNumber - 1} attempt(s): benchmark time budget exhausted`);
+        break;
+      }
       const writeInput = attemptNumber === 1
         ? { task }
         : { task, priorSource: source, priorError };
@@ -314,6 +313,7 @@ const runDecompositionBenchmark = defineTool("run_decomposition_benchmark", {
     }
     const decomposedDurationMs = Date.now() - decomposedStart;
 
+    phase("Grade");
     const grading = await gradeSolutions({
       task,
       solutionA: singleCall.solution,
@@ -334,17 +334,14 @@ const runDecompositionBenchmark = defineTool("run_decomposition_benchmark", {
   },
 });
 
-// Agent role: run the decomposition benchmark once and return its result unchanged.
-const benchmarkCoordinator = agent({
-  name: "decomposition-bench-coordinator",
-  model: "small",
-  tools: [verifyProgram, runDecompositionBenchmark],
-  instructions: "Call run_decomposition_benchmark exactly once with an empty object and return its result unchanged.",
-  output: BenchReport,
-});
-
-export default benchmarkCoordinator;
+export default decompositionBenchmark;
 ```
+
+Run the program exactly once. Do not edit, rewrite, re-run, or debug it: it already
+bounds itself with an internal 25-minute wall-clock budget and per-subprocess timeouts,
+and re-running it would exceed this job's `timeout-minutes`. If the run fails or produces
+no output, report that failure (with the captured stderr) in the issue instead of
+retrying.
 
 Emit one `create-issue` safe output with:
 
