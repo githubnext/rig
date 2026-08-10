@@ -24,8 +24,8 @@ primitives from its context instead of from globals.
 | `phase(title)` | `phase(title)` | Same |
 | `{ phase: "Verify" }` on a call | `{ phase: "Verify" }` in call options | Overrides the ambient phase for that call only |
 | `{ label: "verify:x" }` | `{ label: "verify:x" }` | Appears in `agent_start`/`agent_done` events |
-| `{ model: "sonnet" }` | `{ model: "sonnet" }` | rig passes the id straight to the engine |
-| `{ effort: "high" }` | — | Not modeled; encode importance structurally or in the model id |
+| `{ model: "sonnet" }` | `{ model: "sonnet" }` | rig passes the id straight to the engine; use a full Claude model ID (e.g. `"claude-sonnet-4-5"`) when running with `anthropicEngine()` |
+| `{ effort: "high" }` | use a more capable model id or increase `maxTurns` | no `effort` option; prefer `model: "claude-opus-4-5"` over `"claude-haiku-3-5"` when quality matters |
 | `{ agentType: "Explore" }` | Prompt wording plus a narrow `tools` list | rig has no built-in read-only agent type |
 | `{ timeoutMs }` / `{ retries }` | `{ timeout }` on the call; `maxTurns` + `repair()` on the agent | rig retries are turn-based, not process-based |
 | `log(message)` | `log(message)` | Same |
@@ -153,6 +153,49 @@ const audit = workflow({
 
 export default audit;
 ```
+
+## Running with the Anthropic engine (Claude models)
+
+Claude dynamic workflows run on Claude by default. To run a rig workflow on
+Claude, register `anthropicEngine()` and pass the full model ID:
+
+```ts
+import { configureAgent } from "rig";
+import { anthropicEngine } from "rig/engines/anthropic";
+
+configureAgent(anthropicEngine()); // reads ANTHROPIC_API_KEY
+```
+
+Or set `RIG_ENGINE=anthropic` to let the launcher auto-select based on
+`ANTHROPIC_API_KEY`, then specify the model in the agent or at the call site:
+
+```ts
+import { agent, s, workflow } from "rig";
+
+// Agent role: classify priority using a more capable Claude model for accuracy.
+const classifier = agent({
+  model: "claude-sonnet-4-5",
+  input: s.object({ text: s.string }),
+  output: s.object({ priority: s.enum("high", "medium", "low") }),
+  instructions: "Classify the priority of the given text.",
+});
+
+// Per-call model override — equivalent to { model: "claude-opus-4-5" } in a dynamic workflow:
+const result = await call(classifier, { text }, { model: "claude-opus-4-5" });
+```
+
+rig passes the model id string directly to the SDK without normalization, so
+any model id accepted by the Anthropic API is valid. Common ids:
+
+| Intent | Claude model id |
+| --- | --- |
+| Fast / low-cost | `"claude-haiku-3-5"` |
+| Balanced | `"claude-sonnet-4-5"` |
+| Most capable | `"claude-opus-4-5"` |
+
+Use the `model` field on `agent({ model })` for a stable default, or override
+per call with `call(agent, input, { model })`. There is no global `effort` knob;
+pick a model tier that matches the task's quality requirement.
 
 ## Behavior differences to keep in mind
 
