@@ -1,13 +1,14 @@
 ---
 name: Daily Rig Decomposition Benchmark
 description: >
-  Each day, picks one complicated task that would typically benefit from being split
-  across sub-agents and sub-models (research, multi-step coding, structured content
-  generation, etc.), then solves it two ways — a single model call attempting the whole
-  task at once, and a self-contained rig program that decomposes it into sub-agents each
-  free to pick their own model — before running a bounded debugging-reflection loop that
-  typechecks and executes the decomposed program end-to-end (no repo checkout — the rig
-  CLI comes from the frontmatter `skills:` install), grading both solutions against the same criteria, and
+  Each day, the agent writes a rig benchmark program from a specification, then runs it:
+  it picks one complicated task that would typically benefit from being split across
+  sub-agents and sub-models (research, multi-step coding, structured content generation,
+  etc.), then solves it two ways — a single model call attempting the whole task at once,
+  and a self-contained rig program that decomposes it into sub-agents each free to pick
+  their own model — before running a bounded debugging-reflection loop that typechecks and
+  executes the decomposed program end-to-end (no repo checkout — the rig CLI comes from the
+  frontmatter `skills:` install), grading both solutions against the same criteria, and
   reporting the comparison as a GitHub issue.
 on:
   schedule: daily
@@ -38,6 +39,9 @@ safe-outputs:
 
 ## Task
 
+Each run of this workflow is itself a test of the rig skill: **you** write the benchmark
+program from the specification below, then run it, then report what happened.
+
 This workflow runs **without checking out the repository**. The `rig` skill is installed
 directly from GitHub via the frontmatter `skills:` field only — nothing beyond that
 install is prepared: the skill itself ships its own `package.json` (`"name": "rig"`, with
@@ -46,305 +50,97 @@ programs importing `from "rig"` resolve correctly both at typecheck time and at 
 long as the rig CLI subprocess is run with its working directory set to the installed
 skill directory (`.github/skills/rig`).
 
-Run this rig program:
+Read `.github/skills/rig/SKILL.md` first, and load the references it routes to that you
+actually need (dynamic workflows, prompt intents, composition). Write the program from the
+current API described there — do not guess at API shapes.
 
-```rig
-import { agent, configureAgent, copilotEngine, defineTool, p, s } from "rig";
+## Step 1 — write the benchmark program
 
-configureAgent(copilotEngine({ server: true }));
+Write a single self-contained rig TypeScript program to `/tmp/gh-aw/agent/bench.ts` that
+implements the specification below. Then typecheck it by piping it to the installed rig
+CLI, run from the skill directory so Node's package self-reference resolves the bare
+`"rig"` import, and fix any reported errors before running it:
 
-const RIG_SKILL_DIR = ".github/skills/rig";
-const RIG_ENTRY = `${RIG_SKILL_DIR}/rig.ts`;
-const MAX_ATTEMPTS = 2;
-const SUBPROCESS_TIMEOUT_MS = 10 * 60 * 1000;
-
-const TaskSpec = s.object({
-  title: s.string,
-  domain: s.string,
-  description: s.string,
-  successCriteria: s.array(s.string),
-});
-
-const Attempt = s.object({
-  attempt: s.int,
-  typecheckPassed: s.boolean,
-  typecheckOutput: s.string,
-  executePassed: s.boolean,
-  executeOutput: s.string,
-});
-
-const Grading = s.object({
-  singleCallScore: s.number,
-  decomposedScore: s.number,
-  winner: s.enum("single-call", "decomposed", "tie"),
-  rationale: s.string,
-});
-
-const BenchReport = s.object({
-  task: TaskSpec,
-  singleCallDurationMs: s.number,
-  singleCallSolution: s.string,
-  decomposedAttempts: s.array(Attempt),
-  decomposedFinalStatus: s.enum("passed", "failed"),
-  decomposedDurationMs: s.number,
-  decomposedProgramSource: s.string,
-  decomposedSolution: s.string,
-  grading: Grading,
-});
-
-type RunResult = { code: number | null; stdout: string; stderr: string };
-
-async function runRigEntry(programSource: string, flags: string[]): Promise<RunResult> {
-  const { spawn } = await import("node:child_process");
-  const { resolve: resolvePath } = await import("node:path");
-  const rigEntryPath = resolvePath(process.cwd(), RIG_ENTRY);
-  const rigSkillDir = resolvePath(process.cwd(), RIG_SKILL_DIR);
-  return new Promise((resolveRun, rejectRun) => {
-    const child = spawn(process.execPath, [rigEntryPath, ...flags], {
-      // Run with cwd set to the installed skill directory (not the workspace
-      // root, which has no repository checkout) so that Node's package
-      // self-reference resolves bare `from "rig"` imports via the skill's own
-      // package.json, both for typecheck and for the temp files it writes
-      // under its own `.tmp/` during execution.
-      cwd: rigSkillDir,
-      stdio: ["pipe", "pipe", "pipe"],
-    });
-    let stdout = "";
-    let stderr = "";
-    let timedOut = false;
-    const timer = setTimeout(() => {
-      timedOut = true;
-      stderr += `\n[timed out after ${SUBPROCESS_TIMEOUT_MS / 60000} minutes]`;
-      child.kill("SIGKILL");
-    }, SUBPROCESS_TIMEOUT_MS);
-    child.stdout.on("data", (chunk: Buffer) => { stdout += String(chunk); });
-    child.stderr.on("data", (chunk: Buffer) => { stderr += String(chunk); });
-    child.on("error", (error) => { clearTimeout(timer); rejectRun(error); });
-    child.on("close", (code: number | null) => {
-      clearTimeout(timer);
-      resolveRun({ code: timedOut ? null : code, stdout, stderr });
-    });
-    child.stdin.end(programSource);
-  });
-}
-
-type VerifyResult = {
-  typecheckPassed: boolean;
-  typecheckOutput: string;
-  executePassed: boolean;
-  executeOutput: string;
-};
-
-async function verifyProgramSource(source: string): Promise<VerifyResult> {
-  const typecheck = await runRigEntry(source, ["--typecheck"]);
-  if (typecheck.code !== 0) {
-    return {
-      typecheckPassed: false,
-      typecheckOutput: (typecheck.stderr || typecheck.stdout).trim(),
-      executePassed: false,
-      executeOutput: "",
-    };
-  }
-  const execution = await runRigEntry(source, ["--server"]);
-  return {
-    typecheckPassed: true,
-    typecheckOutput: typecheck.stderr.trim(),
-    executePassed: execution.code === 0,
-    executeOutput: (execution.code === 0 ? execution.stdout : (execution.stderr || execution.stdout)).trim(),
-  };
-}
-
-const verifyProgram = defineTool("verify_program", {
-  description:
-    "Typecheck and, if that passes, execute a rig TypeScript program via the installed rig CLI (piped over stdin; no file path, no repo checkout).",
-  parameters: s.object({ source: s.string }),
-  async handler({ source }: { source: string }) {
-    return verifyProgramSource(source);
-  },
-});
-
-// Agent role: pick one concrete, complicated daily task that is naturally suited to
-// being split across multiple sub-agents and sub-models rather than solved in one shot.
-const pickTask = agent({
-  name: "task-picker",
-  model: "small",
-  instructions: p`Pick exactly one complicated task that a person or team might face in a
-single day and that would typically benefit from delegating parts of it to sub-agents
-running different models (e.g. multi-source research and synthesis, a multi-file coding
-task with distinct design/implementation/review phases, a structured report combining
-several independent analyses, or a multi-step data transformation pipeline). The task
-must be self-contained (solvable from the description alone, no external file access or
-live web access) and concrete enough to grade. Prefer variety across domains from run to
-run. List 3-6 concrete, checkable success criteria. Return only the declared fields.`,
-  output: TaskSpec,
-});
-
-// Agent role: attempt the entire task in a single model call, unaided, as the baseline.
-const solveSingleCall = agent({
-  name: "single-call-solver",
-  model: "medium",
-  maxTurns: 1,
-  input: s.object({ task: TaskSpec }),
-  instructions: p`Solve this task completely by yourself in a single response, without
-delegating to any other agent or tool: ${p.inputField("task")}
-Address every success criterion listed. Return the complete solution as plain text in the
-"solution" field.`,
-  output: s.object({ solution: s.string }),
-});
-
-// Agent role: write one self-contained rig program that decomposes the task across
-// sub-agents, letting each sub-agent pick the model appropriate to its slice of work.
-const writeDecomposedProgram = agent({
-  name: "decomposition-program-writer",
-  model: "medium",
-  maxTurns: 2,
-  input: s.object({
-    task: TaskSpec,
-    priorSource: s.optional(s.string),
-    priorError: s.optional(s.string),
-  }),
-  instructions: p`Write one complete rig TypeScript program (plain source text, no markdown
-fences) that:
-- imports only from "rig" (never from any other repository path — the program must be
-  fully self-contained, since it will run with no repository checked out);
-- defines at least two agents, each with a "// Agent role: ..." comment above it, that
-  decompose this task into distinct sub-steps (e.g. plan/research vs. draft/implement vs.
-  review/combine), assigning "small" to simple sub-steps and "medium" or "large" to
-  harder ones;
-- coordinates those agents from one root agent or a plain async function so the final
-  result is produced by combining the sub-agents' outputs, not by a single agent solving
-  the whole task alone;
-- has no required input on the root export (omit \`input\` or use \`input: s.object({})\`)
-  and \`output: s.object({ solution: s.string })\` containing the final combined solution
-  addressing this task: ${p.inputField("task")};
-- exports the root agent as the default export via \`export default\`, and never invokes it.
-
-If a prior attempt and its exact error are given below, fix precisely the reported problem
-and preserve everything that already worked. Do not introduce unrelated changes.
-Prior source: ${p.inputField("priorSource")}
-Prior error: ${p.inputField("priorError")}
-
-Return only the plain TypeScript source in the "source" field.`,
-  output: s.object({ source: s.string }),
-});
-
-// Agent role: grade the single-call solution against the decomposed solution against
-// the task's success criteria, judging on content alone rather than length or origin.
-const gradeSolutions = agent({
-  name: "solution-grader",
-  model: "large",
-  maxTurns: 1,
-  input: s.object({
-    task: TaskSpec,
-    solutionA: s.string,
-    solutionB: s.string,
-  }),
-  instructions: p`Grade two candidate solutions ("A" — the single-call solution, "B" — the
-decomposed solution) to this task, against its success criteria: ${p.inputField("task")}
-Solution A: ${p.inputField("solutionA")}
-Solution B: ${p.inputField("solutionB")}
-Score each solution from 0-10 on how completely and correctly it satisfies the success
-criteria. Return "singleCallScore" for A's score, "decomposedScore" for B's score, a
-"winner" of "single-call", "decomposed", or "tie", and a "rationale" explaining the
-comparison. Judge on correctness and completeness of content only — do not let solution
-length or which approach produced it bias the score.`,
-  output: s.object({
-    singleCallScore: s.number,
-    decomposedScore: s.number,
-    winner: s.enum("single-call", "decomposed", "tie"),
-    rationale: s.string,
-  }),
-});
-
-const runDecompositionBenchmark = defineTool("run_decomposition_benchmark", {
-  description:
-    "Pick a task suited to decomposition, solve it once with a single model call and once with a decomposed rig program, then grade both solutions against the same criteria.",
-  parameters: s.object({}),
-  async handler() {
-    const task = await pickTask("");
-
-    const singleCallStart = Date.now();
-    const singleCall = await solveSingleCall({ task });
-    const singleCallDurationMs = Date.now() - singleCallStart;
-
-    const decomposedAttempts: Array<{
-      attempt: number;
-      typecheckPassed: boolean;
-      typecheckOutput: string;
-      executePassed: boolean;
-      executeOutput: string;
-    }> = [];
-
-    const decomposedStart = Date.now();
-    let source = "";
-    let priorError = "";
-    let decomposedSolution = "";
-    let passed = false;
-
-    for (let attemptNumber = 1; attemptNumber <= MAX_ATTEMPTS; attemptNumber += 1) {
-      const writeInput = attemptNumber === 1
-        ? { task }
-        : { task, priorSource: source, priorError };
-      const written = await writeDecomposedProgram(writeInput);
-      source = written.source;
-
-      const verification = await verifyProgramSource(source);
-      decomposedAttempts.push({
-        attempt: attemptNumber,
-        typecheckPassed: verification.typecheckPassed,
-        typecheckOutput: verification.typecheckOutput,
-        executePassed: verification.executePassed,
-        executeOutput: verification.executeOutput,
-      });
-
-      if (verification.typecheckPassed && verification.executePassed) {
-        passed = true;
-        try {
-          const parsed = JSON.parse(verification.executeOutput) as { solution?: string };
-          decomposedSolution = parsed.solution ?? "";
-        } catch {
-          decomposedSolution = "";
-        }
-        break;
-      }
-
-      priorError = verification.typecheckPassed
-        ? verification.executeOutput
-        : verification.typecheckOutput;
-    }
-    const decomposedDurationMs = Date.now() - decomposedStart;
-
-    const grading = await gradeSolutions({
-      task,
-      solutionA: singleCall.solution,
-      solutionB: decomposedSolution || "(decomposed program failed to produce a solution)",
-    });
-
-    return {
-      task,
-      singleCallDurationMs,
-      singleCallSolution: singleCall.solution,
-      decomposedAttempts,
-      decomposedFinalStatus: (passed ? "passed" : "failed") as "passed" | "failed",
-      decomposedDurationMs,
-      decomposedProgramSource: source,
-      decomposedSolution,
-      grading,
-    };
-  },
-});
-
-// Agent role: run the decomposition benchmark once and return its result unchanged.
-const benchmarkCoordinator = agent({
-  name: "decomposition-bench-coordinator",
-  model: "small",
-  tools: [verifyProgram, runDecompositionBenchmark],
-  instructions: "Call run_decomposition_benchmark exactly once with an empty object and return its result unchanged.",
-  output: BenchReport,
-});
-
-export default benchmarkCoordinator;
+```bash
+cd .github/skills/rig && cat /tmp/gh-aw/agent/bench.ts | node rig.ts --typecheck
 ```
+
+### Hard requirements
+
+These exist because violating them has previously made this workflow exceed its job
+timeout. Treat them as non-negotiable:
+
+- **The root default export must be a `workflow()`, never an agent that relays a large
+  result.** Orchestration is deterministic TypeScript; the benchmark report is returned by
+  the workflow itself. Do not add a coordinator agent whose output schema restates the
+  report — making a model re-emit the generated program source and every captured error as
+  JSON is slow, expensive, and fails structured-output parsing.
+- **The program must bound its own wall clock.** Compute a deadline of roughly 25 minutes
+  from module evaluation, and derive every subprocess timeout from the time remaining
+  against it: about 2 minutes for a typecheck and 5 minutes for an execution, each clamped
+  down to what is left. When the budget is exhausted, skip the remaining work and return
+  what was collected instead of blocking.
+- **The program imports only from `"rig"`** and configures the Copilot engine in server
+  mode.
+
+### Behavior
+
+1. **Pick a task.** A `small` agent picks one concrete, complicated task a person or team
+   might face in a single day that would naturally benefit from being split across
+   sub-agents running different models — multi-source research and synthesis, a multi-file
+   coding task with distinct design/implementation/review phases, a structured report
+   combining several independent analyses, or a multi-step data transformation pipeline.
+   The task must be self-contained (solvable from its description alone, with no external
+   file or live web access) and concrete enough to grade. Prefer variety across domains
+   from run to run. It returns a title, a domain, a description, and 3-6 concrete,
+   checkable success criteria.
+
+2. **Solve it in one call.** A `medium` agent limited to a single turn solves the whole
+   task by itself, addressing every success criterion, with no delegation and no tools.
+   Record how long this takes.
+
+3. **Solve it by decomposition.** A `medium` agent writes a *second*, self-contained rig
+   program that splits the same task across at least two agents — each with a
+   `// Agent role: ...` comment, each choosing `small` for simple sub-steps and `medium` or
+   `large` for harder ones — coordinated so the final answer combines their outputs rather
+   than coming from one agent solving everything. That generated program must import only
+   from `"rig"`, take no required input on its root, produce
+   `output: s.object({ solution: s.string })`, and export its root via `export default`
+   without invoking it.
+
+   Verify it by piping the source over stdin to the installed rig CLI, run from the skill
+   directory so Node's package self-reference resolves the bare `"rig"` import:
+   `--typecheck` first, and only on success `--server` to execute it. Give the writer up to
+   2 attempts total; on a failure, pass it back its own previous source and the exact
+   captured error and ask it to fix precisely that, preserving what already worked. Stop
+   early if there is not enough time budget left for another attempt. Record each attempt's
+   typecheck and execute pass/fail together with the exact captured output, and parse the
+   final solution out of the successful run's JSON stdout. Record how long the whole
+   decomposition phase takes.
+
+4. **Grade both.** A `large` agent limited to a single turn scores each solution 0-10 on
+   how completely and correctly it satisfies the success criteria, picks a winner of
+   `single-call`, `decomposed`, or `tie`, and explains the comparison. It must judge on
+   correctness and completeness of content only — not on length, and not on which approach
+   produced the solution. When decomposition produced nothing, grade an explicit
+   placeholder saying so rather than an empty string.
+
+The workflow returns the task, both durations, both solutions, the per-attempt records,
+the final pass/fail status, and the generated program source.
+
+## Step 2 — run it exactly once
+
+```bash
+cd .github/skills/rig && cat /tmp/gh-aw/agent/bench.ts | node rig.ts --server \
+  > /tmp/gh-aw/agent/bench_output.json 2> /tmp/gh-aw/agent/bench_stderr.txt
+```
+
+Run the program **exactly once**, capturing stdout and stderr. It bounds itself, so do not
+rewrite it, re-run it, or debug it after this point. If it fails or produces no output,
+report that failure with the captured stderr in the issue — a second run would exceed this
+job's `timeout-minutes`.
+
+## Step 3 — report
 
 Emit one `create-issue` safe output with:
 
@@ -353,18 +149,16 @@ Emit one `create-issue` safe output with:
   - The chosen **task** (title, domain, one-paragraph description, success criteria list).
   - A **timing comparison** table: single-call duration vs. decomposed duration (ms), and
     the decomposed program's final pass/fail status.
-  - For each attempt in `decomposedAttempts`, in order: the attempt number, typecheck
-    pass/fail, and execute pass/fail, with the exact captured error text (if any) in a
-    collapsible `<details>` block, and a one-line note on what was fixed in the next
-    attempt (if any).
-  - The **grading** results: `singleCallScore`, `decomposedScore`, `winner`, and the
-    grader's `rationale`, verbatim.
-  - The complete, verbatim **single-call solution** (`singleCallSolution`) in a collapsible
-    `<details>` block.
-  - The complete, verbatim **decomposed rig program source** (`decomposedProgramSource`) in
-    a ```ts fence, and the **decomposed solution** (`decomposedSolution`) in a collapsible
-    `<details>` block. Never summarize, truncate, replace, or omit any part of the program
-    source, regardless of the final status.
+  - For each decomposition attempt, in order: the attempt number, typecheck pass/fail, and
+    execute pass/fail, with the exact captured error text (if any) in a collapsible
+    `<details>` block, and a one-line note on what was fixed in the next attempt (if any).
+  - The **grading** results: both scores, the winner, and the grader's rationale, verbatim.
+  - The complete, verbatim **single-call solution** in a collapsible `<details>` block.
+  - The complete, verbatim **decomposed rig program source** in a ```ts fence, and the
+    **decomposed solution** in a collapsible `<details>` block. Never summarize, truncate,
+    replace, or omit any part of the program source, regardless of the final status.
+  - The **benchmark program you wrote** in Step 1, in a collapsible `<details>` block with
+    a ```ts fence.
   - A final **verdict** line naming the winner and summarizing why in one sentence.
   - Do not invent missing data — if a field is empty (e.g. execution never produced valid
     JSON), state that explicitly instead of fabricating content.
