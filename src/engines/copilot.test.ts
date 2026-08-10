@@ -33,6 +33,9 @@ beforeEach(() => {
   mocks.forStdio.mockImplementation(() => ({ kind: "stdio" }));
   mocks.copilotClientCtor.mockClear();
   delete process.env["COPILOT_SDK_URI"];
+  delete process.env["COPILOT_CONNECTION_TOKEN"];
+  delete process.env["GH_AW_COPILOT_SDK_MULTI_PROVIDER_JSON"];
+  delete process.env["COPILOT_SDK_SEND_TIMEOUT_MS"];
   vi.restoreAllMocks();
 });
 
@@ -56,6 +59,51 @@ it("uses COPILOT_SDK_URI when set", async () => {
 
   expect(mocks.forUri).toHaveBeenCalledWith("http://127.0.0.1:4141");
   expect(mocks.copilotClientCtor).toHaveBeenCalledWith({ connection: { kind: "uri", url: "http://127.0.0.1:4141" } });
+});
+
+it("uses agentic workflow SDK connection and provider settings", async () => {
+  process.env["COPILOT_CONNECTION_TOKEN"] = "connection-token";
+  process.env["GH_AW_COPILOT_SDK_MULTI_PROVIDER_JSON"] = JSON.stringify({
+    model: "claude-sonnet-4.6",
+    providers: [{ name: "copilot" }],
+    models: [{ id: "claude-sonnet-4.6" }],
+  });
+
+  await copilotEngine()({ model: "small" });
+
+  expect(mocks.forUri).toHaveBeenCalledWith("localhost:7777", { connectionToken: "connection-token" });
+  expect(mocks.createSession).toHaveBeenCalledWith({
+    model: "claude-sonnet-4.6",
+    streaming: false,
+    onPermissionRequest: mocks.approveAll,
+    providers: [{ name: "copilot" }],
+    models: [{ id: "claude-sonnet-4.6" }],
+  });
+});
+
+it("uses the configured SDK send timeout", async () => {
+  process.env["COPILOT_SDK_SEND_TIMEOUT_MS"] = "120000";
+  const sendAndWait = vi.fn().mockResolvedValue({ data: { content: "ok" } });
+  mocks.createSession.mockResolvedValue({ sendAndWait, disconnect: vi.fn() });
+  const implementation = await copilotEngine()({ model: "small" });
+
+  await implementation.ask("hello");
+
+  expect(sendAndWait).toHaveBeenCalledWith({ prompt: "hello" }, 120000);
+});
+
+it("aborts an in-flight SDK request when its signal aborts", async () => {
+  const abort = vi.fn();
+  const sendAndWait = vi.fn(() => new Promise(() => {}));
+  mocks.createSession.mockResolvedValue({ sendAndWait, abort, disconnect: vi.fn() });
+  const implementation = await copilotEngine()({ model: "small" });
+  const controller = new AbortController();
+  const request = implementation.ask("hello", { signal: controller.signal });
+
+  controller.abort(new Error("cancelled"));
+
+  await expect(request).rejects.toThrow("cancelled");
+  expect(abort).toHaveBeenCalledOnce();
 });
 
 it("preserves explicit client options", async () => {
