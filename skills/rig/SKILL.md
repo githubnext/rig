@@ -108,6 +108,6 @@ Read only when the task needs the listed detail:
 - [Prompt intents](references/prompt-intents.md) — complete helper semantics, dynamic inputs, writes, and failure behavior.
 - [Composition and addons](references/composition.md) — delegation patterns, dynamic sets, repair, steering, and addon lifecycle.
 - [Dynamic workflows](references/dynamic-workflows.md) — bounded fan-out, failure semantics, limits, budget, events, and convergence loops.
-- [Claude workflow conversion](references/claude-workflow-conversion.md) — mapping Claude Code dynamic-workflow scripts onto rig primitives.
+- [Claude workflow conversion](references/claude-workflow-conversion.md) — mapping Claude Code dynamic-workflow scripts onto rig primitives, including model selection and the Anthropic engine.
 - [Running and engines](references/runtime.md) — markdown/file launch modes, typechecking, Agentic Workflows, and SDK adapters.
 - [Linting](references/linting.md) — linter usage, autofixes, rules, and rule development.
