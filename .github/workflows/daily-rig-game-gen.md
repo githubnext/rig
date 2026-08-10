@@ -285,8 +285,9 @@ Emit one `create-issue` safe output with:
   - For each attempt in `attempts`, in order: the attempt number, typecheck pass/fail, and
     execute pass/fail, with the exact captured error text (if any) in a collapsible
     `<details>` block, and a one-line note on what was fixed in the next attempt (if any).
-  - The **final generated rig program source** (`finalProgramSource`) in a collapsible
-    `<details>` section with a ```ts fence.
+  - The complete, verbatim **final generated rig program source** (`finalProgramSource`) in
+    a ```ts fence. Never summarize, truncate, replace, or omit any part of this source,
+    regardless of the final status.
   - If `finalStatus` is `passed`, the **final generated game code** (`finalGameCode`) with
     its `finalGameFilename` and `finalGameLanguage`, in a collapsible `<details>` section
     with an appropriately-fenced code block.
