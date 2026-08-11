@@ -203,6 +203,12 @@ pick a model tier that matches the task's quality requirement.
   turns rejected thunks into `null`. A rig `pipeline` stage that throws fails the
   whole run instead of dropping that item to `null`, so programming bugs stay
   visible; wrap a stage in `try`/`catch` when you want the Claude behavior.
+- **Pipeline stage signature.** Each rig stage receives `(previous, item, index)`
+  where `previous` is the prior stage's output (or the item itself for stage 1).
+  Claude's stage signature is `(item, index)`, so when porting add `_prev` as the
+  first parameter and access the prior result through it in stage 2+. See
+  [401-multi-stage-pipeline-workflow.md](../samples/401-multi-stage-pipeline-workflow.md)
+  for a worked example.
 - **Budget units.** rig counts agent calls, not tokens, so guard loops with
   `budget.remaining() > n` where `n` is a call count.
 - **Nesting depth.** `call.workflow` has no one-level restriction, but it shares
@@ -262,6 +268,7 @@ workflow patterns — use them as starting points when converting a script:
 | [320-budget-aware-crawler.md](../samples/320-budget-aware-crawler.md) | `log`, `budget.remaining()`, `until` convergence loop |
 | [330-nested-workflow-composition.md](../samples/330-nested-workflow-composition.md) | `call.workflow` (rig equivalent of `workflow(ref, args)`) sharing the parent's limiter and budget |
 | [360-parallel-branch-analysis-workflow.md](../samples/360-parallel-branch-analysis-workflow.md) | `parallel(thunks)` as a barrier — use instead of `Promise.all` when porting |
+| [401-multi-stage-pipeline-workflow.md](../samples/401-multi-stage-pipeline-workflow.md) | Multi-stage `pipeline(items, stage1, stage2)` enrichment chain — stage `(prev, item, index)` vs Claude's `(item, index)` |
 
 ## Related references
 
