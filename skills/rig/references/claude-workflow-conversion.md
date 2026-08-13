@@ -269,6 +269,7 @@ workflow patterns — use them as starting points when converting a script:
 | [330-nested-workflow-composition.md](../samples/330-nested-workflow-composition.md) | `call.workflow` (rig equivalent of `workflow(ref, args)`) sharing the parent's limiter and budget |
 | [360-parallel-branch-analysis-workflow.md](../samples/360-parallel-branch-analysis-workflow.md) | `parallel(thunks)` as a barrier — use instead of `Promise.all` when porting |
 | [401-multi-stage-pipeline-workflow.md](../samples/401-multi-stage-pipeline-workflow.md) | Multi-stage `pipeline(items, stage1, stage2)` enrichment chain — stage `(prev, item, index)` vs Claude's `(item, index)` |
+| [411-anthropic-model-selection.md](../samples/411-anthropic-model-selection.md) | `anthropicEngine()` setup, per-call `{ model }` override, and `{ effort }` → model-tier mapping |
 
 ## Related references
 
