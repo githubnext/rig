@@ -180,8 +180,14 @@ const classifier = agent({
   instructions: "Classify the priority of the given text.",
 });
 
-// Per-call model override — equivalent to { model: "claude-opus-4-5" } in a dynamic workflow:
-const result = await call(classifier, { text }, { model: "claude-opus-4-5" });
+// Workflow role: classify caller-supplied text with a per-call model override.
+export default workflow({
+  meta: { name: "triage", description: "Classify text priority" },
+  input: s.object({ text: s.string }),
+  body: async ({ call, input }) =>
+    // Per-call model override — equivalent to { model: "claude-opus-4-5" } in a dynamic workflow:
+    call(classifier, { text: input.text }, { model: "claude-opus-4-5" }),
+});
 ```
 
 rig passes the model id string directly to the SDK without normalization, so
