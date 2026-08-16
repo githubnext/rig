@@ -93,7 +93,9 @@ timeout. Treat them as non-negotiable:
    The task must be self-contained (solvable from its description alone, with no external
    file or live web access) and concrete enough to grade. Prefer variety across domains
    from run to run. It returns a title, a domain, a description, and 3-6 concrete,
-   checkable success criteria.
+   checkable success criteria. Import and add `repair()` to this task-picker agent with
+   `maxTurns: 2`, so a malformed structured response gets one corrective retry instead of
+   terminating the benchmark with a null result.
 
 2. **Solve it in one call.** A `medium` agent limited to a single turn solves the whole
    task by itself, addressing every success criterion, with no delegation and no tools.
