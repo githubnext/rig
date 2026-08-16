@@ -9,6 +9,7 @@ import noImplicitAnyRule from "../skills/rig/eslint/rules/no-implicit-any-in-too
 import preferPGlobRule from "../skills/rig/eslint/rules/prefer-p-glob-over-bash-find.js";
 import noInvalidAgentFieldsRule from "../skills/rig/eslint/rules/no-invalid-agent-fields.js";
 import enumReturnNeedsAsConstRule from "../skills/rig/eslint/rules/enum-return-needs-as-const.js";
+import noHeterogeneousParallelRule from "../skills/rig/eslint/rules/no-heterogeneous-parallel.js";
 
 describe("define-tool-arg-count", () => {
   it.each([
@@ -922,6 +923,123 @@ describe("enum-return-needs-as-const", () => {
       },
     };
     visitor.ReturnStatement(retNode);
+
+    expect(reports).toHaveLength(0);
+  });
+});
+
+describe("no-heterogeneous-parallel", () => {
+  it.each([
+    // Homogeneous: both thunks call the same agent — OK
+    "parallel([() => call(agentA, 'go'), () => call(agentA, 'go')])",
+    // Single thunk — OK
+    "parallel([() => call(agentA, 'go')])",
+    // Not a parallel call — OK
+    "Promise.all([() => call(agentA, 'go'), () => call(agentB, 'go')])",
+    // Member expression — OK
+    "foo.parallel([() => call(agentA, 'a'), () => call(agentB, 'b')])",
+    // Inside string literal — not tokenized
+    "const text = 'parallel([() => call(agentA), () => call(agentB)])';",
+    // Thunks without identifiable call(agent, ...) pattern — not flagged conservatively
+    "parallel([() => someWork(), () => otherWork()])",
+  ])("accepts %s", (source) => {
+    const problems = lintSource(source).filter((p) => p.kind === "no-heterogeneous-parallel");
+    expect(problems).toEqual([]);
+  });
+
+  it.each([
+    [
+      "parallel([() => call(agentA, 'analyze'), () => call(agentB, 'analyze')])",
+      "Promise.all([() => call(agentA, 'analyze'), () => call(agentB, 'analyze')])",
+    ],
+    [
+      "const result = await parallel([() => call(branchAgent, input), () => call(commitAgent, input)])",
+      "const result = await Promise.all([() => call(branchAgent, input), () => call(commitAgent, input)])",
+    ],
+    [
+      "parallel([\n  () => call(agentX, msg),\n  () => call(agentY, msg),\n])",
+      "Promise.all([\n  () => call(agentX, msg),\n  () => call(agentY, msg),\n])",
+    ],
+  ])("fixes %s", (source, expected) => {
+    const problems = lintSource(source).filter((p) => p.kind === "no-heterogeneous-parallel");
+    expect(problems).toHaveLength(1);
+    expect(fixSource(source, problems)).toBe(expected);
+  });
+
+  it("is idempotent", () => {
+    const source = "parallel([() => call(agentA, 'go'), () => call(agentB, 'go')])";
+    const once = fixSource(source);
+    const twice = fixSource(once);
+    expect(twice).toBe(once);
+    expect(lintSource(once).filter((p) => p.kind === "no-heterogeneous-parallel")).toEqual([]);
+  });
+
+  it("keeps the ESLint rule aligned", () => {
+    const reports = [];
+
+    function makeThunk(agentName) {
+      return {
+        type: "ArrowFunctionExpression",
+        params: [],
+        body: {
+          type: "CallExpression",
+          callee: { type: "Identifier", name: "call" },
+          arguments: [{ type: "Identifier", name: agentName }],
+        },
+      };
+    }
+
+    const visitor = noHeterogeneousParallelRule.create({
+      sourceCode: {},
+      report: (problem) => reports.push(problem),
+    });
+
+    visitor.CallExpression({
+      type: "CallExpression",
+      callee: { type: "Identifier", name: "parallel" },
+      arguments: [
+        {
+          type: "ArrayExpression",
+          elements: [makeThunk("agentA"), makeThunk("agentB")],
+        },
+      ],
+    });
+
+    expect(reports).toHaveLength(1);
+    expect(reports[0].messageId).toBe("heterogeneous");
+    expect(reports[0].fix({ replaceText: (_node, text) => text })).toBe("Promise.all");
+  });
+
+  it("does not flag homogeneous parallel via ESLint rule", () => {
+    const reports = [];
+
+    function makeThunk(agentName) {
+      return {
+        type: "ArrowFunctionExpression",
+        params: [],
+        body: {
+          type: "CallExpression",
+          callee: { type: "Identifier", name: "call" },
+          arguments: [{ type: "Identifier", name: agentName }],
+        },
+      };
+    }
+
+    const visitor = noHeterogeneousParallelRule.create({
+      sourceCode: {},
+      report: (problem) => reports.push(problem),
+    });
+
+    visitor.CallExpression({
+      type: "CallExpression",
+      callee: { type: "Identifier", name: "parallel" },
+      arguments: [
+        {
+          type: "ArrayExpression",
+          elements: [makeThunk("agentA"), makeThunk("agentA")],
+        },
+      ],
+    });
 
     expect(reports).toHaveLength(0);
   });
