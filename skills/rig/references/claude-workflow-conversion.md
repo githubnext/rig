@@ -30,6 +30,8 @@ primitives from its context instead of from globals.
 | `{ timeoutMs }` / `{ retries }` | `{ timeout }` on the call; `maxTurns` + `repair()` on the agent | rig retries are turn-based, not process-based |
 | `log(message)` | `log(message)` | Same |
 | `budget.total / spent() / remaining()` | `budget.total / spent() / remaining()` | rig meters **agent calls** (`limits.maxAgents`), not tokens |
+| Session-level budget/concurrency cap | `runWorkflow(wf, { limits: { maxAgents, concurrency, warnAgents, maxWallMs } })` | `maxAgents` sets `budget.total`; `warnAgents` emits one advisory warning; defaults: concurrency=machine cores (2–16), maxAgents=1000, warnAgents=25 |
+| Session progress / event stream | `runWorkflow(wf, { onEvent: (event) => ... })` | Receives `run_start`, `phase_start`, `agent_start`, `agent_done`, `agent_failed`, `log`, `warning`, `run_done`, `run_failed`; observer errors never affect the run |
 | `workflow(ref, args)` | `call.workflow(child, args, options?)` | Shares the limiter, budget, phase, and event stream |
 | open-ended `while` convergence loop | `until({ max, noProgressRounds }, step)` | Bounded; stops on `done`, after `max` rounds, or after `noProgressRounds` equal progress keys — prefer over unbounded loops |
 | top-level `return value` | `return value` from `body` | Same |
