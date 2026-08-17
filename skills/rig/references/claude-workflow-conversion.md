@@ -239,7 +239,7 @@ destructuring them from `workflow({ body })`. The launcher runs every program
 inside a workflow context, so ambient calls are live at module top level:
 
 ```ts
-import { agent, phase, log, s } from "rig";
+import { agent, phase, log, s, workflow } from "rig";
 import { call, pipeline } from "rig/globals";
 
 // Agent role: summarize one file.
@@ -257,7 +257,13 @@ const files = (raw ?? "").split("\n").map((f) => f.trim()).filter(Boolean);
 
 phase("Summarize");
 const summaries = await pipeline(files, (file) => call(summarize, { file }, { label: file }));
-export default summaries;
+
+// Workflow role: expose metadata for progress displays and tooling.
+// `body` returns the already-resolved value — no extra calls needed.
+export default workflow({
+  meta: { name: "summarize-files", description: "Summarize TypeScript source files", phases: ["Discover", "Summarize"] },
+  body: async () => summaries,
+});
 ```
 
 Move `call` and `pipeline` calls inside `workflow({ body })` once the port is
