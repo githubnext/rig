@@ -237,6 +237,42 @@ describe("dynamic-workflow parity", () => {
     });
   });
 
+  it("emits one warning event when the warnAgents threshold is crossed", async () => {
+    // Maps to the Claude dynamic workflow session-level advisory warning when many
+    // agents are scheduled; lets callers detect runaway fan-out before hitting maxAgents.
+    const worker = fakeAgent<number, number>("worker", (value) => value);
+    const events: WorkflowEvent[] = [];
+    const definition = workflow({
+      meta: { name: "warn", description: "warnAgents threshold" },
+      body: ({ call, pipeline }) => pipeline([1, 2, 3], (value) => call(worker, value)),
+    });
+
+    await runWorkflow(definition, {
+      limits: { warnAgents: 2 },
+      onEvent: (event) => events.push(event),
+    });
+    const warnings = events.filter((event) => event.type === "warning");
+    expect(warnings).toHaveLength(1);
+    expect(warnings[0]).toMatchObject({ type: "warning", message: expect.stringContaining("2") });
+  });
+
+  it("call.json accepts a non-object schema (s.enum) — rig advantage over Claude dynamic workflows", async () => {
+    // Claude dynamic workflows only support object schemas in agent(prompt, { schema }).
+    // rig's call.json accepts any s.* schema: s.enum, s.array, s.string, etc.
+    configureAgent(() => ({
+      ask: async () => '"high"',
+      close: async () => {},
+    }));
+
+    const definition = workflow({
+      meta: { name: "enum-schema", description: "non-object schema in call.json" },
+      body: ({ call }) =>
+        call.json("Classify priority.", s.enum("high", "medium", "low")),
+    });
+
+    await expect(runWorkflow(definition)).resolves.toBe("high");
+  });
+
   it("runs a nested workflow on the shared limiter, budget, and events", async () => {
     let active = 0;
     let peak = 0;
