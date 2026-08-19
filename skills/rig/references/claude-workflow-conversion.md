@@ -19,7 +19,7 @@ primitives from its context instead of from globals.
 | `await agent(prompt)` | `await call.text(prompt, options?)` | Returns `string \| null` |
 | `await agent(prompt, { schema })` | `await call.json(prompt, schema, options?)` | `schema` is any `s.*` value (`s.object`, `s.enum`, `s.array`, …); result is typed and validated. Claude workflows only support object schemas; rig accepts any schema type. |
 | Reused prompt + schema pair | `agent({ input, output, instructions })` then `call(worker, input, options?)` | Preferred for anything invoked more than once |
-| `parallel(thunks)` | `parallel(thunks)` | Same barrier semantics; failures become `null` holes |
+| `parallel(thunks)` | `parallel(thunks)` | Same barrier semantics; failures become `null` holes. **TypeScript note:** `parallel` uses a single generic `Result` type, so all thunks must return the same type. For agents with different output types, use `Promise.all` (which skips the concurrency limiter) or cast: `parallel<TypeA \| TypeB>([...]) as Promise<[TypeA \| null, TypeB \| null]>`. |
 | `pipeline(items, ...stages)` | `pipeline(items, ...stages)` | Stages receive `(previous, item, index)`; the first stage's `previous` is the item |
 | `phase(title)` | `phase(title)` | Same |
 | `{ phase: "Verify" }` on a call | `{ phase: "Verify" }` in call options | Overrides the ambient phase for that call only |
