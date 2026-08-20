@@ -71,6 +71,23 @@ describe("workflow", () => {
     expect(peak).toBe(2);
   });
 
+  it("emits a warning event once when warnAgents threshold is crossed", async () => {
+    const worker = fakeAgent<number, number>("worker", (value) => value);
+    const events: WorkflowEvent[] = [];
+    const definition = workflow({
+      meta: { name: "warned", description: "warn threshold" },
+      body: ({ call, pipeline }) => pipeline([1, 2, 3, 4], (value) => call(worker, value)),
+    });
+
+    await runWorkflow(definition, {
+      limits: { warnAgents: 2 },
+      onEvent: (event) => events.push(event),
+    });
+    const warnings = events.filter((event) => event.type === "warning");
+    expect(warnings).toHaveLength(1);
+    expect((warnings[0] as Extract<WorkflowEvent, { type: "warning" }>).message).toContain("2");
+  });
+
   it("fails the run when the total agent cap is exceeded", async () => {
     const worker = fakeAgent<number, number>("worker", (value) => value);
     const events: WorkflowEvent[] = [];
