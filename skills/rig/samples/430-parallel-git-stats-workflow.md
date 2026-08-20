@@ -36,6 +36,7 @@ totalFiles = sum of all counts.`,
 });
 
 // Workflow role: run commit stats and file stats in parallel, then combine results.
+// `parallel(thunks)` requires uniform thunk return types; use `Promise.all` for heterogeneous agents.
 const parallelGitStatsWorkflow = workflow({
   meta: { name: "parallel-git-stats", description: "Run commit and file stats in parallel." },
   body: async ({ call }) => {

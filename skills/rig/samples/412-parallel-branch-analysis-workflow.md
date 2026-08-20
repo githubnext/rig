@@ -33,6 +33,7 @@ ${p.bash("git log --oneline --since='30 days ago' 2>/dev/null || echo ''")}`,
 });
 
 // Workflow role: run branch health and commit frequency agents in parallel, then classify overall health.
+// `parallel(thunks)` requires uniform thunk return types; use `Promise.all` for heterogeneous agents.
 const parallelBranchAnalysis = workflow({
   meta: { name: "parallelBranchAnalysis", description: "Parallel branch analysis", phases: ["Analyze", "Rate"] },
   body: async ({ call, phase }) => {

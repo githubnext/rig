@@ -1,5 +1,10 @@
 # 390 - Parallel Multi-Tool Workflow
 
+Uses `parallel(thunks)` — the rig equivalent of `parallel(thunks)` in Claude
+dynamic workflows. Respects the shared concurrency limiter and converts failures
+to `null` holes. Use it instead of `Promise.all` when porting a Claude dynamic
+workflow.
+
 ```rig
 import { workflow, agent, p, s } from "rig";
 
@@ -30,6 +35,7 @@ Return categories map and totalVars count.`,
 });
 
 // Workflow role: Run file count and env health agents in parallel, then combine into an overall health report.
+// `parallel(thunks)` requires uniform thunk return types; use `Promise.all` for heterogeneous agents.
 const parallelMultiToolWorkflow = workflow({
   meta: { name: "workspaceHealth", description: "Parallel workspace health analysis", phases: ["Measure", "Rate"] },
   body: async ({ call, phase }) => {
