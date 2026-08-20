@@ -10,6 +10,7 @@ description: >
 on:
   schedule: daily
   workflow_dispatch:
+  skip-if-match: 'is:pr is:open in:title "[rig-header]"'
 permissions:
   contents: read
   actions: read
