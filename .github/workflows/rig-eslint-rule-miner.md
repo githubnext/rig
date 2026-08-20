@@ -6,6 +6,7 @@ description: >
 on:
   schedule: weekly
   workflow_dispatch:
+  skip-if-match: 'is:pr is:open in:title "[rig-eslint]"'
 permissions:
   actions: read
   contents: read

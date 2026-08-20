@@ -8,6 +8,7 @@ description: >
 on:
   schedule: daily
   workflow_dispatch:
+  skip-if-match: 'is:pr is:open in:title "[rig-tasks]"'
 permissions:
   contents: read
   issues: read
