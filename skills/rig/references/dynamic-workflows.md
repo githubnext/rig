@@ -210,3 +210,18 @@ The rig primitives mirror the Claude Code dynamic-workflow globals (`meta`,
 `args`, `agent`, `parallel`, `pipeline`, `phase`, `log`, `budget`, nested
 `workflow`). See [Converting Claude dynamic workflows to rig](claude-workflow-conversion.md)
 for the full mapping, schema translation table, and behavior differences.
+
+## Example programs
+
+These samples in `skills/rig/samples/` are direct ports of common Claude dynamic
+workflow patterns — use them as starting points when converting a script:
+
+| Sample | Demonstrates |
+| --- | --- |
+| [340-flat-workflow-port.md](../samples/340-flat-workflow-port.md) | Flat/top-level script port using `"rig/globals"` ambient `call`/`pipeline` — minimal-change first step when porting a Claude flat workflow |
+| [310-workflow-audit-verify.md](../samples/310-workflow-audit-verify.md) | `args`→`input`, `parallel`, `pipeline`, `phase`, `call.json` — mirrors the canonical find-and-verify pattern |
+| [320-budget-aware-crawler.md](../samples/320-budget-aware-crawler.md) | `log`, `budget.remaining()`, `until` convergence loop |
+| [330-nested-workflow-composition.md](../samples/330-nested-workflow-composition.md) | `call.workflow` (rig equivalent of `workflow(ref, args)`) sharing the parent's limiter and budget |
+| [360-parallel-branch-analysis-workflow.md](../samples/360-parallel-branch-analysis-workflow.md) | `parallel(thunks)` as a barrier — use instead of `Promise.all` when porting |
+| [401-multi-stage-pipeline-workflow.md](../samples/401-multi-stage-pipeline-workflow.md) | Multi-stage `pipeline(items, stage1, stage2)` enrichment chain — stage `(prev, item, index)` vs Claude's `(item, index)` |
+| [411-anthropic-engine-workflow.md](../samples/411-anthropic-engine-workflow.md) | `anthropicEngine()` setup + per-call Claude model tier selection (`claude-haiku-3-5` / `claude-sonnet-4-5`) — final step when running a rig port against Claude |
