@@ -106,15 +106,39 @@ timeout. Treat them as non-negotiable:
    `// Agent role: ...` comment, each choosing `small` for simple sub-steps and `medium` or
    `large` for harder ones — coordinated so the final answer combines their outputs rather
    than coming from one agent solving everything. That generated program must import only
-   from `"rig"`, take no required input on its root, produce
-   `output: s.object({ solution: s.string })`, and export its root via `export default`
-   without invoking it.
+   from `"rig"`, take no required input on its root, and export its root via
+   `export default` without invoking it.
+
+   Spell the root contract out in the writer's instructions — it has no access to the
+   skill, so it will otherwise guess the API. A `workflow()` spec accepts only
+   `meta`, an optional `input`, and `body`; it has no `output` or `execute` field, and the
+   final `{ solution }` object is simply what `body` returns. An `agent()` root instead
+   declares `output: s.object({ solution: s.string })`. Give the writer this skeleton
+   verbatim as the required shape — it is abridged to one agent, and the generated program
+   still needs at least two:
+
+   ```ts
+   import { agent, workflow, s } from "rig";
+
+   // Agent role: <role>
+   const analyze = agent({ model: "small", instructions: "...", output: s.string });
+
+   // Workflow role: combines the agents' outputs into the final solution
+   export default workflow({
+     meta: { name: "decomposed-solution", description: "..." },
+     body: async ({ call }) => {
+       const analysis = await call(analyze, "...");
+       return { solution: analysis ?? "" };
+     },
+   });
+   ```
 
    Verify it by piping the source over stdin to the installed rig CLI, run from the skill
    directory so Node's package self-reference resolves the bare `"rig"` import:
    `--typecheck` first, and only on success `--server` to execute it. Give the writer up to
    2 attempts total; on a failure, pass it back its own previous source and the exact
-   captured error and ask it to fix precisely that, preserving what already worked. Stop
+   captured error, repeat the skeleton, and ask it to fix precisely what the error names,
+   preserving what already worked — do not invent unrelated API edits of your own. Stop
    early if there is not enough time budget left for another attempt. Record each attempt's
    typecheck and execute pass/fail together with the exact captured output, and parse the
    final solution out of the successful run's JSON stdout. Record how long the whole
