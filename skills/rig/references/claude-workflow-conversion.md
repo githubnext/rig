@@ -75,16 +75,19 @@ Dynamic workflows pass OpenAI-strict JSON Schema literals. rig schemas are
 | `{ type: "number" }` | `s.number` |
 | `{ type: "number", description: "d" }` | `s.number("d")` |
 | `{ type: "integer" }` | `s.int` |
+| `{ type: "integer", description: "d" }` | `s.int("d")` |
 | `{ type: "boolean" }` | `s.boolean` |
 | `{ type: "string", enum: [...] }` | `s.enum("a", "b")` |
 | `{ type: "string", const: "done" }` | `s.literal("done")` |
 | `{ type: "array", items: X }` | `s.array(X)` |
 | `{ type: "object", properties, required, additionalProperties: false }` | `s.object({ ... })` |
+| `{ type: "object", additionalProperties: X }` | `s.record(X)` — string-keyed maps, e.g. `s.record(s.int)` for count maps |
 | `{ anyOf: [X, { type: "null" }] }` | `s.nullable(X)` |
 | omitted from `required` | `s.optional(X)` |
 
 `additionalProperties: false` and a full `required` list are implicit in
-`s.object`, so drop them. Use `s.path` for file paths and `s.url` for URIs.
+`s.object`, so drop them. Use `s.record(X)` for open-ended string-keyed maps
+(e.g. extension→count, label→value). Use `s.path` for file paths and `s.url` for URIs.
 
 ## Worked conversion
 
