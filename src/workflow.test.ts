@@ -273,6 +273,36 @@ describe("dynamic-workflow parity", () => {
     expect(warnings[0]).toMatchObject({ type: "warning", message: expect.stringContaining("2") });
   });
 
+  it("call.text returns a string — maps to await agent(prompt) without a schema", async () => {
+    // The most common Claude dynamic-workflow call: `await agent(prompt)` → `await call.text(prompt)`.
+    // Returns string | null; null signals an agent failure, not an empty string.
+    configureAgent(() => ({
+      ask: async () => '"pong"',
+      close: async () => {},
+    }));
+
+    const definition = workflow({
+      meta: { name: "call-text", description: "call.text returns string" },
+      body: ({ call }) => call.text("Reply with one word: pong."),
+    });
+
+    await expect(runWorkflow(definition)).resolves.toBe("pong");
+  });
+
+  it("log emits a log event visible in the onEvent stream", async () => {
+    // Claude dynamic workflows emit log(message); rig surfaces it as a { type: "log" } event.
+    const events: WorkflowEvent[] = [];
+    const definition = workflow({
+      meta: { name: "log-event", description: "log emits event" },
+      body: ({ log: wfLog }) => { wfLog("scanning repository"); },
+    });
+
+    await runWorkflow(definition, { onEvent: (event) => events.push(event) });
+    const logEvents = events.filter((event) => event.type === "log");
+    expect(logEvents).toHaveLength(1);
+    expect(logEvents[0]).toMatchObject({ type: "log", message: "scanning repository" });
+  });
+
   it("call.json accepts a non-object schema (s.enum) — rig advantage over Claude dynamic workflows", async () => {
     // Claude dynamic workflows only support object schemas in agent(prompt, { schema }).
     // rig's call.json accepts any s.* schema: s.enum, s.array, s.string, etc.
