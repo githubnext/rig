@@ -14,7 +14,7 @@ import {
   type WorkflowEvent,
 } from "rig";
 import { s } from "rig";
-import { call as ambientCall } from "rig/globals";
+import { call as ambientCall, pipeline as ambientPipeline, parallel as ambientParallel } from "rig/globals";
 
 function fakeAgent<Input, Output>(
   name: string,
@@ -467,5 +467,28 @@ describe("rig/globals", () => {
   it("call() throws outside a workflow run", () => {
     const worker = fakeAgent<number, number>("worker", (value) => value);
     expect(() => ambientCall(worker, 1)).toThrow("requires an active workflow run");
+  });
+
+  it("pipeline() and parallel() from rig/globals run inside the active context — flat Claude workflow port pattern", async () => {
+    // Mirrors the incremental migration: import call/pipeline/parallel from "rig/globals"
+    // at the module top level so a flat Claude dynamic workflow can be ported without
+    // restructuring into a workflow({ body }) immediately.
+    const worker = fakeAgent<number, number>("worker", (value) => value * 10);
+    const definition = workflow({
+      meta: { name: "globals-pipeline-parallel", description: "flat port pattern" },
+      body: async () => {
+        const pipelineResult = await ambientPipeline([1, 2, 3], (item: number) => ambientCall(worker, item));
+        const parallelResult = await ambientParallel([
+          () => ambientCall(worker, 4),
+          () => ambientCall(worker, 5),
+        ]);
+        return { pipelineResult, parallelResult };
+      },
+    });
+
+    await expect(runWorkflow(definition)).resolves.toEqual({
+      pipelineResult: [10, 20, 30],
+      parallelResult: [40, 50],
+    });
   });
 });
