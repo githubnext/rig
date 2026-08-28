@@ -24,7 +24,7 @@ strict: true
 timeout-minutes: 55
 checkout: false
 skills:
-  - githubnext/rig/skills/rig@e7d6ad85cd93946a8c09ebbdc1280ca62abd9de5
+  - githubnext/rig/skills/rig@62675a369146e9f187258f10d4812ef383600523
 tools:
   bash: ["*"]
 network:
@@ -99,7 +99,9 @@ timeout. Treat them as non-negotiable:
 
 2. **Solve it in one call.** A `medium` agent limited to a single turn solves the whole
    task by itself, addressing every success criterion, with no delegation and no tools.
-   Record how long this takes.
+   Define this solver with `output: s.string` so the complete solution can be returned
+   verbatim (including Markdown code fences when appropriate), rather than requiring the
+   model to wrap it in a JSON object. Record how long this takes.
 
 3. **Solve it by decomposition.** A `medium` agent writes a *second*, self-contained rig
    program that splits the same task across at least two agents — each with a
@@ -132,6 +134,10 @@ timeout. Treat them as non-negotiable:
      },
    });
    ```
+
+   Use `s.string` for every agent whose result is source text or another free-form
+   solution. Reserve object schemas for structured metadata such as the task picker,
+   and do not make any solver re-emit a large solution inside a wrapper object.
 
    Verify it by piping the source over stdin to the installed rig CLI, run from the skill
    directory so Node's package self-reference resolves the bare `"rig"` import:
