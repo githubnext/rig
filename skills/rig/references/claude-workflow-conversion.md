@@ -10,6 +10,21 @@ A dynamic workflow is a sandboxed JavaScript module that exports a literal
 shape with a typed `workflow({ meta, input, body })` whose `body` receives those
 primitives from its context instead of from globals.
 
+## Where to start
+
+Choose the migration path that matches your script's structure:
+
+| My script looks like… | Start here |
+| --- | --- |
+| Top-level `phase` / `call` / `pipeline` at module scope (flat script) | [340-flat-workflow-port.md](../samples/340-flat-workflow-port.md) — swap injected globals for `"rig/globals"` imports with minimal changes |
+| `body` function with `args` and structured output (canonical pattern) | [310-workflow-audit-verify.md](../samples/310-workflow-audit-verify.md) — direct `args`→`input` + `agent`→`call.json` port |
+| Nested `workflow(ref, args)` calls | [330-nested-workflow-composition.md](../samples/330-nested-workflow-composition.md) — `call.workflow` shares the parent's limiter and budget |
+| `log`, `budget`, open-ended `while` loop | [320-budget-aware-crawler.md](../samples/320-budget-aware-crawler.md) — `log`/`budget.remaining()` + bounded `until` loop |
+| Two or more chained `pipeline` stages | [401-multi-stage-pipeline-workflow.md](../samples/401-multi-stage-pipeline-workflow.md) — note the `(prev, item, index)` stage signature |
+| Running on Claude (not Copilot) | [411-anthropic-engine-workflow.md](../samples/411-anthropic-engine-workflow.md) — `anthropicEngine()` + full Claude model IDs |
+
+Then read [Behavior differences](#behavior-differences-to-keep-in-mind) before you finalize the port.
+
 ## Primitive mapping
 
 | Dynamic workflow | rig | Notes |
