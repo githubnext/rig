@@ -1,5 +1,5 @@
 /**
- * @file skills/rig/rig.ts @last-analyzed 81cce24 @edit-time 2026-08-23T21:32:06Z
+ * @file skills/rig/rig.ts @last-analyzed 716ca95 @edit-time 2026-08-28T04:01:24Z
  * @purpose Minimal TypeScript multi-agent harness: typed input/output schemas, prompt intents, sub-agent delegation, workflow orchestration, Copilot SDK runtime
  * @deps @github/copilot-sdk (CopilotClient,RuntimeConnection,approveAll); node:path,url,os,fs,fs/promises,child_process,util,async_hooks
  * T:Json type null|bool|num|str|Json[]|{[k]:Json}
@@ -90,6 +90,7 @@
  * F:parallel(tasks) runs array of async tasks concurrently
  * F:pipeline(items,...stages) runs pipeline stages over items concurrently
  * F:until(options,step) loops step until done or max rounds
+ * F:repair() AgentAddon re-prompts on JSON/schema failure up to maxTurns [NEW]
  * addon:repair re-prompts on JSON/schema failure up to maxTurns (built-in via defaultRepairPrompt)
  * addon:steering appends warning on last turn so model knows it must correct output now
  * addon:timeout wraps each turn with AbortSignal from TimeoutOptions.timeout ms
