@@ -122,7 +122,7 @@ workflows.  Do not import `"rig/globals"` unless you need it.
 | `call.json(prompt, schema, options?)` | Runs a one-off agent constrained to `schema`; returns typed output or `null` |
 | `call.workflow(child, args?, options?)` | Runs another workflow inline on the same limiter, budget, and event stream |
 | `pipeline(items, ...stages)` | Streams each item through every stage independently; agent calls flow through the shared limiter |
-| `parallel(thunks)` | Runs all thunks as a barrier and preserves their order |
+| `parallel(thunks)` | Runs all thunks as a barrier and preserves their order. **TypeScript:** all thunks must return the same type; for heterogeneous outputs cast: `parallel<TypeA \| TypeB>([...]) as Promise<[TypeA \| null, TypeB \| null]>`. Use instead of `Promise.all` — it respects the concurrency limiter and converts failures to `null` holes. |
 | `until(options, step)` | Runs a bounded convergence loop |
 | `phase(name)` | Sets the phase attached to subsequent events |
 | `log(message)` | Emits a structured log event |
