@@ -41,6 +41,8 @@ it("requires direct Node launch without shell preparation", () => {
   const runtime = readFileSync(resolve(skillRoot, "runtime.md"), "utf8");
   expect(runtime).toContain("`/tmp/gh-aw/agent` is already provisioned");
   expect(runtime).toContain("prevalidated fixture, skip lint and typecheck");
+  expect(runtime).toContain("permission parser treats heredoc");
+  expect(runtime).toContain("Do not broaden the shell allowlist");
 });
 
 it("exposes the same public modules from the standalone skill and repository", () => {

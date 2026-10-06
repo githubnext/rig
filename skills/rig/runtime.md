@@ -72,6 +72,15 @@ disallowed preparation command. Inherit SDK environment variables without
 runs, remove that command and use the permitted standalone Node launch; do not
 claim that Bash is unavailable. If the launcher itself fails, report its exact
 error and respect the workflow's retry policy.
+
+GitHub Agentic Workflows v0.91.1's Copilot SDK permission parser treats heredoc
+body lines as shell commands. It can therefore reject a valid standalone
+`node` launch despite `bash: ["node"]`. If this happens, report the exact denial
+as a workflow permission-parser limitation, not a missing Node runtime or SDK.
+Do not broaden the shell allowlist or encode the program to evade enforcement.
+The workflow host needs a heredoc-aware permission parser before this inline
+launch pattern can run in that SDK driver.
+
 This reduces tool configuration, not sandbox permissions: allowing arbitrary
 Node code still permits filesystem and subprocess operations. Add commands
 required by the program's own tool calls separately.

@@ -80,6 +80,8 @@ typechecking, directory creation, or other bootstrap commands for this fixture.
 Inherit `COPILOT_SDK_URI` and `COPILOT_CONNECTION_TOKEN`; do not inspect or print
 them, start a second server, or use `--server`. If the Node launch fails, report
 its exact command and error and stop without retrying model calls.
+If that launch is denied, do not repeat or reformulate the Bash command:
+call `report_incomplete` immediately. The one-invocation limit includes denials.
 
 The scenario makes exactly three Rig model calls: clarity, safety, and feasibility
 judgments of the same harmless dummy request. TypeScript owns orchestration and
@@ -124,6 +126,8 @@ After the Node launch succeeds, read the result JSON using a file-reading tool
 and call `noop` with a brief summary of the three judgments and majority verdict.
 Do not invoke Bash again to read or validate the result: the post-step owns
 validation. Success requires no repository write. If the launcher,
-SDK, schema validation, or expected verdict fails, report the exact error and
-stop. Do not fabricate results, modify the fixture, or retry model calls. The
+SDK, schema validation, or expected verdict fails, report the exact error with
+`report_incomplete` and stop. Never call `noop` on failure. A rejected standalone Node heredoc
+is a permission-parser failure, not evidence that Node or the SDK is missing.
+Do not fabricate results, modify the fixture, or retry model calls. The
 post-step fails the workflow when the result file is missing or invalid.

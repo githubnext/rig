@@ -85,6 +85,8 @@ describe("Rig skill agentic workflow", () => {
     expect(markdown).toContain("already exists, and Node.js and SDK dependencies are already provisioned");
     expect(markdown).toContain("Do not use Python");
     expect(markdown).toContain("Do not invoke Bash again");
+    expect(markdown).toContain("Never call `noop` on failure");
+    expect(markdown).toContain("The one-invocation limit includes denials");
   });
 
   it("runs the actual workflow fence with exactly three small SDK calls", async () => {
