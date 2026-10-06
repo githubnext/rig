@@ -52,8 +52,16 @@ it("runs only the checked-in fixture and persists independently validated output
     "/checkout/.codex/skills/rig/engines.md",
   ]);
   const [command, args, options] = mocks.spawn.mock.calls[0]!;
-  expect(command).toBe(process.execPath);
-  expect(args).toEqual(["skills/rig/run.ts", ".github/fixtures/provider-three-judges.ts"]);
+  expect(command).toBe("docker");
+  expect(args.slice(0, 6)).toEqual(["exec", "--interactive", "--user", "0", "awf-agent", "chroot"]);
+  expect(args).toContain(`--userspec=${process.getuid?.() ?? 1001}:${process.getgid?.() ?? 1001}`);
+  expect(args).toContain("/usr/bin/env");
+  expect(args).toContain("-i");
+  expect(args).toContain("/usr/bin/timeout");
+  expect(args.slice(-3)).toEqual([process.execPath, "/checkout/.github/drivers/codex-fixture-mcp.ts", "--run-fixture"]);
+  expect(args.join(" ")).not.toContain("upstream-secret");
+  expect(args.join(" ")).not.toContain("upstream-key");
+  expect(args.join(" ")).not.toContain("connection-secret");
   expect(options.cwd).toBe("/checkout");
   expect(options.env).toMatchObject({
     CODEX_API_KEY: "awf-proxy", CODEX_HOME: "/tmp/gh-aw/mcp-config",

@@ -18,12 +18,20 @@ export function createFixtureLauncher(cwd: string, resultPath: string, timeoutMs
       CODEX_HOME: "/tmp/gh-aw/mcp-config",
       GH_AW_MODEL_AGENT_CODEX: "gpt-5.3-codex",
       RIG_JUDGE_ENGINE: "codex",
+      RIG_DEBUG: "agent:failure,engine:codex:create,engine:codex:close",
+      GITHUB_WORKSPACE: cwd,
     };
     for (const name of ["PATH", "HOME", "LANG", "TMPDIR", "NODE_EXTRA_CA_CERTS", "SSL_CERT_FILE"]) {
       if (process.env[name] !== undefined) env[name] = process.env[name];
     }
     const output = await new Promise<string>((resolve, reject) => {
-      const child = spawn(process.execPath, ["skills/rig/run.ts", ".github/fixtures/provider-three-judges.ts"], {
+      const child = spawn("docker", [
+        "exec", "--interactive", "--user", "0", "awf-agent",
+        "chroot", `--userspec=${process.getuid?.() ?? 1001}:${process.getgid?.() ?? 1001}`, "/host",
+        "/usr/bin/env", "-i", ...Object.entries(env).map(([name, value]) => `${name}=${value}`),
+        "/usr/bin/timeout", "--kill-after=5s", `${Math.max(1, Math.floor(timeoutMs / 1000) - 5)}s`,
+        process.execPath, join(cwd, ".github/drivers/codex-fixture-mcp.ts"), "--run-fixture",
+      ], {
         cwd, env, detached: true, stdio: ["pipe", "pipe", "pipe"],
       });
       let stdout = "";
@@ -33,7 +41,7 @@ export function createFixtureLauncher(cwd: string, resultPath: string, timeoutMs
       const fail = (error: Error) => {
         if (failure) return;
         failure = error;
-        // Stop the SDK-owned Codex subprocesses as well as the launcher.
+        // The container-side timeout owns the fixture; stop its Docker client too.
         if (child.pid) {
           try {
             process.kill(-child.pid, "SIGKILL");
@@ -161,12 +169,19 @@ export function createFixtureServer(token: string, launch: () => Promise<unknown
 
 if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) {
   const cwd = process.env["GITHUB_WORKSPACE"];
-  const token = process.env["RIG_FIXTURE_MCP_TOKEN"];
-  if (!cwd || !token) throw new Error("GITHUB_WORKSPACE and RIG_FIXTURE_MCP_TOKEN are required");
-  const server = createFixtureServer(token, createFixtureLauncher(cwd, "/tmp/gh-aw/agent/rig-three-judges.json"));
-  server.on("error", error => {
-    console.error(error);
-    process.exitCode = 1;
-  });
-  server.listen(8766, "0.0.0.0", () => console.error("Rig fixture MCP driver listening on port 8766"));
+  if (!cwd) throw new Error("GITHUB_WORKSPACE is required");
+  if (process.argv[2] === "--run-fixture") {
+    process.chdir(cwd);
+    const { runLauncherCli } = await import("../../skills/rig/rig.ts");
+    await runLauncherCli([".github/fixtures/provider-three-judges.ts"]);
+  } else {
+    const token = process.env["RIG_FIXTURE_MCP_TOKEN"];
+    if (!token) throw new Error("RIG_FIXTURE_MCP_TOKEN is required");
+    const server = createFixtureServer(token, createFixtureLauncher(cwd, "/tmp/gh-aw/agent/rig-three-judges.json"));
+    server.on("error", error => {
+      console.error(error);
+      process.exitCode = 1;
+    });
+    server.listen(8766, "0.0.0.0", () => console.error("Rig fixture MCP driver listening on port 8766"));
+  }
 }

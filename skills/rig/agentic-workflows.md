@@ -138,7 +138,11 @@ workflow therefore declares `bash: false` and exposes only the fixture-specific
 The driver accepts no source, commands, paths, or credentials; it reads the
 installed skill, launches the checked-in fixture once with an allowlisted
 environment and the non-secret proxy key, validates stdout, and persists it
-for the independent post-step. Failed calls cannot be retried. Gemini and Pi
+for the independent post-step. The runner-side driver launches the fixed child
+inside AWF's existing agent container, drops to the runner's UID/GID, and clears
+the child environment; it never enables Codex's model-facing exec tool.
+The child has its own timeout because terminating a Docker client does not
+terminate the container-side process. Failed calls cannot be retried. Gemini and Pi
 continue to permit only `printf` and `node`.
 Codex judges disable the inherited fixture-launch and safe-output MCP servers
 so only the outer agent can orchestrate the launch and report completion.
