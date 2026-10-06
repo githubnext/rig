@@ -53,7 +53,7 @@
 name: "Daily Rig Header Updater"
 on:
   schedule:
-    - cron: "22 21 * * *"  # Friendly format: daily (scattered)
+    - cron: "10 2 * * *"  # Friendly format: daily (scattered)
   # skip-if-match: is:pr is:open in:title "[rig-header]" # Skip-if-match processed as search check in pre-activation job
   workflow_dispatch:
     inputs:

@@ -51,7 +51,7 @@
 name: "Daily Rig Sample Report"
 on:
   schedule:
-    - cron: "20 12 * * *"  # Friendly format: daily (scattered)
+    - cron: "5 16 * * *"  # Friendly format: daily (scattered)
   workflow_dispatch:
     inputs:
       aw_context:

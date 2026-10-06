@@ -51,7 +51,7 @@
 name: "Daily Rig File Summarizer"
 on:
   schedule:
-    - cron: "36 4 * * *"  # Friendly format: daily (scattered)
+    - cron: "21 14 * * *"  # Friendly format: daily (scattered)
   workflow_dispatch:
     inputs:
       aw_context:

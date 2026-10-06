@@ -56,7 +56,7 @@
 name: "Daily Rig Task Generator"
 on:
   schedule:
-    - cron: "22 7 * * *"  # Friendly format: daily (scattered)
+    - cron: "24 13 * * *"  # Friendly format: daily (scattered)
   # skip-if-match: is:pr is:open in:title "[rig-tasks]" # Skip-if-match processed as search check in pre-activation job
   workflow_dispatch:
     inputs:

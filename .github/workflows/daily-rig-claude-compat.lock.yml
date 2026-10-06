@@ -53,7 +53,7 @@
 name: "Daily Rig Claude Dynamic Workflow Compatibility"
 on:
   schedule:
-    - cron: "38 7 * * *"  # Friendly format: daily (scattered)
+    - cron: "37 13 * * *"  # Friendly format: daily (scattered)
   # skip-if-match: is:pr is:open in:title "[rig-claude]" # Skip-if-match processed as search check in pre-activation job
   workflow_dispatch:
     inputs:

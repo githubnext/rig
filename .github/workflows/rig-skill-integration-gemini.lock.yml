@@ -61,7 +61,7 @@
 name: "Rig Skill Integration - Gemini"
 on:
   schedule:
-    - cron: "23 12 * * *"  # Friendly format: daily (scattered)
+    - cron: "52 14 * * *"  # Friendly format: daily (scattered)
   workflow_dispatch:
     inputs:
       aw_context:

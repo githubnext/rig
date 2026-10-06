@@ -53,7 +53,7 @@
 name: "Rig ESLint Rule Miner"
 on:
   schedule:
-    - cron: "5 16 * * 4"  # Friendly format: weekly (scattered)
+    - cron: "20 2 * * 0"  # Friendly format: weekly (scattered)
   # skip-if-match: is:pr is:open in:title "[rig-eslint]" # Skip-if-match processed as search check in pre-activation job
   workflow_dispatch:
     inputs:

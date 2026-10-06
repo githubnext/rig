@@ -59,7 +59,7 @@
 name: "Rig Skill Integration - Codex"
 on:
   schedule:
-    - cron: "6 16 * * *"  # Friendly format: daily (scattered)
+    - cron: "35 20 * * *"  # Friendly format: daily (scattered)
   workflow_dispatch:
     inputs:
       aw_context:
