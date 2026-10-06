@@ -71,11 +71,15 @@ afterEach(() => {
 });
 
 describe("Rig skill agentic workflow", () => {
-  it("explicitly grants both stages of the installed-skill launch pipeline", () => {
+  it("registers a custom driver for harness-owned fixture execution", () => {
+    expect(markdown).toContain("driver: .github/drivers/copilot-sdk-driiver.ts");
+    expect(markdown).toContain('Call `run_rig` **once**');
     expect(markdown).toContain('bash: ["printf", "node"]');
-    expect(markdown).toContain("printf '%s\\n' \\");
-    expect(markdown).toContain("| node .github/skills/rig/run.ts >");
-    expect(markdown).toContain("Do not use a heredoc");
+    expect(markdown).not.toContain("| node .github/skills/rig/run.ts >");
+    const driver = readFileSync(new URL("../.github/drivers/copilot-sdk-driiver.ts", import.meta.url), "utf8");
+    expect(driver).toContain('from "../../skills/rig/launch-tool.ts"');
+    expect(driver).toContain("createRigLaunchTool({ uri, connectionToken, cwd })");
+    expect(driver).not.toContain("launcherPath:");
     const shared = readFileSync(new URL("../.github/workflows/shared/rig.md", import.meta.url), "utf8");
     expect(shared).toContain('bash: ["printf", "node"]');
   });
@@ -98,22 +102,19 @@ describe("Rig skill agentic workflow", () => {
       .toBe('// Agent role: summarize this repository in one sentence.\nexport default "Summarize this repository in one sentence.";\n');
   });
 
-  it("directs one standalone launch without repeating denied preparation", () => {
-    expect(markdown).toContain("Your only Bash invocation");
-    expect(markdown).toContain("The command must begin with `printf`");
-    expect(markdown).toContain("Do not prepend `mkdir`, `cd`, `env`, `export`");
-    expect(markdown).toContain("already exists, and Node.js and SDK dependencies are already provisioned");
-    expect(markdown).toContain("Do not double-quote source");
-    expect(markdown).toContain("Do not invoke Bash again");
+  it("directs one tool launch without Bash preparation or retries", () => {
+    expect(markdown).toContain("Node.js and SDK dependencies are already provisioned");
+    expect(markdown).toContain("Copy every source line unchanged");
+    expect(markdown).toContain("Do not use Bash to launch, read, or validate the fixture");
     expect(markdown).toContain("Never call `noop` on failure");
     expect(markdown).toContain("The one-invocation limit includes denials");
-    expect(markdown).toContain("Do not read the result file, run `cat` or another command");
+    expect(markdown).toContain("stop immediately");
   });
 
   it("requires credential forwarding without exposing the connection token", () => {
-    expect(markdown).toContain("Pass both `COPILOT_SDK_URI` and `COPILOT_CONNECTION_TOKEN` unchanged");
-    expect(markdown).toContain("Never put the token in");
-    expect(markdown).toContain("call `report_incomplete` and stop without launching");
+    expect(markdown).toContain("private pipe, not through Rig's environment");
+    expect(markdown).toContain("Do not inspect credentials");
+    expect(markdown).toContain("supply\na token as a tool argument");
     const skill = readFileSync(new URL("../skills/rig/SKILL.md", import.meta.url), "utf8");
     const runtime = readFileSync(new URL("../skills/rig/runtime.md", import.meta.url), "utf8");
     expect(skill).toContain("`COPILOT_SDK_URI` and `COPILOT_CONNECTION_TOKEN`");

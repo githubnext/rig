@@ -10,6 +10,71 @@ import preferPGlobRule from "../skills/rig/eslint/rules/prefer-p-glob-over-bash-
 import noInvalidAgentFieldsRule from "../skills/rig/eslint/rules/no-invalid-agent-fields.js";
 import enumReturnNeedsAsConstRule from "../skills/rig/eslint/rules/enum-return-needs-as-const.js";
 import noHeterogeneousParallelRule from "../skills/rig/eslint/rules/no-heterogeneous-parallel.js";
+import { spawnSync } from "node:child_process";
+import { mkdtemp, mkdir, readFile, rm, writeFile } from "node:fs/promises";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
+import { fileURLToPath } from "node:url";
+
+describe("JavaScript file linting", () => {
+  const extensions = [".js", ".mjs", ".cjs"];
+  const callback = "const trimmed = lines.map(line => line.trim());";
+  const source = `const program = agent({ agents: [judge] });\n${callback}\n`;
+  const lintPath = fileURLToPath(new URL("../skills/rig/eslint/lint.js", import.meta.url));
+
+  it.each(extensions)("applies API rules but skips TypeScript-only checks for %s", (extension) => {
+    const problems = lintSource(source, { filePath: `program${extension}` });
+    expect(problems.map((problem) => problem.kind)).toEqual(["agents-must-be-object"]);
+    expect(fixSource(source, problems)).toContain("agents: { judge }");
+    expect(fixSource(source, problems)).toContain(callback);
+  });
+
+  it("preserves TypeScript checks with an explicit or omitted file path", () => {
+    expect(lintSource(callback)).toHaveLength(1);
+    expect(lintSource(callback, { filePath: "program.ts" })).toHaveLength(1);
+  });
+
+  it.each(extensions)("skips TypeScript-only ESLint visitors for %s", (extension) => {
+    for (const rule of [noImplicitAnyRule, enumReturnNeedsAsConstRule]) {
+      expect(rule.create({ filename: `program${extension}` })).toEqual({});
+      expect(rule.create({ getFilename: () => `program${extension}` })).toEqual({});
+      expect(Object.keys(rule.create({ filename: "program.ts" }))).not.toHaveLength(0);
+    }
+  });
+
+  it.each(extensions)("lints and fixes explicit files and recursive directory inputs for %s", async (extension) => {
+    const directory = await mkdtemp(join(tmpdir(), "rig-js-lint-test-"));
+    try {
+      const file = join(directory, `program${extension}`);
+      await writeFile(file, source);
+      for (const ignored of [".git", "node_modules"]) {
+        await mkdir(join(directory, ignored));
+        await writeFile(join(directory, ignored, `invalid${extension}`), source);
+      }
+      await writeFile(join(directory, "ignored.txt"), source);
+      const invoke = (...args) => spawnSync(process.execPath, [lintPath, ...args], { encoding: "utf8" });
+      for (const input of [file, directory]) {
+        const failure = invoke(input);
+        expect(failure.status).toBe(1);
+        expect(failure.stderr).toContain(`${file}:1:`);
+        expect(failure.stderr).not.toContain("type annotation");
+      }
+      const fix = invoke("--fix", directory);
+      expect(fix.status, fix.stderr).toBe(0);
+      const fixed = await readFile(file, "utf8");
+      expect(fixed).toContain("agents: { judge }");
+      expect(fixed).toContain(callback);
+      const check = invoke(directory);
+      expect(check.status, check.stderr).toBe(0);
+      for (const ignored of [".git", "node_modules"]) {
+        expect(await readFile(join(directory, ignored, `invalid${extension}`), "utf8")).toBe(source);
+      }
+      expect(await readFile(join(directory, "ignored.txt"), "utf8")).toBe(source);
+    } finally {
+      await rm(directory, { recursive: true, force: true });
+    }
+  });
+});
 
 describe("define-tool-arg-count", () => {
   it.each([

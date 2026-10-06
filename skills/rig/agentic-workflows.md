@@ -65,6 +65,12 @@ prerequisite instead of attempting an unauthenticated connection.
 Do not use `--server` or start another server to work around a failed handoff.
 Inspect only named environment variables when permitted; never dump credentials.
 
+For an SDK driver you own, [Harness tools](./harness-tools.md) provides `run_rig`
+with an authorized pipe-based handoff instead of credential environment variables.
+It requires driver registration; the built-in gh-aw driver does not expose it.
+This repository's integration fixture selects `.github/drivers/copilot-sdk-driiver.ts`
+through `engine.driver` to provide that registration.
+
 ## Launch failures and validation
 
 Use the literal printf pipeline from [Running programs](./runtime.md), not a

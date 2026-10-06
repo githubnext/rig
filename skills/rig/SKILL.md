@@ -140,6 +140,7 @@ Read only when the task needs the listed detail:
 - [Claude workflow conversion](./claude-workflow-conversion.md) — mapping Claude Code dynamic-workflow scripts onto rig primitives, including model selection and the Anthropic engine.
 - [Running programs](./runtime.md) — launch essentials, stdin, typechecking, and SDK credential forwarding.
 - [Launcher details](./launcher-details.md) — inline input defaults, heredocs outside the SDK driver, and ESM edge cases.
+- [Harness tools](./harness-tools.md) — registering `run_rig` in a trusted SDK driver with pipe-based credential handoff.
 - [Agentic Workflows](./agentic-workflows.md) — workflow imports, permissions, prerequisites, SDK handoff, and integration testing.
 - [Engines](./engines.md) — adapter selection, provider configuration, tools, output enforcement, and lifecycle.
 - [Debug logging](./debugging.md) — `RIG_DEBUG` categories for launch, agent, workflow, and engine diagnosis.

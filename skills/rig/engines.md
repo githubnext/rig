@@ -84,6 +84,11 @@ one process per turn and closes unused stdin.
 
 ### Provider-specific behavior
 
+Copilot closes fixed-property output objects with `additionalProperties: false`
+before forwarding them to native structured output, including nested objects.
+The original schema is not mutated. Explicit record schemas remain unchanged;
+support for those schemas depends on the provider.
+
 Anthropic's native output helper closes object schemas and transforms unsupported
 constraints into descriptions. Rig still validates the original schema.
 Records, unconstrained fields, untyped enums, and non-object roots remain

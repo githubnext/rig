@@ -14,6 +14,17 @@ Use `--fix` to apply safe fixes:
 node skills/rig/eslint/lint.js --fix path/to/program.ts
 ```
 
+File and directory inputs scan `.ts`, `.js`, `.mjs`, and `.cjs` files, excluding
+`.git` and `node_modules` directories. JavaScript uses the same Rig API rules
+and safe fixes, but skips TypeScript-only checks for implicit parameter types.
+The ESLint plugin also skips `no-implicit-any-in-tool-handler` and
+`enum-return-needs-as-const` for JavaScript files.
+
+When calling `lintSource` directly for JavaScript, pass
+`lintSource(source, { filePath: "program.js" })`; without a file path it retains
+the existing TypeScript checks. These are Rig-specific checks, not a general
+JavaScript syntax or style linter.
+
 ## Rules
 
 ### `rig/define-tool-arg-count`

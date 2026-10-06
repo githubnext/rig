@@ -199,5 +199,7 @@ See [skills/rig/SKILL.md](skills/rig/SKILL.md) for construction rules,
 [skills/rig/engines.md](skills/rig/engines.md) for SDK adapters,
 [skills/rig/agentic-workflows.md](skills/rig/agentic-workflows.md) for workflow configuration,
 [skills/rig/debugging.md](skills/rig/debugging.md) for logging, and
+[skills/rig/harness-tools.md](skills/rig/harness-tools.md) for registering a
+trusted SDK launch tool with pipe-based credentials, and
 [skills/rig/claude-workflow-conversion.md](skills/rig/claude-workflow-conversion.md)
 for porting Claude Code dynamic workflows to rig.

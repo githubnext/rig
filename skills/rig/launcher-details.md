@@ -56,6 +56,22 @@ imports still require the program directory or an ancestor to contain
 
 Use `--help`, `-h`, `help`, `/help`, or `/?` to print launcher usage.
 
+## Harness-owned connection pipe
+
+`--connection-fd=<fd>` reads one JSON object from an inherited descriptor
+of 3 or greater: `{ "uri": "...", "connectionToken": "..." }`.
+The harness writes this payload and closes its pipe; source remains on stdin.
+Rig reads at most 16 KiB, closes the descriptor, validates the payload, and
+uses the connection for that launch without changing `process.env`.
+It also applies when the program calls `configureAgent(copilotEngine())`;
+an explicit `copilotEngine({ connection })` still takes precedence.
+This flag forces the default engine to Copilot and cannot be combined with
+`--server` or `--typecheck`. Do not put credentials in CLI arguments or source.
+
+Use [Harness tools](./harness-tools.md) to register `run_rig` in a trusted SDK
+driver. The pipe is an authorized handoff, not a way to recover credentials
+that a shell runtime intentionally filters.
+
 ## Operational conventions
 
 - Assume Node.js 24.

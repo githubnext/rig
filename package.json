@@ -6,6 +6,7 @@
     ".": "./skills/rig/rig.ts",
     "./eslint": "./skills/rig/eslint/index.js",
     "./globals": "./skills/rig/globals.ts",
+    "./launch-tool": "./skills/rig/launch-tool.ts",
     "./engines/anthropic": "./skills/rig/engines/anthropic.ts",
     "./engines/codex": "./skills/rig/engines/codex.ts",
     "./engines/gemini": "./skills/rig/engines/gemini.ts",
@@ -14,6 +15,7 @@
   "scripts": {
     "test": "vitest run src/",
     "test:integration": "vitest run scripts/haiku.integration.test.ts",
+    "test:integration:tool": "vitest run scripts/rig-launch-tool.integration.test.ts",
     "sample": "vitest run scripts/run-sample.test.ts",
     "sample:run": "node skills/rig/rig.ts",
     "lint": "node skills/rig/eslint/lint.js .",

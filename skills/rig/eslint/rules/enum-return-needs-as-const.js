@@ -1,3 +1,5 @@
+import { isJavaScriptFile } from "../file-types.js";
+
 export default {
   meta: {
     type: "suggestion",
@@ -13,6 +15,7 @@ export default {
     },
   },
   create(context) {
+    if (isJavaScriptFile(context.filename ?? context.getFilename?.() ?? "")) return {};
     /**
      * Walk up the ancestor chain to determine whether this return statement is
      * directly inside a `handler:` property function body (arrow or regular).

@@ -96,6 +96,7 @@ a portable model identifier.
 ## Focused references
 
 - [Launcher details](./launcher-details.md) — read for heredocs outside the SDK driver, inline input defaults, ESM behavior, or launcher edge cases.
+- [Harness tools](./harness-tools.md) — read when registering a trusted `run_rig` SDK tool with pipe-based credentials instead of a shell environment.
 - [Agentic Workflows](./agentic-workflows.md) — read when configuring imports, permissions, dependencies, SDK credentials, or the integration fixture.
 - [Engines](./engines.md) — read when selecting or configuring an adapter, tools, structured output, provider models, or lifecycle behavior.
 - [Debug logging](./debugging.md) — read when diagnosing launch, agent, workflow, or engine failures with `RIG_DEBUG`.
