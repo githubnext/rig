@@ -1,8 +1,9 @@
 #!/usr/bin/env node
 
 import { readFile, readdir, writeFile } from "node:fs/promises";
-import { extname, resolve } from "node:path";
+import { resolve } from "node:path";
 import { pathToFileURL } from "node:url";
+import { isJavaScriptFile, isSupportedSourceFile } from "./file-types.js";
 import { scanTokens as scanDefineToolArgCount } from "./rules/define-tool-arg-count.js";
 import { scanTokens as scanAgentsMustBeObject } from "./rules/agents-must-be-object.js";
 import { scanTokens as scanNoObjectLiteralRecord } from "./rules/no-object-literal-record.js";
@@ -59,9 +60,12 @@ function tokenize(source) {
   return tokens;
 }
 
-export function lintSource(source) {
+export function lintSource(source, { filePath = "program.ts" } = {}) {
   const tokens = tokenize(source);
-  return tokenRules.flatMap((scan) => scan(tokens, source));
+  const rules = isJavaScriptFile(filePath)
+    ? tokenRules.filter((scan) => scan !== scanNoImplicitAnyInToolHandler)
+    : tokenRules;
+  return rules.flatMap((scan) => scan(tokens, source));
 }
 
 export function fixSource(source, problems = lintSource(source)) {
@@ -83,14 +87,14 @@ async function sourceFiles(paths) {
   for (const path of paths) {
     const entries = await readdir(path, { withFileTypes: true }).catch(() => undefined);
     if (!entries) {
-      if (extname(path) === ".ts") files.push(path);
+      if (isSupportedSourceFile(path)) files.push(path);
       continue;
     }
     for (const entry of entries) {
       if (entry.isDirectory() && ignoredDirectories.has(entry.name)) continue;
       const child = resolve(path, entry.name);
       if (entry.isDirectory()) files.push(...await sourceFiles([child]));
-      else if (extname(entry.name) === ".ts") files.push(child);
+      else if (isSupportedSourceFile(entry.name)) files.push(child);
     }
   }
   return files;
@@ -106,7 +110,7 @@ async function main(argv) {
   let failures = 0;
   for (const file of await sourceFiles(paths)) {
     const source = await readFile(file, "utf8");
-    const problems = lintSource(source);
+    const problems = lintSource(source, { filePath: file });
     if (problems.length === 0) continue;
     if (fix) {
       await writeFile(file, fixSource(source, problems));

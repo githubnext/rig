@@ -53,6 +53,7 @@ export default {
     },
   },
   create(context) {
+    if (isJavaScriptFile(context.filename ?? context.getFilename?.() ?? "")) return {};
     return {
       CallExpression(node) {
         const { callee, arguments: args } = node;
@@ -94,3 +95,4 @@ export default {
     };
   },
 };
+import { isJavaScriptFile } from "../file-types.js";
