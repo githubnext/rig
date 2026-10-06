@@ -20,7 +20,11 @@ Load the installed `rig` skill and read its Running and engines reference before
 creating or running Rig programs.
 Run Rig programs with Node.js 24 or later using the installed skill's `run.ts`
 launcher and host-provisioned dependencies. Do not install packages from the
-agent prompt; report missing dependencies and stop. Pipe literal source using
+agent prompt; report missing dependencies and stop.
+When the harness exposes `run_rig`, use it with a `source` argument instead of
+Bash. The trusted driver supplies SDK credentials through a private pipe;
+do not inspect or forward tokens yourself. Follow the workflow's launch limit.
+Otherwise, pipe literal source using
 `printf '%s\n' ... | node <skill-dir>/run.ts`, with one single-quoted argument
 per line and each literal apostrophe escaped as `'"'"'`. Do not use heredocs
 with the Copilot SDK driver. Start the pipeline with `printf`; do not prepend
@@ -29,7 +33,7 @@ Use existing output directories; `/tmp/gh-aw/agent` is already provisioned.
 Read only named environment variables needed by the program; do not dump the
 environment or print credentials.
 
-When using the Copilot SDK engine, inherit `COPILOT_SDK_URI` and
+When launching through Bash with the Copilot SDK engine, inherit `COPILOT_SDK_URI` and
 `COPILOT_CONNECTION_TOKEN`; do not start another server or use `--server`.
 If a command is denied, report that specific command, not that all shell access
 is unavailable. Do not replace a failed run with fabricated output.

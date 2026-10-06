@@ -62,7 +62,7 @@ tools:
 The [shared Rig template](.github/workflows/shared/rig.md) provisions Node.js 24
 and allows `printf` and `node`. In this repository, import
 `shared/rig.md` instead. Without the template, configure these prerequisites
-explicitly; see the [runtime reference](skills/rig/runtime.md#github-agentic-workflows).
+explicitly; see the [Agentic Workflows reference](skills/rig/agentic-workflows.md#configuration).
 Grant `copilot-requests: write` and provision the skill's dependencies in the host.
 For Copilot SDK workflows, use `printf '%s\n' ... | node` rather than heredocs,
 which gh-aw v0.91.1's SDK permission parser rejects. Single-quote each source
@@ -119,8 +119,8 @@ supported provider API-key variables. Without those settings it uses Copilot
 over HTTP at `localhost:7777`. To have the launcher start Copilot over stdio,
 append `--server` to a run command; this requires an installed, authenticated
 Copilot CLI. Other engines require their SDK dependencies or CLI and credentials;
-see the [runtime reference](skills/rig/runtime.md).
-Its [integration guide](skills/rig/runtime.md#choosing-an-integration)
+see the [engine reference](skills/rig/engines.md).
+Its [integration guide](skills/rig/engines.md#choosing-an-integration)
 compares engine capabilities, model selection, tool ownership, and output
 enforcement.
 
@@ -128,7 +128,8 @@ Use the fixed `printf '%s\n'` format with one single-quoted argument per source
 line. Escape literal apostrophes as `'"'"'`; do not use source as the format
 string or double-quote it. See the
 [inline-program guide](skills/rig/runtime.md#inline-programs) for quoting rules
-and heredoc alternatives outside the Copilot SDK workflow driver.
+and [launcher details](skills/rig/launcher-details.md#heredocs-outside-the-copilot-sdk-workflow-driver)
+for heredoc alternatives outside the SDK workflow driver.
 
 **Design on the fly** — just describe what you want as a string and let the model figure out the rest:
 
@@ -194,6 +195,11 @@ tree; Rig does not download it or invoke npm/npx.
 ## Docs
 
 See [skills/rig/SKILL.md](skills/rig/SKILL.md) for construction rules,
-[skills/rig/runtime.md](skills/rig/runtime.md) for launcher and engine details, and
+[skills/rig/runtime.md](skills/rig/runtime.md) for launch essentials,
+[skills/rig/engines.md](skills/rig/engines.md) for SDK adapters,
+[skills/rig/agentic-workflows.md](skills/rig/agentic-workflows.md) for workflow configuration,
+[skills/rig/debugging.md](skills/rig/debugging.md) for logging, and
+[skills/rig/harness-tools.md](skills/rig/harness-tools.md) for registering a
+trusted SDK launch tool with pipe-based credentials, and
 [skills/rig/claude-workflow-conversion.md](skills/rig/claude-workflow-conversion.md)
 for porting Claude Code dynamic workflows to rig.

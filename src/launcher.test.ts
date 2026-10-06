@@ -4,6 +4,7 @@ import { Readable, Writable } from "node:stream";
 import { fileURLToPath } from "node:url";
 import { cp, mkdir, mkdtemp, readdir, rm, symlink, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
+import { openSync } from "node:fs";
 
 const mocks = vi.hoisted(() => {
   const approveAll = vi.fn();
@@ -61,6 +62,51 @@ async function runCliAndCaptureStdout(argv: string[], stdinChunks: string[] = ["
   await runLauncherCli(argv, {}, { stdin, stdout });
   return output.join("");
 }
+
+it("reads a harness connection descriptor even when the program configures copilotEngine itself", async () => {
+  const dir = await mkdtemp(resolve(tmpdir(), "rig-connection-test-"));
+  try {
+    const path = resolve(dir, "connection.json");
+    await writeFile(path, JSON.stringify({ uri: "http://localhost:4242", connectionToken: "pipe-test-token" }));
+    const fd = openSync(path, "r");
+    await runCliAndCaptureStdout([`--connection-fd=${fd}`], [
+      'import { copilotEngine, configureAgent } from "rig"; configureAgent(copilotEngine()); export default "test";',
+    ]);
+    expect(mocks.forUri).toHaveBeenCalledWith("http://localhost:4242", { connectionToken: "pipe-test-token" });
+    mocks.forUri.mockClear();
+    await runCliAndCaptureStdout([], ['export default "test";']);
+    expect(mocks.forUri).not.toHaveBeenCalledWith("http://localhost:4242", expect.anything());
+  } finally {
+    await rm(dir, { recursive: true, force: true });
+  }
+});
+
+it.each(["0", "2", "-1", "NaN", "", "3.5"])("rejects invalid connection descriptor %s", async fd => {
+  await expect(runCliAndCaptureStdout([`--connection-fd=${fd}`])).rejects.toThrow("integer descriptor of 3 or greater");
+});
+
+it.each(["--server", "--typecheck", "--connection-fd=4"])("rejects conflicting connection flags: %s", async flag => {
+  await expect(runCliAndCaptureStdout(["--connection-fd=3", flag])).rejects.toThrow("cannot be combined");
+});
+
+it.each([
+  '{"uri":"http://localhost","connectionToken":',
+  '{"uri":"http://localhost"}',
+  '{"uri":"http://localhost","connectionToken":""}',
+  '{"uri":42,"connectionToken":"secret"}',
+  "x".repeat(16 * 1024 + 1),
+])("rejects invalid connection payload without exposing it", async payload => {
+  const dir = await mkdtemp(resolve(tmpdir(), "rig-connection-invalid-"));
+  try {
+    const path = resolve(dir, "connection.json");
+    await writeFile(path, payload);
+    const fd = openSync(path, "r");
+    await expect(runCliAndCaptureStdout([`--connection-fd=${fd}`])).rejects.toThrow(/SDK connection/);
+    expect(mocks.copilotClientCtor).not.toHaveBeenCalled();
+  } finally {
+    await rm(dir, { recursive: true, force: true });
+  }
+});
 
 it("loads a rig program and mounts a copilot client", async () => {
   const __dirname = dirname(fileURLToPath(import.meta.url));

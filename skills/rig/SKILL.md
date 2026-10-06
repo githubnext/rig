@@ -49,7 +49,7 @@ Defaults: `name: "agent"`, `model: "small"`, `maxTurns: 4`, string input/output,
 For GitHub Agentic Workflows, tell the user to import the
 [shared Rig template](../../.github/workflows/shared/rig.md) or explicitly allow
 `node` in `tools.bash` and provision Node.js 24+ with the skill's dependencies.
-See [Running and engines](./runtime.md) for
+See [Agentic Workflows](./agentic-workflows.md) for
 the import syntax and Copilot SDK configuration.
 
 ## High-frequency decisions
@@ -104,7 +104,8 @@ literal source with `printf '%s\n' '<source line>' ... | node <skill-dir>/run.ts
 Use one single-quoted argument per source line, escaping each literal apostrophe
 as `'"'"'`. Keep `%s\n` as the fixed format; never use source as a format string,
 double-quote source, or expand shell variables. Do not use heredocs with the
-SDK driver; see [Running and engines](./runtime.md) for quoting and alternatives.
+SDK driver; see [Running programs](./runtime.md) for launch essentials and
+[Launcher details](./launcher-details.md) for quoting alternatives.
 Install the skill with `gh skill install githubnext/rig rig`.
 Assume SDKs are already installed in the agent container; do not install them.
 Import the shared Rig workflow template or explicitly allow `printf` and `node`
@@ -116,7 +117,7 @@ directories. When launching against an existing Copilot SDK endpoint, pass both
 unchanged; do not drop the token when configuring a subprocess environment.
 `copilotEngine()` forwards that token to the SDK connection automatically.
 Never print or embed the token in source or shell commands. See
-[Running and engines](./runtime.md) for credential handoff requirements.
+[Agentic Workflows](./agentic-workflows.md) for detailed credential handoff requirements.
 Report denied commands accurately.
 
 ## Final check
@@ -137,5 +138,10 @@ Read only when the task needs the listed detail:
 - [Composition and addons](./composition.md) — delegation patterns, dynamic sets, repair, steering, and addon lifecycle.
 - [Dynamic workflows](./dynamic-workflows.md) — bounded fan-out, failure semantics, limits, budget, events, and convergence loops.
 - [Claude workflow conversion](./claude-workflow-conversion.md) — mapping Claude Code dynamic-workflow scripts onto rig primitives, including model selection and the Anthropic engine.
-- [Running and engines](./runtime.md) — markdown/file launch modes, typechecking, Agentic Workflows, and SDK adapters.
+- [Running programs](./runtime.md) — launch essentials, stdin, typechecking, and SDK credential forwarding.
+- [Launcher details](./launcher-details.md) — inline input defaults, heredocs outside the SDK driver, and ESM edge cases.
+- [Harness tools](./harness-tools.md) — registering `run_rig` in a trusted SDK driver with pipe-based credential handoff.
+- [Agentic Workflows](./agentic-workflows.md) — workflow imports, permissions, prerequisites, SDK handoff, and integration testing.
+- [Engines](./engines.md) — adapter selection, provider configuration, tools, output enforcement, and lifecycle.
+- [Debug logging](./debugging.md) — `RIG_DEBUG` categories for launch, agent, workflow, and engine diagnosis.
 - [Linting](./linting.md) — linter usage, autofixes, rules, and rule development.

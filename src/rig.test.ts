@@ -762,7 +762,7 @@ describe("agent invocation", () => {
     await call("x");
 
     expect(mocks.sendAndWaitRequests[0]).toEqual(expect.objectContaining({
-      responseSchema: toJsonSchema(output),
+      responseSchema: { ...toJsonSchema(output), additionalProperties: false },
     }));
   });
 
