@@ -237,6 +237,9 @@ it("prints launcher help for common help invocations", async () => {
     const output = await runCliAndCaptureStdout(argv);
     expect(output).toContain("Usage:");
     expect(output).toContain("[<program-file>]");
+    expect(output).toContain("--typecheck < ./program.ts");
+    expect(output).not.toContain("cat ");
+    expect(output).not.toContain("echo ");
   }
   expect(mocks.createSession).not.toHaveBeenCalled();
 });

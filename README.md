@@ -12,10 +12,12 @@ gh skill install githubnext/rig rig
 ```
 
 Requires GitHub CLI 2.90.0 or later. Running programs requires Node.js 24 or
-later and the dependencies in the installed skill's `package.json`.
+later. The `run.ts` entry point installs missing skill dependencies with npm
+(lifecycle scripts disabled), then launches the program.
 
-Use `gh skill list` to find the installed skill directory, then install its npm
-dependencies there. The launcher examples below use paths from a repository
+Use `gh skill list` to find the installed skill directory. npm must be on PATH,
+and the directory must be writable with registry access for the first install.
+The launcher examples below use paths from a repository
 checkout; for an installed skill, substitute its directory for `skills/rig`.
 
 `skills/rig/SKILL.md` is the canonical, publishable skill manifest.
@@ -40,7 +42,15 @@ engine:
   copilot-sdk: true
 skills:
   - githubnext/rig/skills/rig/SKILL.md@<full-commit-sha>
+tools:
+  bash: ["node"]
 ```
+
+Only `node` needs a Bash grant to bootstrap and launch the installed skill.
+Use heredocs or redirections rather than `cat`/`echo` pipelines, and allow the
+Node/npm registry network ecosystem for missing dependencies. Grant additional
+commands only for the program's own tool calls. This is a smaller tool
+allowlist, not a security boundary: Node can still start subprocesses.
 
 The [Rig Skill Integration workflow](.github/workflows/rig-skill-integration.md)
 tests the skill from the current checkout daily or via `workflow_dispatch`.
@@ -84,7 +94,7 @@ const releaseAgent = agent({ model: "small",
 export default releaseAgent;
 ```
 
-### 2) Run a Rig program directly with `skills/rig/rig.ts`
+### 2) Run a Rig program with `skills/rig/run.ts`
 
 By default, Rig selects an engine from `COPILOT_SDK_URI`, `RIG_ENGINE`, or
 supported provider API-key variables. Without those settings it uses Copilot
@@ -99,7 +109,7 @@ enforcement.
 **Design on the fly** — just describe what you want as a string and let the model figure out the rest:
 
 ```bash
-cat <<'RIG' | node skills/rig/rig.ts
+node skills/rig/run.ts <<'RIG'
 export default "Run npm test, diagnose any failures, apply the smallest safe fix, and repeat up to 3 times.";
 RIG
 ```
@@ -133,10 +143,10 @@ export default ralfLoop;
 ```
 ````
 
-Extract the fence contents and pipe them directly to the launcher:
+Pass the fence contents directly to the launcher with a heredoc:
 
 ```bash
-cat <<'RIG' | node skills/rig/rig.ts
+node skills/rig/run.ts <<'RIG'
 // Paste the rig fence contents here.
 RIG
 ```
@@ -144,13 +154,15 @@ RIG
 Or run a program file:
 
 ```bash
-echo "Review this diff" | node skills/rig/rig.ts src/program.ts
+node skills/rig/run.ts src/program.ts <<'INPUT'
+Review this diff
+INPUT
 ```
 
 Use `--typecheck` to validate a program without running it:
 
 ```bash
-cat program.ts | node skills/rig/rig.ts --typecheck
+node skills/rig/run.ts --typecheck < program.ts
 ```
 
 This uses `npx` to run TypeScript 5.9.3 and may require npm registry access

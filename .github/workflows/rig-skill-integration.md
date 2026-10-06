@@ -20,7 +20,7 @@ timeout-minutes: 10
 env:
   RIG_DEBUG: "agent:failure,workflow:event"
 tools:
-  bash: ["node", "cat"]
+  bash: ["node"]
   edit: false
 network:
   allowed: [defaults, github, node]
@@ -51,9 +51,11 @@ post-steps:
 
 Read the installed Rig skill and its running/engines reference. Run the following
 `rig` fence **once**, unchanged, using the installed skill's launcher in inline
-mode. Redirect stdout to `/tmp/gh-aw/agent/rig-skill-integration.json`.
+mode via `node <installed-skill-dir>/run.ts <<'RIG'`, with the fence contents
+followed by `RIG`. Redirect stdout to `/tmp/gh-aw/agent/rig-skill-integration.json`.
 Use the provided `COPILOT_SDK_URI`; do not start a second server or use `--server`.
-The skill's dependencies must be available before execution.
+The entry point installs missing skill dependencies automatically; do not run
+separate npm, cat, mkdir, or other bootstrap commands.
 
 The scenario makes exactly three Rig model calls: clarity, safety, and feasibility
 judgments of the same harmless dummy request. TypeScript owns orchestration and

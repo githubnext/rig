@@ -1934,9 +1934,11 @@ function renderLauncherUsage(scriptName: string): string {
     "  --help, -h, help, /help, /?",
     "",
     "Examples:",
-    `  cat ./program.ts | ${scriptName}`,
-    `  cat ./program.ts | ${scriptName} --typecheck`,
-    `  echo "Summarize this repository" | ${scriptName} src/program.ts`,
+    `  node ${scriptName} < ./program.ts`,
+    `  node ${scriptName} --typecheck < ./program.ts`,
+    `  node ${scriptName} src/program.ts <<'INPUT'`,
+    "  Summarize this repository",
+    "  INPUT",
   ].join("\n");
 }
 

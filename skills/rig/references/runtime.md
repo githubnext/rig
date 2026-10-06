@@ -4,10 +4,10 @@ Read this reference when launching or typechecking programs, handling stdin, or 
 
 ## Inline programs
 
-Treat a fenced `rig` block as a runnable program. Extract its contents and pipe them to the launcher:
+Treat a fenced `rig` block as a runnable program. Pass its contents to the launcher with a heredoc:
 
 ```bash
-cat <<'RIG' | node skills/rig/rig.ts
+node skills/rig/run.ts <<'RIG'
 // Agent role: summarize this repository in one sentence.
 export default "Summarize this repository in one sentence.";
 RIG
@@ -23,12 +23,38 @@ Inline mode:
 
 Prefer an explicit default export even though the fallback exists.
 
+## Installed skill bootstrap
+
+Replace `skills/rig` in these commands with the installed skill directory.
+`run.ts` needs only Node built-ins before loading the runtime. It checks the
+skill's dependencies and, if any are missing, runs npm in that directory with
+lifecycle scripts disabled, without changing the caller's working directory.
+Installation diagnostics go to stderr; stdout remains reserved for the result.
+An npm startup or installation failure stops the run with a nonzero exit.
+Already-installed dependencies are reused without an npm invocation.
+
+Node.js 24 or later is required. npm must be on PATH and the skill directory
+must be writable on the first run; registry access is needed for uncached
+dependencies. Optional engine SDKs still need to be provisioned separately.
+`rig.ts` remains the direct runtime entry point when dependencies are already
+provisioned.
+
+For agentic workflows, the bootstrap/launch Bash allowlist is just
+`bash: ["node"]`. Heredocs and input/output redirections avoid `cat`, `echo`,
+and separate file-creation commands. npm (and npx for typechecking) runs inside
+the Node process; it must be available but needs no separate agent tool grant.
+This reduces tool configuration, not sandbox permissions: allowing arbitrary
+Node code still permits filesystem and subprocess operations. Add commands
+required by the program's own tool calls separately.
+
 ## Program files
 
 Export the root and pass stdin plus the file path:
 
 ```bash
-echo "Review this diff" | node skills/rig/rig.ts src/program.ts
+node skills/rig/run.ts src/program.ts <<'INPUT'
+Review this diff
+INPUT
 ```
 
 Stdin coercion follows the root schema:
@@ -54,8 +80,8 @@ Use `--help`, `-h`, `help`, `/help`, or `/?` to print launcher usage.
 `--typecheck` validates and exits without creating runtime sessions or invoking the root:
 
 ```bash
-cat program.ts | node skills/rig/rig.ts --typecheck
-echo "Review this diff" | node skills/rig/rig.ts src/program.ts --typecheck
+node skills/rig/run.ts --typecheck < program.ts
+node skills/rig/run.ts src/program.ts --typecheck
 ```
 
 Success prints `typecheck passed` and exits 0. Failure reports TypeScript diagnostics.
@@ -72,9 +98,11 @@ engine:
   copilot-sdk: true
 skills:
   - githubnext/rig/skills/rig/SKILL.md@<full-commit-sha>
+tools:
+  bash: ["node"]
 ```
 
-Import `configureAgent` and `copilotEngine` in the fenced program and call `configureAgent(copilotEngine())` before defining agents. Grant `copilot-requests: write`, and enable only the tools and network access the program uses.
+Import `configureAgent` and `copilotEngine` in the fenced program and call `configureAgent(copilotEngine())` before defining agents. Launch with the installed skill's `run.ts`. Grant `copilot-requests: write`, allow the Node/npm registry network ecosystem for bootstrap, and enable only the additional tools and network access the program uses.
 
 Edit workflows with an agent or run `gh aw compile --watch` for immediate feedback. Before committing, run `gh aw compile <workflow-id> --strict` and include the generated `.lock.yml`.
 
