@@ -68,6 +68,7 @@ describe.each(["codex", "gemini"])("%s three-judge fixture", engine => {
       for (const [index, [prompt, options]] of mocks.run.mock.calls.entries()) {
         expect(prompt).toContain(["clarity", "safety", "feasibility"][index]);
         expect(options.outputSchema.properties.decision.enum).toEqual(["approve", "reject"]);
+        expect(options.outputSchema.additionalProperties).toBe(false);
       }
       for (const [options] of mocks.codex.mock.calls) {
         expect(options).toEqual({ config: {
