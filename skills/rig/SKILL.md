@@ -1,7 +1,8 @@
 ---
 name: rig
-description: Minimal agent cli harness for defining harnesses in prompts as rig markdown fences.
+description: Create, review, and run typed TypeScript agents and workflows with Rig. Use when writing Rig programs, generating runnable rig markdown fences, defining agent schemas and prompt intents, or configuring Rig engines and addons.
 license: MIT
+compatibility: Requires Node.js 24 or later and the skill's npm dependencies to run programs. Live agent calls require a configured Copilot SDK endpoint or another supported engine.
 ---
 
 # rig
