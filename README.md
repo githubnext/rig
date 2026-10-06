@@ -7,8 +7,15 @@
 ## Install
 
 ```bash
-gh skill install githubnext/rig
+gh skill install githubnext/rig rig
 ```
+
+Requires GitHub CLI 2.90.0 or later. Running programs requires Node.js 24 or
+later and the dependencies in the installed skill's `package.json`.
+
+`skills/rig/SKILL.md` is the canonical, publishable skill manifest.
+`.github/skills/rig/SKILL.md` registers it for Copilot in this repository and
+routes to the canonical instructions without duplicating them.
 
 ## Use Rig in 2 ways
 
