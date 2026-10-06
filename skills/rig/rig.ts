@@ -1946,9 +1946,12 @@ function renderLauncherUsage(scriptName: string): string {
     "Examples:",
     `  node ${scriptName} < ./program.ts`,
     `  node ${scriptName} --typecheck < ./program.ts`,
-    `  node ${scriptName} src/program.ts <<'INPUT'`,
+    `  node ${scriptName} src/program.ts <<'RIG_<generated-hex>'`,
     "  Summarize this repository",
-    "  INPUT",
+    "RIG_<generated-hex>",
+    "",
+    "Replace RIG_<generated-hex> with a fresh RIG_ + node:crypto randomBytes(16).toString(\"hex\").",
+    "Ensure it is not a complete input line; quote the opener and close with the same literal alone.",
   ].join("\n");
 }
 

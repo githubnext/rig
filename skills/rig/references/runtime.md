@@ -6,11 +6,25 @@ Read this reference when launching or typechecking programs, handling stdin, or 
 
 Treat a fenced `rig` block as a runnable program. Pass its contents to the launcher with a heredoc:
 
+Before constructing each heredoc command, generate a fresh delimiter using
+Node's cryptographic random source (no additional Bash tool grant):
+
 ```bash
-node skills/rig/run.ts <<'RIG'
+node --input-type=module -e 'import { randomBytes } from "node:crypto"; console.log("RIG_" + randomBytes(16).toString("hex"));'
+```
+
+Check that the generated delimiter is not an entire line of the contents,
+including a possible trailing `\r`; regenerate if it collides. Substitute the
+result for `RIG_<generated-hex>` below. Single-quote the opener to suppress shell
+expansion, and put the same literal delimiter, unquoted and unindented, alone on
+the closing line. Do not reuse a fixed delimiter or use a shell variable as the
+delimiter: Bash does not expand delimiter words.
+
+```bash
+node skills/rig/run.ts <<'RIG_<generated-hex>'
 // Agent role: summarize this repository in one sentence.
 export default "Summarize this repository in one sentence.";
-RIG
+RIG_<generated-hex>
 ```
 
 Inline mode:
@@ -54,9 +68,9 @@ required by the program's own tool calls separately.
 Export the root and pass stdin plus the file path:
 
 ```bash
-node skills/rig/run.ts src/program.ts <<'INPUT'
+node skills/rig/run.ts src/program.ts <<'RIG_<generated-hex>'
 Review this diff
-INPUT
+RIG_<generated-hex>
 ```
 
 Stdin coercion follows the root schema:

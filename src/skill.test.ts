@@ -25,6 +25,13 @@ it("keeps every canonical skill reference available", () => {
   }
 });
 
+it("requires fresh crypto-generated and quoted heredoc delimiters", () => {
+  expect(canonicalManifest).toContain('randomBytes(16).toString("hex")');
+  expect(canonicalManifest).toContain("regenerate on collision");
+  expect(canonicalManifest).toContain("Single-quote the opening delimiter");
+  expect(canonicalManifest).not.toContain("<<'RIG'");
+});
+
 it("exposes the same public modules from the standalone skill and repository", () => {
   const repositoryPackage = JSON.parse(readFileSync(resolve(repoRoot, "package.json"), "utf8"));
   const skillPackage = JSON.parse(readFileSync(resolve(skillRoot, "package.json"), "utf8"));

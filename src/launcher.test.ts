@@ -240,6 +240,9 @@ it("prints launcher help for common help invocations", async () => {
     expect(output).toContain("--typecheck < ./program.ts");
     expect(output).not.toContain("cat ");
     expect(output).not.toContain("echo ");
+    expect(output).toContain('randomBytes(16).toString("hex")');
+    expect(output).toContain("<<'RIG_<generated-hex>'");
+    expect(output).toContain("\nRIG_<generated-hex>\n");
   }
   expect(mocks.createSession).not.toHaveBeenCalled();
 });

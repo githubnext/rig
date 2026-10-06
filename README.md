@@ -97,12 +97,19 @@ Its [integration guide](skills/rig/references/runtime.md#choosing-an-integration
 compares engine capabilities, model selection, tool ownership, and output
 enforcement.
 
+For every heredoc below, replace `RIG_<generated-hex>` with a fresh `RIG_`
+delimiter generated using `node:crypto`'s `randomBytes(16).toString("hex")`.
+Check it is not an entire line of the contents, single-quote the opener, and
+repeat the exact unquoted delimiter alone on the closing line. See the
+[inline-program guide](skills/rig/references/runtime.md#inline-programs) for the
+generation command; do not reuse fixed delimiters or shell variables.
+
 **Design on the fly** — just describe what you want as a string and let the model figure out the rest:
 
 ```bash
-node skills/rig/run.ts <<'RIG'
+node skills/rig/run.ts <<'RIG_<generated-hex>'
 export default "Run npm test, diagnose any failures, apply the smallest safe fix, and repeat up to 3 times.";
-RIG
+RIG_<generated-hex>
 ```
 
 Or ask Copilot (with the skill) to generate a full program for you. Describe your goal in natural language and Copilot returns a runnable `rig` markdown fence like this:
@@ -137,17 +144,17 @@ export default ralfLoop;
 Pass the fence contents directly to the launcher with a heredoc:
 
 ```bash
-node skills/rig/run.ts <<'RIG'
+node skills/rig/run.ts <<'RIG_<generated-hex>'
 // Paste the rig fence contents here.
-RIG
+RIG_<generated-hex>
 ```
 
 Or run a program file:
 
 ```bash
-node skills/rig/run.ts src/program.ts <<'INPUT'
+node skills/rig/run.ts src/program.ts <<'RIG_<generated-hex>'
 Review this diff
-INPUT
+RIG_<generated-hex>
 ```
 
 Use `--typecheck` to validate a program without running it:

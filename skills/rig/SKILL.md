@@ -94,7 +94,12 @@ node skills/rig/run.ts --typecheck < program.ts
 
 For an installed skill, replace `skills/rig` with its installed directory. Use
 `run.ts` to launch without installing packages; inline programs use
-`node <skill-dir>/run.ts <<'RIG'` with the program followed by `RIG`.
+`node <skill-dir>/run.ts <<'RIG_<generated-hex>'`. For each heredoc, generate a
+fresh `RIG_` delimiter with `node:crypto`'s `randomBytes(16).toString("hex")`.
+Ensure it is not a complete line in the contents; regenerate on collision.
+Single-quote the opening delimiter and repeat the same literal, unquoted
+delimiter alone on the closing line. Never use a fixed delimiter or shell
+variable; see [Running and engines](references/runtime.md).
 Install the skill with `gh skill install githubnext/rig rig`.
 Assume SDKs are already installed in the agent container; do not install them.
 Only `node` needs a Bash tool grant for launching an installed skill; grant
