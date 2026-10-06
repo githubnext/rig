@@ -110,7 +110,7 @@ outputs, majority vote, and strict post-step assertions:
 
 | Workflow | Outer engine / Rig adapter | Model / authentication |
 | --- | --- | --- |
-| [Codex](../../.github/workflows/rig-skill-integration-codex.md) | Codex CLI / `codexEngine` | `copilot/auto`; `copilot-requests: write` |
+| [Codex](../../.github/workflows/rig-skill-integration-codex.md) | Codex CLI / `codexEngine` | `copilot/gpt-5.3-codex`; `copilot-requests: write` |
 | [Gemini](../../.github/workflows/rig-skill-integration-gemini.md) | Gemini CLI / `geminiEngine` | `gemini-2.5-flash`; repository secret `GEMINI_API_KEY` |
 | [Pi](../../.github/workflows/rig-skill-integration-pi.md) | Pi CLI / `piEngine` | `copilot/auto`; `copilot-requests: write` |
 
@@ -122,16 +122,16 @@ explicitly instead of relying on credential-based engine auto-selection.
 Claude/Anthropic is not included.
 
 AWF owns upstream credentials. Codex inherits the harness's proxy configuration
-and preserves its selector, `CODEX_HOME`, `auto` model, and non-secret
+and preserves its selector, `CODEX_HOME`, `gpt-5.3-codex` model, and non-secret
 `awf-proxy` API-key placeholder through `shell_environment_policy.set`.
 Pi uses the generated `PI_CODING_AGENT_DIR/models.json` gateway provider with
 that same non-secret placeholder; it does not use native Copilot OAuth or
 an OpenAI key. Gemini inherits the provisioned CLI, model, and
 `GEMINI_API_BASE_URL`. Do not print or copy upstream secrets into fixture source.
 
-The compiler warns that `copilot/auto` may select a model without Codex's
-required capabilities. The workflow deliberately retains automatic routing;
-compilation and stub/local-gateway tests do not establish live compatibility.
+Codex pins a model that supports the Responses API; Copilot rejects `auto`
+on that endpoint before the outer engine can invoke Rig.
+Compilation and stub/local-gateway tests do not establish live compatibility.
 Codex does not enforce Bash command allowlists, so its workflow declares
 `bash: ["*"]`; the one-command/no-retry procedure is a prompt contract,
 not a shell security boundary. Gemini and Pi permit only `printf` and `node`.

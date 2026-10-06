@@ -29,7 +29,7 @@ beforeEach(() => {
   vi.clearAllMocks();
   vi.stubEnv("RIG_JUDGE_ENGINE", "codex");
   vi.stubEnv("CODEX_HOME", "/test/harness-codex");
-  vi.stubEnv("GH_AW_MODEL_AGENT_CODEX", "auto");
+  vi.stubEnv("GH_AW_MODEL_AGENT_CODEX", "gpt-5.3-codex");
   vi.stubEnv("GEMINI_API_BASE_URL", "http://test-gemini-proxy");
   vi.stubEnv("GEMINI_MODEL", "gemini-2.5-flash");
   mocks.judge.mockReset();
@@ -63,7 +63,7 @@ describe.each(["codex", "gemini"])("%s three-judge fixture", engine => {
       expect(mocks.codex).toHaveBeenCalledTimes(3);
       expect(mocks.spawn).not.toHaveBeenCalled();
       for (const [options] of mocks.startThread.mock.calls) {
-        expect(options).toMatchObject({ model: "auto", sandboxMode: "read-only", approvalPolicy: "never" });
+        expect(options).toMatchObject({ model: "gpt-5.3-codex", sandboxMode: "read-only", approvalPolicy: "never" });
       }
       for (const [index, [prompt, options]] of mocks.run.mock.calls.entries()) {
         expect(prompt).toContain(["clarity", "safety", "feasibility"][index]);
@@ -147,7 +147,7 @@ it.each(["codex", "gemini", "pi"])("declares the %s workflow's provider and shar
   expect(shared).toContain("Never fabricate\nresults or call `noop` on failure");
   expect(lock).toContain("assert-three-judges.ts");
   if (engine !== "gemini") {
-    expect(markdown).toContain("model: copilot/auto");
+    expect(markdown).toContain(`model: copilot/${engine === "codex" ? "gpt-5.3-codex" : "auto"}`);
     expect(markdown).toContain("copilot-requests: write");
     expect(lock).toContain("COPILOT_GITHUB_TOKEN: ${{ github.token }}");
     expect(lock).not.toContain("secrets.OPENAI_API_KEY");
@@ -159,7 +159,8 @@ it.each(["codex", "gemini", "pi"])("declares the %s workflow's provider and shar
 
 it("preserves non-secret Codex fixture settings across shell filtering", () => {
   const lock = readFileSync(new URL("../.github/workflows/rig-skill-integration-codex.lock.yml", import.meta.url), "utf8");
-  expect(lock).toContain('"set":{"CODEX_API_KEY":"awf-proxy","CODEX_HOME":"/tmp/gh-aw/mcp-config","GH_AW_MODEL_AGENT_CODEX":"auto","RIG_JUDGE_ENGINE":"codex"}');
+  expect(lock).toContain('"set":{"CODEX_API_KEY":"awf-proxy","CODEX_HOME":"/tmp/gh-aw/mcp-config","GH_AW_MODEL_AGENT_CODEX":"gpt-5.3-codex","RIG_JUDGE_ENGINE":"codex"}');
+  expect(lock).toContain("GH_AW_MODEL_AGENT_CODEX: gpt-5.3-codex");
 });
 
 it.each(["engine", "model", "request", "call-count", "verdict", "missing-judges", "order", "decision", "reason", "null"])(
