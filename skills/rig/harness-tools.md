@@ -61,6 +61,10 @@ connection settings. This repository's integration workflow uses
 gh-aw's compiler-owned tool filtering and permission handler. That driver
 accepts only the exact fixture source from the prompt, enforces one launch,
 and writes successful stdout for post-step validation.
+Keep the launcher and the program's `"rig"` import on the same runtime copy.
+This repository's driver imports the checkout's tool factory and uses its
+default launcher; selecting a second installed copy would lose the scoped
+connection when the program imports the checkout's runtime.
 A custom MCP server also needs an authorized credential
 handoff; declaring that server does not give it the token automatically.
 Do not work around deliberate credential filtering.

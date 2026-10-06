@@ -76,6 +76,10 @@ describe("Rig skill agentic workflow", () => {
     expect(markdown).toContain('Call `run_rig` **once**');
     expect(markdown).toContain('bash: ["printf", "node"]');
     expect(markdown).not.toContain("| node .github/skills/rig/run.ts >");
+    const driver = readFileSync(new URL("../.github/drivers/rig-sdk-driver.ts", import.meta.url), "utf8");
+    expect(driver).toContain('from "../../skills/rig/launch-tool.ts"');
+    expect(driver).toContain("createRigLaunchTool({ uri, connectionToken, cwd })");
+    expect(driver).not.toContain("launcherPath:");
     const shared = readFileSync(new URL("../.github/workflows/shared/rig.md", import.meta.url), "utf8");
     expect(shared).toContain('bash: ["printf", "node"]');
   });

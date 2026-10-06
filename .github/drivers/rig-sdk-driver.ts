@@ -26,10 +26,7 @@ async function main(): Promise<void> {
   const toolConfig = parseCopilotSDKToolConfig(requiredEnv("GH_AW_COPILOT_SDK_TOOL_CONFIG"));
   const sessionTools = buildCopilotSDKSessionToolConfig(toolConfig, sdk);
   const permissions = buildCopilotSDKPermissionHandler(toolConfig.permissions, sdk.approveAll, { workspaceRoot: cwd });
-  const launchTool = createRigLaunchTool({
-    uri, connectionToken, cwd,
-    launcherPath: join(cwd, ".github/skills/rig/run.ts"),
-  });
+  const launchTool = createRigLaunchTool({ uri, connectionToken, cwd });
   let launched = false;
   let launchError: unknown;
   let result: string | undefined;
@@ -60,7 +57,8 @@ async function main(): Promise<void> {
             return output;
           } catch (error) {
             launchError = error;
-            throw error;
+            const message = (error instanceof Error ? error.message : String(error)).replaceAll(connectionToken, "[redacted]");
+            return { resultType: "failure", textResultForLlm: message, error: message };
           }
         },
       }],
