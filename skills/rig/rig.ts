@@ -108,7 +108,7 @@ import { basename, dirname, isAbsolute, resolve } from "node:path";
 import { availableParallelism } from "node:os";
 import { createRequire } from "node:module";
 import { fileURLToPath, pathToFileURL } from "node:url";
-import { writeSync } from "node:fs";
+import { createReadStream, writeSync } from "node:fs";
 import { access, mkdir, mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
 import { execFile } from "node:child_process";
 import { promisify } from "node:util";
@@ -500,7 +500,11 @@ function resolveDefaultCopilotUri(): string {
   return process.env["COPILOT_SDK_URI"] ?? "localhost:7777";
 }
 
+const launcherCopilotConnection = new AsyncLocalStorage<NonNullable<CopilotClientOptions["connection"]>>();
+
 function resolveDefaultCopilotConnection(): NonNullable<CopilotClientOptions["connection"]> {
+  const suppliedConnection = launcherCopilotConnection.getStore();
+  if (suppliedConnection) return suppliedConnection;
   const connectionToken = process.env["COPILOT_CONNECTION_TOKEN"];
   return connectionToken
     ? RuntimeConnection.forUri(resolveDefaultCopilotUri(), { connectionToken })
@@ -573,6 +577,9 @@ function hasNonEmptyEnv(name: string): boolean {
 }
 
 function resolveDefaultEngineKind(options: DefaultEngineOptions = {}): DefaultEngineKind {
+  if (launcherCopilotConnection.getStore()) {
+    return "copilot";
+  }
   if (options.startServer) {
     return "copilot";
   }
@@ -667,7 +674,7 @@ export function copilotEngine(options: CopilotEngineOptions = {}): AgentFactory 
           session.sendAndWait(
             {
               prompt,
-              ...(askOptions.outputSchema !== undefined ? { responseSchema: askOptions.outputSchema } : {}),
+              ...(askOptions.outputSchema !== undefined ? { responseSchema: copilotResponseSchema(askOptions.outputSchema) } : {}),
             },
             copilotSendTimeout(),
           ),
@@ -698,6 +705,33 @@ export function copilotEngine(options: CopilotEngineOptions = {}): AgentFactory 
       },
     };
   };
+}
+
+function copilotResponseSchema(schema: JsonSchemaObject): JsonSchemaObject {
+  const result = { ...schema };
+  const properties = schema["properties"];
+  if (isJsonSchemaObject(properties)) {
+    result["properties"] = Object.fromEntries(Object.entries(properties).map(([key, value]) =>
+      [key, isJsonSchemaObject(value) ? copilotResponseSchema(value) : value]));
+    if (schema["type"] === "object" && schema["additionalProperties"] === undefined) {
+      result["additionalProperties"] = false;
+    }
+  }
+  for (const key of ["items", "additionalProperties"]) {
+    const value = schema[key];
+    if (isJsonSchemaObject(value)) {
+      result[key] = copilotResponseSchema(value);
+    }
+  }
+  for (const key of ["anyOf", "oneOf", "allOf"]) {
+    const value = schema[key];
+    if (Array.isArray(value)) result[key] = value.map((item: unknown) => isJsonSchemaObject(item) ? copilotResponseSchema(item) : item);
+  }
+  return result;
+}
+
+function isJsonSchemaObject(value: unknown): value is JsonSchemaObject {
+  return value !== null && typeof value === "object" && !Array.isArray(value);
 }
 
 function jsonl(value: unknown): string {
@@ -1934,11 +1968,12 @@ function isLauncherHelpArg(arg: string): boolean {
 
 function renderLauncherUsage(scriptName: string): string {
   return [
-    `Usage: ${scriptName} [<program-file>] [--server] [--typecheck]`,
+    `Usage: ${scriptName} [<program-file>] [--server] [--typecheck] [--connection-fd=<fd>]`,
     "",
     "Modes:",
     "  <no program-file>  Read a rig program from stdin and run its default root export.",
     "  <program-file>     Read stdin input and run the program file root export.",
+    "  --connection-fd=<fd>  Read SDK connection JSON from a harness-owned descriptor (3+).",
     "",
     "Help aliases:",
     "  --help, -h, help, /help, /?",
@@ -1967,6 +2002,7 @@ function renderLauncherUsage(scriptName: string): string {
  * Recognized flags:
  * - `--server`     — use stdio transport instead of the default URI connection.
  * - `--typecheck`  — run `tsc --noEmit` before executing the program.
+ * - `--connection-fd=<fd>` — read harness-provided SDK credentials from a pipe.
  * - `--help` / `-h` / `help` / `/help` / `/?` — print usage and return.
  *
  * Structured JSONL events (prefixed `rig.*`) are written to stderr; the final
@@ -1995,7 +2031,8 @@ export async function runLauncherCli(
   const flags = argv.filter((arg) => arg.startsWith("--"));
   const serverFlag = flags.includes("--server");
   const typecheckFlag = flags.includes("--typecheck");
-  const unknownFlags = flags.filter((f) => f !== "--server" && f !== "--typecheck");
+  const connectionFlags = flags.filter((flag) => flag.startsWith("--connection-fd="));
+  const unknownFlags = flags.filter((f) => f !== "--server" && f !== "--typecheck" && !connectionFlags.includes(f));
   if (positionalArgs.length > 1 || unknownFlags.length > 0) {
     throw new Error(`Usage: ${scriptName} <program-file> [--server] [--typecheck]`);
   }
@@ -2004,11 +2041,54 @@ export async function runLauncherCli(
     ...(serverFlag ? { startServer: true } : {}),
     ...(typecheckFlag ? { typecheck: true } : {}),
   };
-  if (positionalArgs.length === 1) {
-    await runRootAgentFromStdin(positionalArgs[0]!, mergedOptions, io, scriptName);
-    return;
+  const run = async () => {
+    if (positionalArgs.length === 1) {
+      await runRootAgentFromStdin(positionalArgs[0]!, mergedOptions, io, scriptName);
+      return;
+    }
+    await runProgramCodeFromStdin(mergedOptions, io, scriptName);
+  };
+  if (connectionFlags.length) {
+    if (connectionFlags.length !== 1 || mergedOptions.startServer || mergedOptions.typecheck) {
+      throw new Error("--connection-fd requires a single descriptor and cannot be combined with --server or --typecheck");
+    }
+    const rawFd = connectionFlags[0]!.slice("--connection-fd=".length);
+    const fd = Number(rawFd);
+    if (!/^\d+$/.test(rawFd) || !Number.isSafeInteger(fd) || fd < 3) {
+      throw new Error("--connection-fd requires an integer descriptor of 3 or greater");
+    }
+    const connection = await readLauncherConnection(fd);
+    await launcherCopilotConnection.run(connection, run);
+  } else {
+    await run();
   }
-  await runProgramCodeFromStdin(mergedOptions, io, scriptName);
+}
+
+async function readLauncherConnection(fd: number): Promise<NonNullable<CopilotClientOptions["connection"]>> {
+  const stream = createReadStream("", { fd, autoClose: true });
+  const chunks: Buffer[] = [];
+  let bytes = 0;
+  for await (const chunk of stream) {
+    const buffer = Buffer.isBuffer(chunk) ? chunk : Buffer.from(chunk);
+    bytes += buffer.length;
+    if (bytes > 16 * 1024) {
+      stream.destroy();
+      throw new Error("SDK connection payload exceeds 16 KiB");
+    }
+    chunks.push(buffer);
+  }
+  let payload: unknown;
+  try {
+    payload = JSON.parse(Buffer.concat(chunks).toString("utf8"));
+  } catch {
+    throw new Error("SDK connection descriptor must contain valid JSON");
+  }
+  if (!payload || typeof payload !== "object"
+    || !("uri" in payload) || typeof payload.uri !== "string" || !payload.uri.trim()
+    || !("connectionToken" in payload) || typeof payload.connectionToken !== "string" || !payload.connectionToken.trim()) {
+    throw new Error("SDK connection descriptor requires nonempty uri and connectionToken strings");
+  }
+  return RuntimeConnection.forUri(payload.uri, { connectionToken: payload.connectionToken });
 }
 
 /**

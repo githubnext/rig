@@ -194,7 +194,41 @@ it("maps structured output to the SDK responseSchema option", async () => {
 
   await expect(implementation.ask("hello", { outputSchema })).resolves.toBe('{"text":"ok"}');
 
-  expect(sendAndWait).toHaveBeenCalledWith({ prompt: "hello", responseSchema: outputSchema }, expect.any(Number));
+  expect(sendAndWait).toHaveBeenCalledWith({
+    prompt: "hello", responseSchema: { ...outputSchema, additionalProperties: false },
+  }, expect.any(Number));
+  expect(outputSchema).not.toHaveProperty("additionalProperties");
+});
+
+it("closes nested fixed output objects while preserving record schemas", async () => {
+  const sendAndWait = vi.fn().mockResolvedValue({ data: { content: "{}" } });
+  mocks.createSession.mockResolvedValue({ sendAndWait, disconnect: vi.fn() });
+  const implementation = await copilotEngine()({ model: "small" });
+  const fixed = { type: "object", properties: { name: { type: "string" } } };
+  const record = { type: "object", additionalProperties: { type: "string" } };
+  await implementation.ask("hello", {
+    outputSchema: {
+      type: "object",
+      properties: {
+        list: { type: "array", items: fixed },
+        choice: { anyOf: [fixed, { type: "null" }] },
+        record,
+      },
+    },
+  });
+  expect(sendAndWait).toHaveBeenCalledWith({
+    prompt: "hello",
+    responseSchema: {
+      type: "object",
+      additionalProperties: false,
+      properties: {
+        list: { type: "array", items: { ...fixed, additionalProperties: false } },
+        choice: { anyOf: [{ ...fixed, additionalProperties: false }, { type: "null" }] },
+        record,
+      },
+    },
+  }, expect.any(Number));
+  expect(fixed).not.toHaveProperty("additionalProperties");
 });
 
 it("normalizes a string system message to the SDK append configuration", async () => {

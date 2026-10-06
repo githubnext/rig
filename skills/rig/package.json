@@ -13,6 +13,7 @@
     ".": "./rig.ts",
     "./eslint": "./eslint/index.js",
     "./globals": "./globals.ts",
+    "./launch-tool": "./launch-tool.ts",
     "./engines/anthropic": "./engines/anthropic.ts",
     "./engines/codex": "./engines/codex.ts",
     "./engines/gemini": "./engines/gemini.ts",
