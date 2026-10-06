@@ -7,7 +7,7 @@ import { resolve } from "node:path";
 const temporaryDirs: string[] = [];
 
 afterEach(async () => {
-  await Promise.all(temporaryDirs.splice(0).map(path => rm(path, { recursive: true, force: true })));
+  await Promise.all(temporaryDirs.splice(0).map((path: string) => rm(path, { recursive: true, force: true })));
 });
 
 async function fixture(installed = true) {
