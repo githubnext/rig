@@ -15,6 +15,8 @@ engine:
   copilot-sdk: true
 skills:
   - skills/rig
+imports:
+  - shared/rig.md
 strict: true
 timeout-minutes: 10
 env:
@@ -22,8 +24,6 @@ env:
 tools:
   bash: ["node"]
   edit: false
-network:
-  allowed: [defaults, github, node]
 safe-outputs:
   noop:
     report-as-issue: false
@@ -51,10 +51,10 @@ post-steps:
 
 Read the installed Rig skill and its running/engines reference. Run the following
 `rig` fence **once**, unchanged, using the installed skill's launcher in inline
-mode. First generate a fresh delimiter: `RIG_` followed by
-`randomBytes(16).toString("hex")` from Node's `node:crypto`. Verify it is not a
+mode. First generate a fresh 7-character pseudo-random alphanumeric delimiter
+without a tool call. Verify it is not a
 complete line of the fence contents; regenerate on collision. Use
-`node <installed-skill-dir>/run.ts <<'RIG_<generated-hex>'`, substituting the
+`node <installed-skill-dir>/run.ts <<'<delimiter>'`, substituting the
 generated literal in both the single-quoted opener and the unquoted,
 unindented closing line. Never use a fixed delimiter or a shell variable.
 Redirect stdout to `/tmp/gh-aw/agent/rig-skill-integration.json`.

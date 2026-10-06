@@ -16,12 +16,12 @@ Choose the migration path that matches your script's structure:
 
 | My script looks like… | Start here |
 | --- | --- |
-| Top-level `phase` / `call` / `pipeline` at module scope (flat script) | [340-flat-workflow-port.md](../samples/340-flat-workflow-port.md) — swap injected globals for `"rig/globals"` imports with minimal changes |
-| `body` function with `args` and structured output (canonical pattern) | [310-workflow-audit-verify.md](../samples/310-workflow-audit-verify.md) — direct `args`→`input` + `agent`→`call.json` port |
-| Nested `workflow(ref, args)` calls | [330-nested-workflow-composition.md](../samples/330-nested-workflow-composition.md) — `call.workflow` shares the parent's limiter and budget |
-| `log`, `budget`, open-ended `while` loop | [320-budget-aware-crawler.md](../samples/320-budget-aware-crawler.md) — `log`/`budget.remaining()` + bounded `until` loop |
-| Two or more chained `pipeline` stages | [401-multi-stage-pipeline-workflow.md](../samples/401-multi-stage-pipeline-workflow.md) — note the `(prev, item, index)` stage signature |
-| Running on Claude (not Copilot) | [411-anthropic-engine-workflow.md](../samples/411-anthropic-engine-workflow.md) — `anthropicEngine()` + full Claude model IDs |
+| Top-level `phase` / `call` / `pipeline` at module scope (flat script) | [340-flat-workflow-port.md](./samples/340-flat-workflow-port.md) — swap injected globals for `"rig/globals"` imports with minimal changes |
+| `body` function with `args` and structured output (canonical pattern) | [310-workflow-audit-verify.md](./samples/310-workflow-audit-verify.md) — direct `args`→`input` + `agent`→`call.json` port |
+| Nested `workflow(ref, args)` calls | [330-nested-workflow-composition.md](./samples/330-nested-workflow-composition.md) — `call.workflow` shares the parent's limiter and budget |
+| `log`, `budget`, open-ended `while` loop | [320-budget-aware-crawler.md](./samples/320-budget-aware-crawler.md) — `log`/`budget.remaining()` + bounded `until` loop |
+| Two or more chained `pipeline` stages | [401-multi-stage-pipeline-workflow.md](./samples/401-multi-stage-pipeline-workflow.md) — note the `(prev, item, index)` stage signature |
+| Running on Claude (not Copilot) | [411-anthropic-engine-workflow.md](./samples/411-anthropic-engine-workflow.md) — `anthropicEngine()` + full Claude model IDs |
 
 Then read [Behavior differences](#behavior-differences-to-keep-in-mind) before you finalize the port.
 
@@ -233,7 +233,7 @@ pick a model tier that matches the task's quality requirement.
   where `previous` is the prior stage's output (or the item itself for stage 1).
   Claude's stage signature is `(item, index)`, so when porting add `_prev` as the
   first parameter and access the prior result through it in stage 2+. See
-  [401-multi-stage-pipeline-workflow.md](../samples/401-multi-stage-pipeline-workflow.md)
+  [401-multi-stage-pipeline-workflow.md](./samples/401-multi-stage-pipeline-workflow.md)
   for a worked example.
 - **Budget units.** rig counts agent calls, not tokens, so guard loops with
   `budget.remaining() > n` where `n` is a call count.
@@ -295,13 +295,13 @@ workflow patterns — use them as starting points when converting a script:
 
 | Sample | Demonstrates |
 | --- | --- |
-| [340-flat-workflow-port.md](../samples/340-flat-workflow-port.md) | Flat/top-level script port using `"rig/globals"` ambient `call`/`pipeline` — minimal-change first step when porting a Claude flat workflow |
-| [310-workflow-audit-verify.md](../samples/310-workflow-audit-verify.md) | `args`→`input`, `parallel`, `pipeline`, `phase`, `call.json` — mirrors the canonical find-and-verify pattern |
-| [320-budget-aware-crawler.md](../samples/320-budget-aware-crawler.md) | `log`, `budget.remaining()`, `until` convergence loop |
-| [330-nested-workflow-composition.md](../samples/330-nested-workflow-composition.md) | `call.workflow` (rig equivalent of `workflow(ref, args)`) sharing the parent's limiter and budget |
-| [360-parallel-branch-analysis-workflow.md](../samples/360-parallel-branch-analysis-workflow.md) | `parallel(thunks)` as a barrier — use instead of `Promise.all` when porting |
-| [401-multi-stage-pipeline-workflow.md](../samples/401-multi-stage-pipeline-workflow.md) | Multi-stage `pipeline(items, stage1, stage2)` enrichment chain — stage `(prev, item, index)` vs Claude's `(item, index)` |
-| [411-anthropic-engine-workflow.md](../samples/411-anthropic-engine-workflow.md) | `anthropicEngine()` setup + per-call Claude model tier selection (`claude-haiku-3-5` / `claude-sonnet-4-5`) — final step when running a rig port against Claude |
+| [340-flat-workflow-port.md](./samples/340-flat-workflow-port.md) | Flat/top-level script port using `"rig/globals"` ambient `call`/`pipeline` — minimal-change first step when porting a Claude flat workflow |
+| [310-workflow-audit-verify.md](./samples/310-workflow-audit-verify.md) | `args`→`input`, `parallel`, `pipeline`, `phase`, `call.json` — mirrors the canonical find-and-verify pattern |
+| [320-budget-aware-crawler.md](./samples/320-budget-aware-crawler.md) | `log`, `budget.remaining()`, `until` convergence loop |
+| [330-nested-workflow-composition.md](./samples/330-nested-workflow-composition.md) | `call.workflow` (rig equivalent of `workflow(ref, args)`) sharing the parent's limiter and budget |
+| [360-parallel-branch-analysis-workflow.md](./samples/360-parallel-branch-analysis-workflow.md) | `parallel(thunks)` as a barrier — use instead of `Promise.all` when porting |
+| [401-multi-stage-pipeline-workflow.md](./samples/401-multi-stage-pipeline-workflow.md) | Multi-stage `pipeline(items, stage1, stage2)` enrichment chain — stage `(prev, item, index)` vs Claude's `(item, index)` |
+| [411-anthropic-engine-workflow.md](./samples/411-anthropic-engine-workflow.md) | `anthropicEngine()` setup + per-call Claude model tier selection (`claude-haiku-3-5` / `claude-sonnet-4-5`) — final step when running a rig port against Claude |
 
 ## Related references
 

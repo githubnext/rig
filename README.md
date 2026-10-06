@@ -22,13 +22,34 @@ checkout; for an installed skill, substitute its directory for `skills/rig`.
 
 `skills/rig/SKILL.md` is the canonical, publishable skill manifest.
 
+To run from a checkout:
+
+```bash
+git clone https://github.com/githubnext/rig.git
+cd rig
+npm ci
+```
+
+On the Microsoft network or VPN, use the 1ES public npm feed without changing
+your npm configuration:
+
+```bash
+npm ci --registry=https://ms-feed-25.pkgs.visualstudio.com/1es-public/_packaging/npm-public/npm/registry/ --replace-registry-host=npmjs
+```
+
+The dependency overrides pin compatible versions available in that feed,
+including Vite and its test/build dependencies. When updating them, verify both
+package metadata and tarball availability before refreshing the lockfile.
+
 ## Use Rig in 2 ways
 
 ### 1) As a skill for Rig programs that use the Copilot SDK
 
-Pin the skill in your workflow:
+Pin the skill and shared launcher template in your workflow:
 
 ```yaml
+imports:
+  - githubnext/rig/.github/workflows/shared/rig.md@<full-commit-sha>
 engine:
   id: copilot
   copilot-sdk: true
@@ -38,7 +59,11 @@ tools:
   bash: ["node"]
 ```
 
-Only `node` needs a Bash grant to launch the installed skill.
+The [shared Rig template](.github/workflows/shared/rig.md) provisions Node.js 24
+and allows `node`. In this repository, import
+`shared/rig.md` instead. Without the template, configure these prerequisites
+explicitly; see the [runtime reference](skills/rig/runtime.md#github-agentic-workflows).
+Grant `copilot-requests: write` and provision the skill's dependencies in the host.
 Use heredocs or redirections rather than `cat`/`echo` pipelines. Grant additional
 commands only for the program's own tool calls. This is a smaller tool
 allowlist, not a security boundary: Node can still start subprocesses.
@@ -92,24 +117,24 @@ supported provider API-key variables. Without those settings it uses Copilot
 over HTTP at `localhost:7777`. To have the launcher start Copilot over stdio,
 append `--server` to a run command; this requires an installed, authenticated
 Copilot CLI. Other engines require their SDK dependencies or CLI and credentials;
-see the [runtime reference](skills/rig/references/runtime.md).
-Its [integration guide](skills/rig/references/runtime.md#choosing-an-integration)
+see the [runtime reference](skills/rig/runtime.md).
+Its [integration guide](skills/rig/runtime.md#choosing-an-integration)
 compares engine capabilities, model selection, tool ownership, and output
 enforcement.
 
-For every heredoc below, replace `RIG_<generated-hex>` with a fresh `RIG_`
-delimiter generated using `node:crypto`'s `randomBytes(16).toString("hex")`.
+For every heredoc below, replace `<delimiter>` with a fresh 7-character
+pseudo-random alphanumeric string; no tool call is needed to generate it.
 Check it is not an entire line of the contents, single-quote the opener, and
 repeat the exact unquoted delimiter alone on the closing line. See the
-[inline-program guide](skills/rig/references/runtime.md#inline-programs) for the
-generation command; do not reuse fixed delimiters or shell variables.
+[inline-program guide](skills/rig/runtime.md#inline-programs) for the
+delimiter rules; do not reuse fixed delimiters or shell variables.
 
 **Design on the fly** — just describe what you want as a string and let the model figure out the rest:
 
 ```bash
-node skills/rig/run.ts <<'RIG_<generated-hex>'
+node skills/rig/run.ts <<'<delimiter>'
 export default "Run npm test, diagnose any failures, apply the smallest safe fix, and repeat up to 3 times.";
-RIG_<generated-hex>
+<delimiter>
 ```
 
 Or ask Copilot (with the skill) to generate a full program for you. Describe your goal in natural language and Copilot returns a runnable `rig` markdown fence like this:
@@ -144,17 +169,17 @@ export default ralfLoop;
 Pass the fence contents directly to the launcher with a heredoc:
 
 ```bash
-node skills/rig/run.ts <<'RIG_<generated-hex>'
+node skills/rig/run.ts <<'<delimiter>'
 // Paste the rig fence contents here.
-RIG_<generated-hex>
+<delimiter>
 ```
 
 Or run a program file:
 
 ```bash
-node skills/rig/run.ts src/program.ts <<'RIG_<generated-hex>'
+node skills/rig/run.ts src/program.ts <<'<delimiter>'
 Review this diff
-RIG_<generated-hex>
+<delimiter>
 ```
 
 Use `--typecheck` to validate a program without running it:
@@ -170,6 +195,6 @@ tree; Rig does not download it or invoke npm/npx.
 ## Docs
 
 See [skills/rig/SKILL.md](skills/rig/SKILL.md) for construction rules,
-[skills/rig/references/runtime.md](skills/rig/references/runtime.md) for launcher and engine details, and
-[skills/rig/references/claude-workflow-conversion.md](skills/rig/references/claude-workflow-conversion.md)
+[skills/rig/runtime.md](skills/rig/runtime.md) for launcher and engine details, and
+[skills/rig/claude-workflow-conversion.md](skills/rig/claude-workflow-conversion.md)
 for porting Claude Code dynamic workflows to rig.

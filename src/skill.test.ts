@@ -18,15 +18,16 @@ it("keeps the exportable Rig skill as the only manifest", () => {
 });
 
 it("keeps every canonical skill reference available", () => {
-  const links = [...canonicalManifest.matchAll(/\]\((references\/[^)]+)\)/g)];
+  const links = [...canonicalManifest.matchAll(/\]\((\.\/[^)]+)\)/g)];
   expect(links.length).toBeGreaterThan(0);
   for (const link of links) {
     expect(existsSync(resolve(skillRoot, link[1]!)), link[1]).toBe(true);
   }
 });
 
-it("requires fresh crypto-generated and quoted heredoc delimiters", () => {
-  expect(canonicalManifest).toContain('randomBytes(16).toString("hex")');
+it("requires fresh seven-character and quoted heredoc delimiters", () => {
+  expect(canonicalManifest).toContain("7-character pseudo-random alphanumeric delimiter without a tool call");
+  expect(canonicalManifest).not.toContain("randomBytes");
   expect(canonicalManifest).toContain("regenerate on collision");
   expect(canonicalManifest).toContain("Single-quote the opening delimiter");
   expect(canonicalManifest).not.toContain("<<'RIG'");

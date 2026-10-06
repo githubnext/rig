@@ -42,7 +42,7 @@ scripts, which is the primary reason the workflow layer exists.
 | `budget.total/spent()/remaining()` | Direct Claude parity, even though rig meters agent calls rather than tokens. |
 
 **Recommendation:** document these four explicitly as "intentional parity
-duplicates" in `references/claude-workflow-conversion.md` so future reviews do
+duplicates" in `skills/rig/claude-workflow-conversion.md` so future reviews do
 not try to collapse them.
 
 ## 3. Duplication that should be removed
@@ -167,7 +167,7 @@ caveat that `.use()` accepts *only* addons.
 ## 5. Claude background-workflow compatibility checklist
 
 Every proposal above was checked against the Claude primitive mapping in
-`references/claude-workflow-conversion.md`:
+`skills/rig/claude-workflow-conversion.md`:
 
 | Proposal | Claude primitive affected | Verdict |
 | --- | --- | --- |
@@ -246,7 +246,7 @@ churn to a single reviewable PR.
 
 ## 8. Related references
 
-- [Converting Claude dynamic workflows to rig](../skills/rig/references/claude-workflow-conversion.md)
-- [Dynamic workflows](../skills/rig/references/dynamic-workflows.md)
-- [Agent API and schemas](../skills/rig/references/agent-api.md)
-- [Prompt intents](../skills/rig/references/prompt-intents.md)
+- [Converting Claude dynamic workflows to rig](../skills/rig/claude-workflow-conversion.md)
+- [Dynamic workflows](../skills/rig/dynamic-workflows.md)
+- [Agent API and schemas](../skills/rig/agent-api.md)
+- [Prompt intents](../skills/rig/prompt-intents.md)

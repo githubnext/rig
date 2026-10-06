@@ -6,25 +6,21 @@ Read this reference when launching or typechecking programs, handling stdin, or 
 
 Treat a fenced `rig` block as a runnable program. Pass its contents to the launcher with a heredoc:
 
-Before constructing each heredoc command, generate a fresh delimiter using
-Node's cryptographic random source (no additional Bash tool grant):
-
-```bash
-node --input-type=module -e 'import { randomBytes } from "node:crypto"; console.log("RIG_" + randomBytes(16).toString("hex"));'
-```
+Before constructing each heredoc command, generate a fresh 7-character
+pseudo-random alphanumeric string to use as the delimiter. No tool call is needed.
 
 Check that the generated delimiter is not an entire line of the contents,
 including a possible trailing `\r`; regenerate if it collides. Substitute the
-result for `RIG_<generated-hex>` below. Single-quote the opener to suppress shell
+result for `<delimiter>` below. Single-quote the opener to suppress shell
 expansion, and put the same literal delimiter, unquoted and unindented, alone on
 the closing line. Do not reuse a fixed delimiter or use a shell variable as the
 delimiter: Bash does not expand delimiter words.
 
 ```bash
-node skills/rig/run.ts <<'RIG_<generated-hex>'
+node skills/rig/run.ts <<'<delimiter>'
 // Agent role: summarize this repository in one sentence.
 export default "Summarize this repository in one sentence.";
-RIG_<generated-hex>
+<delimiter>
 ```
 
 Inline mode:
@@ -68,9 +64,9 @@ required by the program's own tool calls separately.
 Export the root and pass stdin plus the file path:
 
 ```bash
-node skills/rig/run.ts src/program.ts <<'RIG_<generated-hex>'
+node skills/rig/run.ts src/program.ts <<'<delimiter>'
 Review this diff
-RIG_<generated-hex>
+<delimiter>
 ```
 
 Stdin coercion follows the root schema:
@@ -110,9 +106,14 @@ For a standalone `.ts` program outside an ESM package, the launcher uses a tempo
 
 ## GitHub Agentic Workflows
 
-Enable Copilot SDK driver mode and pin the Rig skill to an immutable commit:
+Tell the user to import the [shared Rig template](../../.github/workflows/shared/rig.md)
+and pin both the template and skill to an immutable commit. The template provisions
+Node.js 24 and enables the `node` command needed to launch programs using
+host-provisioned dependencies:
 
 ```yaml
+imports:
+  - githubnext/rig/.github/workflows/shared/rig.md@<full-commit-sha>
 engine:
   id: copilot
   copilot-sdk: true
@@ -124,11 +125,32 @@ tools:
 
 Import `configureAgent` and `copilotEngine` in the fenced program and call `configureAgent(copilotEngine())` before defining agents. Launch with the installed skill's `run.ts` and host-provisioned dependencies. Grant `copilot-requests: write`, and enable only the additional tools and network access the program uses.
 
+In this repository, use `imports: [shared/rig.md]`. If the user does not import
+the template, tell them to configure the equivalent prerequisites explicitly:
+
+```yaml
+runtimes:
+  node:
+    version: "24"
+tools:
+  bash: ["node"]
+network:
+  allowed: [defaults, github, node]
+```
+
+The template does not install dependencies or select the skill or engine.
+Provision dependencies in the host before running; do not install them from
+the agent prompt. Report missing dependencies and stop.
+Inherit `COPILOT_SDK_URI` and `COPILOT_CONNECTION_TOKEN`; do not use `--server`
+or start another server. Inspect only named environment variables, never dump
+credentials. A denied command does not mean all shell execution is blocked:
+report the exact denial and check it against `tools.bash`.
+
 Edit workflows with an agent or run `gh aw compile --watch` for immediate feedback. Before committing, run `gh aw compile <workflow-id> --strict` and include the generated `.lock.yml`.
 
 For testing changes to the skill itself, declare `skills: [skills/rig]` to install
 the current checkout instead of a released commit. The repository's
-[Rig Skill Integration workflow](../../../.github/workflows/rig-skill-integration.md)
+[Rig Skill Integration workflow](../../.github/workflows/rig-skill-integration.md)
 does this daily or on manual dispatch. Its no-input `rig` fence runs exactly
 three `small` judges through the SDK endpoint, with `maxTurns: 1`, no repair
 addon, and deterministic majority voting. A post-step validates the result and
