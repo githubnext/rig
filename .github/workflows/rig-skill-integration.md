@@ -13,7 +13,7 @@ engine:
   id: copilot
   version: "1.0.92"
   copilot-sdk: true
-  driver: .github/drivers/copilot-sdk-driiver.ts
+  driver: .github/drivers/copilot-sdk-driver.ts
 skills:
   - skills/rig
 imports:

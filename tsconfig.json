@@ -29,5 +29,5 @@
       "rig/*": ["./src/*.ts"]
     }
   },
-  "include": ["src", "scripts", "skills", ".github/drivers"]
+  "include": ["src", "scripts", "skills", ".github/drivers", ".github/fixtures"]
 }

@@ -68,7 +68,7 @@ Inspect only named environment variables when permitted; never dump credentials.
 For an SDK driver you own, [Harness tools](./harness-tools.md) provides `run_rig`
 with an authorized pipe-based handoff instead of credential environment variables.
 It requires driver registration; the built-in gh-aw driver does not expose it.
-This repository's integration fixture selects `.github/drivers/copilot-sdk-driiver.ts`
+This repository's integration fixture selects `.github/drivers/copilot-sdk-driver.ts`
 through `engine.driver` to provide that registration.
 
 ## Launch failures and validation
@@ -102,3 +102,39 @@ and deterministic majority voting. The post-step fails missing output, invalid
 judgments, or an unexpected verdict. The outer engine also uses `small` because
 its provider configuration determines the model used by SDK sessions.
 The three-call count covers the Rig scenario, not the outer engine's turns.
+
+### Other provider adapters
+
+Three additional daily/manual workflows share the same judge rubric, typed
+outputs, majority vote, and strict post-step assertions:
+
+| Workflow | Outer engine / Rig adapter | Model / authentication |
+| --- | --- | --- |
+| [Codex](../../.github/workflows/rig-skill-integration-codex.md) | Codex CLI / `codexEngine` | `copilot/auto`; `copilot-requests: write` |
+| [Gemini](../../.github/workflows/rig-skill-integration-gemini.md) | Gemini CLI / `geminiEngine` | `gemini-2.5-flash`; repository secret `GEMINI_API_KEY` |
+| [Pi](../../.github/workflows/rig-skill-integration-pi.md) | Pi CLI / `piEngine` | `copilot/auto`; `copilot-requests: write` |
+
+The [shared procedure](../../.github/workflows/shared/rig-three-judges.md)
+provisions Node.js 24 and checkout dependencies. It launches a checked-in
+fixture once with `{}` on stdin; file-mode launch still requires input even
+when the workflow has no arguments. Each variant configures its adapter
+explicitly instead of relying on credential-based engine auto-selection.
+Claude/Anthropic is not included.
+
+AWF owns upstream credentials. Codex inherits the harness's proxy configuration
+and preserves its selector, `CODEX_HOME`, `auto` model, and non-secret
+`awf-proxy` API-key placeholder through `shell_environment_policy.set`.
+Pi uses the generated `PI_CODING_AGENT_DIR/models.json` gateway provider with
+that same non-secret placeholder; it does not use native Copilot OAuth or
+an OpenAI key. Gemini inherits the provisioned CLI, model, and
+`GEMINI_API_BASE_URL`. Do not print or copy upstream secrets into fixture source.
+
+The compiler warns that `copilot/auto` may select a model without Codex's
+required capabilities. The workflow deliberately retains automatic routing;
+compilation and stub/local-gateway tests do not establish live compatibility.
+Codex does not enforce Bash command allowlists, so its workflow declares
+`bash: ["*"]`; the one-command/no-retry procedure is a prompt contract,
+not a shell security boundary. Gemini and Pi permit only `printf` and `node`.
+These smoke tests create no repository changes and disable AI threat analysis
+of safe outputs; the agent job remains read-only and the post-step validates
+the persisted result independently.
