@@ -70,6 +70,13 @@ afterEach(() => {
 });
 
 describe("Rig skill agentic workflow", () => {
+  it("requires only node for installed-skill bootstrap and launch", () => {
+    expect(markdown).toContain('bash: ["node"]');
+    expect(markdown).toContain("node <installed-skill-dir>/run.ts <<'RIG_<generated-hex>'");
+    expect(markdown).toContain('randomBytes(16).toString("hex")');
+    expect(markdown).toContain("regenerate on collision");
+  });
+
   it("runs the actual workflow fence with exactly three small SDK calls", async () => {
     const result = JSON.parse(await runScenario());
     expect(result).toEqual({

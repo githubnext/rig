@@ -4,13 +4,27 @@ Read this reference when launching or typechecking programs, handling stdin, or 
 
 ## Inline programs
 
-Treat a fenced `rig` block as a runnable program. Extract its contents and pipe them to the launcher:
+Treat a fenced `rig` block as a runnable program. Pass its contents to the launcher with a heredoc:
+
+Before constructing each heredoc command, generate a fresh delimiter using
+Node's cryptographic random source (no additional Bash tool grant):
 
 ```bash
-cat <<'RIG' | node skills/rig/rig.ts
+node --input-type=module -e 'import { randomBytes } from "node:crypto"; console.log("RIG_" + randomBytes(16).toString("hex"));'
+```
+
+Check that the generated delimiter is not an entire line of the contents,
+including a possible trailing `\r`; regenerate if it collides. Substitute the
+result for `RIG_<generated-hex>` below. Single-quote the opener to suppress shell
+expansion, and put the same literal delimiter, unquoted and unindented, alone on
+the closing line. Do not reuse a fixed delimiter or use a shell variable as the
+delimiter: Bash does not expand delimiter words.
+
+```bash
+node skills/rig/run.ts <<'RIG_<generated-hex>'
 // Agent role: summarize this repository in one sentence.
 export default "Summarize this repository in one sentence.";
-RIG
+RIG_<generated-hex>
 ```
 
 Inline mode:
@@ -23,12 +37,40 @@ Inline mode:
 
 Prefer an explicit default export even though the fallback exists.
 
+## Installed skill bootstrap
+
+Install the skill using GitHub CLI, not a package manager:
+
+```bash
+gh skill install githubnext/rig rig
+gh skill list
+```
+
+Replace `skills/rig` in these commands with the installed skill directory.
+`run.ts` loads the runtime without installing packages or changing the caller's
+working directory. `gh skill install` copies skill files; it does not provision
+the SDK dependencies listed in `package.json`. Assume those dependencies,
+including any optional engine SDKs in use, are already installed in the agent
+container. Do not attempt to install them from the driver or agent prompt.
+Missing dependencies stop the run with a nonzero exit and an error on stderr.
+`rig.ts` remains the direct runtime entry point. Node.js 24 or later is required.
+
+For agentic workflows, the launch Bash allowlist is just
+`bash: ["node"]`. Heredocs and input/output redirections avoid `cat`, `echo`,
+and separate file-creation commands. Neither launch nor typechecking invokes
+npm or npx, and neither downloads dependencies.
+This reduces tool configuration, not sandbox permissions: allowing arbitrary
+Node code still permits filesystem and subprocess operations. Add commands
+required by the program's own tool calls separately.
+
 ## Program files
 
 Export the root and pass stdin plus the file path:
 
 ```bash
-echo "Review this diff" | node skills/rig/rig.ts src/program.ts
+node skills/rig/run.ts src/program.ts <<'RIG_<generated-hex>'
+Review this diff
+RIG_<generated-hex>
 ```
 
 Stdin coercion follows the root schema:
@@ -54,11 +96,15 @@ Use `--help`, `-h`, `help`, `/help`, or `/?` to print launcher usage.
 `--typecheck` validates and exits without creating runtime sessions or invoking the root:
 
 ```bash
-cat program.ts | node skills/rig/rig.ts --typecheck
-echo "Review this diff" | node skills/rig/rig.ts src/program.ts --typecheck
+node skills/rig/run.ts --typecheck < program.ts
+node skills/rig/run.ts src/program.ts --typecheck
 ```
 
 Success prints `typecheck passed` and exits 0. Failure reports TypeScript diagnostics.
+
+Typechecking requires a preinstalled `typescript` package in the workspace or
+skill dependency tree. Rig runs its compiler using Node directly; a missing
+compiler is an explicit error, not a request to install or download one.
 
 For a standalone `.ts` program outside an ESM package, the launcher uses a temporary `.mts` shadow. Relative sibling imports still require the program directory or an ancestor to contain `{"type":"module"}` in `package.json`.
 
@@ -72,9 +118,11 @@ engine:
   copilot-sdk: true
 skills:
   - githubnext/rig/skills/rig/SKILL.md@<full-commit-sha>
+tools:
+  bash: ["node"]
 ```
 
-Import `configureAgent` and `copilotEngine` in the fenced program and call `configureAgent(copilotEngine())` before defining agents. Grant `copilot-requests: write`, and enable only the tools and network access the program uses.
+Import `configureAgent` and `copilotEngine` in the fenced program and call `configureAgent(copilotEngine())` before defining agents. Launch with the installed skill's `run.ts` and host-provisioned dependencies. Grant `copilot-requests: write`, and enable only the additional tools and network access the program uses.
 
 Edit workflows with an agent or run `gh aw compile --watch` for immediate feedback. Before committing, run `gh aw compile <workflow-id> --strict` and include the generated `.lock.yml`.
 

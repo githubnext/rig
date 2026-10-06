@@ -12,21 +12,15 @@ gh skill install githubnext/rig rig
 ```
 
 Requires GitHub CLI 2.90.0 or later. Running programs requires Node.js 24 or
-later and the dependencies in the installed skill's `package.json`.
+later and the skill's SDK dependencies provided by the host. `gh skill install`
+copies skill files; it does not install their SDK packages. The `run.ts` entry
+point launches programs without invoking a package manager.
 
-Use `gh skill list` to find the installed skill directory, then install its npm
-dependencies there. The launcher examples below use paths from a repository
+Use `gh skill list` to find the installed skill directory.
+The launcher examples below use paths from a repository
 checkout; for an installed skill, substitute its directory for `skills/rig`.
 
 `skills/rig/SKILL.md` is the canonical, publishable skill manifest.
-
-To run from a checkout:
-
-```bash
-git clone https://github.com/githubnext/rig.git
-cd rig
-npm ci
-```
 
 ## Use Rig in 2 ways
 
@@ -40,7 +34,14 @@ engine:
   copilot-sdk: true
 skills:
   - githubnext/rig/skills/rig/SKILL.md@<full-commit-sha>
+tools:
+  bash: ["node"]
 ```
+
+Only `node` needs a Bash grant to launch the installed skill.
+Use heredocs or redirections rather than `cat`/`echo` pipelines. Grant additional
+commands only for the program's own tool calls. This is a smaller tool
+allowlist, not a security boundary: Node can still start subprocesses.
 
 The [Rig Skill Integration workflow](.github/workflows/rig-skill-integration.md)
 tests the skill from the current checkout daily or via `workflow_dispatch`.
@@ -84,7 +85,7 @@ const releaseAgent = agent({ model: "small",
 export default releaseAgent;
 ```
 
-### 2) Run a Rig program directly with `skills/rig/rig.ts`
+### 2) Run a Rig program with `skills/rig/run.ts`
 
 By default, Rig selects an engine from `COPILOT_SDK_URI`, `RIG_ENGINE`, or
 supported provider API-key variables. Without those settings it uses Copilot
@@ -96,12 +97,19 @@ Its [integration guide](skills/rig/references/runtime.md#choosing-an-integration
 compares engine capabilities, model selection, tool ownership, and output
 enforcement.
 
+For every heredoc below, replace `RIG_<generated-hex>` with a fresh `RIG_`
+delimiter generated using `node:crypto`'s `randomBytes(16).toString("hex")`.
+Check it is not an entire line of the contents, single-quote the opener, and
+repeat the exact unquoted delimiter alone on the closing line. See the
+[inline-program guide](skills/rig/references/runtime.md#inline-programs) for the
+generation command; do not reuse fixed delimiters or shell variables.
+
 **Design on the fly** — just describe what you want as a string and let the model figure out the rest:
 
 ```bash
-cat <<'RIG' | node skills/rig/rig.ts
+node skills/rig/run.ts <<'RIG_<generated-hex>'
 export default "Run npm test, diagnose any failures, apply the smallest safe fix, and repeat up to 3 times.";
-RIG
+RIG_<generated-hex>
 ```
 
 Or ask Copilot (with the skill) to generate a full program for you. Describe your goal in natural language and Copilot returns a runnable `rig` markdown fence like this:
@@ -133,28 +141,31 @@ export default ralfLoop;
 ```
 ````
 
-Extract the fence contents and pipe them directly to the launcher:
+Pass the fence contents directly to the launcher with a heredoc:
 
 ```bash
-cat <<'RIG' | node skills/rig/rig.ts
+node skills/rig/run.ts <<'RIG_<generated-hex>'
 // Paste the rig fence contents here.
-RIG
+RIG_<generated-hex>
 ```
 
 Or run a program file:
 
 ```bash
-echo "Review this diff" | node skills/rig/rig.ts src/program.ts
+node skills/rig/run.ts src/program.ts <<'RIG_<generated-hex>'
+Review this diff
+RIG_<generated-hex>
 ```
 
 Use `--typecheck` to validate a program without running it:
 
 ```bash
-cat program.ts | node skills/rig/rig.ts --typecheck
+node skills/rig/run.ts --typecheck < program.ts
 ```
 
-This uses `npx` to run TypeScript 5.9.3 and may require npm registry access
-if that version is not cached.
+This runs a preinstalled TypeScript compiler using Node directly. The
+`typescript` package must be available in the workspace or skill dependency
+tree; Rig does not download it or invoke npm/npx.
 
 ## Docs
 
