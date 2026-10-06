@@ -3,11 +3,6 @@
 `rig` is a minimal TypeScript agent harness skill for typed agents, workflows,
 and runnable `rig` markdown fences.
 
-<picture>
-  <source media="(prefers-color-scheme: dark)" srcset="docs/lifecycle-dark.png"/>
-  <img src="docs/lifecycle-light.png" alt="Agentic Workflow Lifecycle — how a Markdown brief becomes a live, AI-powered GitHub Actions workflow" width="100%"/>
-</picture>
-
 ## Install
 
 ```bash
