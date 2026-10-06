@@ -5,7 +5,7 @@ import type { Models } from "@earendil-works/pi-ai";
 import { builtinModels } from "@earendil-works/pi-ai/providers/all";
 import { debug } from "../rig.ts";
 import type { AgentFactory, Tool } from "../rig.ts";
-import { objectToolSchema, toolResultText } from "./utils.ts";
+import { agentLifecycle, objectToolSchema, toolResultText } from "./utils.ts";
 
 const debugCreate = debug("engine:pi:create");
 const debugAsk = debug("engine:pi:ask");
@@ -34,30 +34,33 @@ export function piEngine(options: PiEngineOptions): AgentFactory {
         tools: agentOptions.tools?.map(toPiTool) ?? [],
       },
     });
+    const lifecycle = agentLifecycle("piEngine");
 
     return {
-      async ask(prompt, askOptions = {}) {
-        debugAsk({ model: agentOptions.model, prompt });
-        throwIfAborted(askOptions.signal);
-        const abort = () => piAgent.abort();
-        askOptions.signal?.addEventListener("abort", abort, { once: true });
-        try {
-          await piAgent.prompt(prompt);
-          throwIfAborted(askOptions.signal);
-          if (piAgent.state.errorMessage) {
-            throw new Error(piAgent.state.errorMessage);
+      ask(prompt, askOptions = {}) {
+        return lifecycle.run(askOptions.signal, async (signal) => {
+          debugAsk({ model: agentOptions.model, prompt });
+          const abort = () => piAgent.abort();
+          signal.addEventListener("abort", abort, { once: true });
+          try {
+            await piAgent.prompt(prompt);
+            signal.throwIfAborted();
+            if (piAgent.state.errorMessage) {
+              throw new Error(piAgent.state.errorMessage);
+            }
+            const text = piResponseText(piAgent.state.messages);
+            debugResponse({ model: agentOptions.model, response: text });
+            return text;
+          } finally {
+            signal.removeEventListener("abort", abort);
           }
-          const text = piResponseText(piAgent.state.messages);
-          debugResponse({ model: agentOptions.model, response: text });
-          return text;
-        } finally {
-          askOptions.signal?.removeEventListener("abort", abort);
-        }
+        });
       },
       async close() {
         debugClose({ model: agentOptions.model });
-        piAgent.abort();
+        const closing = lifecycle.close();
         await piAgent.waitForIdle();
+        await closing;
       },
     };
   };
@@ -115,10 +118,4 @@ function piResponseText(messages: readonly unknown[]): string {
     }
   }
   return "";
-}
-
-function throwIfAborted(signal?: AbortSignal): void {
-  if (signal?.aborted) {
-    throw signal.reason ?? new DOMException("Aborted", "AbortError");
-  }
 }

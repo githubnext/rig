@@ -3,14 +3,15 @@ import { beforeEach, expect, it, vi } from "vitest";
 const mocks = vi.hoisted(() => {
   const approveAll = vi.fn();
   const createSession = vi.fn();
+  const stop = vi.fn();
   const forUri = vi.fn(() => ({ kind: "uri", url: "localhost:7777" }));
   const forStdio = vi.fn(() => ({ kind: "stdio" }));
   const copilotClientCtor = vi.fn();
   const CopilotClient = function (this: unknown, options: unknown) {
     copilotClientCtor(options);
-    return { createSession };
+    return { createSession, stop };
   };
-  return { approveAll, createSession, forUri, forStdio, copilotClientCtor, CopilotClient };
+  return { approveAll, createSession, stop, forUri, forStdio, copilotClientCtor, CopilotClient };
 });
 
 vi.mock("@github/copilot-sdk", () => ({
@@ -23,6 +24,8 @@ import { copilotEngine } from "rig";
 
 beforeEach(() => {
   mocks.createSession.mockReset();
+  mocks.stop.mockReset();
+  mocks.stop.mockResolvedValue([]);
   mocks.createSession.mockResolvedValue({
     sendAndWait: vi.fn(),
     disconnect: vi.fn(),
@@ -218,6 +221,26 @@ it.each([
 ])("rejects invalid system message configuration %j before creating a client", async (systemMessage) => {
   await expect(copilotEngine()({ model: "small", systemMessage })).rejects.toThrow("copilotEngine");
   expect(mocks.copilotClientCtor).not.toHaveBeenCalled();
+});
+
+it("stops the client when session creation fails", async () => {
+  const error = new Error("session creation failed");
+  mocks.createSession.mockRejectedValueOnce(error);
+
+  await expect(copilotEngine()({ model: "small" })).rejects.toBe(error);
+  expect(mocks.stop).toHaveBeenCalledOnce();
+});
+
+it("preserves creation and cleanup failures", async () => {
+  const error = new Error("session creation failed");
+  const cleanupError = new Error("client stop failed");
+  mocks.createSession.mockRejectedValueOnce(error);
+  mocks.stop.mockResolvedValueOnce([cleanupError]);
+
+  await expect(copilotEngine()({ model: "small" })).rejects.toMatchObject({
+    message: "Failed to create Copilot agent and stop its client",
+    errors: [error, cleanupError],
+  });
 });
 
 it.each([

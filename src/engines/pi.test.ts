@@ -73,8 +73,9 @@ it("aborts and waits for the pi-agent when closed", async () => {
 
   await runtimeAgent.close();
 
-  expect(mocks.abort).toHaveBeenCalledOnce();
+  expect(mocks.abort).not.toHaveBeenCalled();
   expect(mocks.waitForIdle).toHaveBeenCalledOnce();
+  await expect(runtimeAgent.ask("after close")).rejects.toThrow("Agent closed");
 });
 
 it("propagates pi-agent provider failures", async () => {
@@ -108,4 +109,19 @@ it("rejects unknown pi-agent models", () => {
   const factory = piEngine({ provider: "test", models: models as any });
 
   expect(() => factory({ model: "missing" })).toThrow("Unknown pi-agent model: test/missing");
+});
+
+it("aborts and waits for an active pi-agent prompt on close", async () => {
+  const models = { getModel: vi.fn(() => ({ id: "test-model" })), streamSimple: vi.fn() };
+  let finish: (() => void) | undefined;
+  mocks.prompt.mockImplementationOnce(() => new Promise<void>((resolve) => { finish = resolve; }));
+  mocks.abort.mockImplementationOnce(() => finish?.());
+  const runtimeAgent = await piEngine({ provider: "test", models: models as any })({ model: "small" });
+  const result = runtimeAgent.ask("hello");
+
+  await runtimeAgent.close();
+
+  await expect(result).rejects.toThrow("Agent closed");
+  expect(mocks.abort).toHaveBeenCalledOnce();
+  expect(mocks.waitForIdle).toHaveBeenCalledOnce();
 });

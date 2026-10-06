@@ -85,6 +85,9 @@ over HTTP at `localhost:7777`. To have the launcher start Copilot over stdio,
 append `--server` to a run command; this requires an installed, authenticated
 Copilot CLI. Other engines require their SDK dependencies or CLI and credentials;
 see the [runtime reference](skills/rig/references/runtime.md).
+Its [integration guide](skills/rig/references/runtime.md#choosing-an-integration)
+compares engine capabilities, model selection, tool ownership, and output
+enforcement.
 
 **Design on the fly** — just describe what you want as a string and let the model figure out the rest:
 

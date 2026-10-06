@@ -646,6 +646,13 @@ export function copilotEngine(options: CopilotEngineOptions = {}): AgentFactory 
       ...(multiProvider ? { providers: multiProvider.providers, models: multiProvider.models } : {}),
       ...(systemMessage !== undefined && { systemMessage }),
       ...(agentOptions.tools !== undefined && { tools: agentOptions.tools }),
+    }).catch(async (error: unknown) => {
+      try {
+        await stopCopilotClient(client);
+      } catch (cleanupError) {
+        throw new AggregateError([asError(error), asError(cleanupError)], "Failed to create Copilot agent and stop its client");
+      }
+      throw error;
     });
     session.on?.((event: unknown) => {
       debugCopilotEvent(() => event);

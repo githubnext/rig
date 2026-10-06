@@ -2,6 +2,7 @@ import { Codex } from "@openai/codex-sdk";
 import type { CodexOptions, ThreadOptions } from "@openai/codex-sdk";
 import { debug } from "../rig.ts";
 import type { AgentFactory } from "../rig.ts";
+import { agentLifecycle } from "./utils.ts";
 
 const debugCreate = debug("engine:codex:create");
 const debugAsk = debug("engine:codex:ask");
@@ -33,34 +34,24 @@ export function codexEngine(options: CodexEngineOptions = {}): AgentFactory {
       ...threadOptions,
       model: agentOptions.model,
     });
-    const closeController = new AbortController();
-    const activeTurns = new Set<Promise<unknown>>();
+    const lifecycle = agentLifecycle("codexEngine");
 
     return {
-      async ask(prompt, askOptions = {}) {
-        debugAsk({ model: agentOptions.model, prompt, structured: askOptions.outputSchema !== undefined });
-        throwIfAborted(closeController.signal);
-        const signal = askOptions.signal
-          ? AbortSignal.any([askOptions.signal, closeController.signal])
-          : closeController.signal;
-        const activeTurn = thread.run(prompt, {
-          signal,
-          ...(askOptions.outputSchema !== undefined && { outputSchema: askOptions.outputSchema }),
-        });
-        activeTurns.add(activeTurn);
-        try {
-          const turn = await activeTurn;
+      ask(prompt, askOptions = {}) {
+        return lifecycle.run(askOptions.signal, async (signal) => {
+          debugAsk({ model: agentOptions.model, prompt, structured: askOptions.outputSchema !== undefined });
+          const turn = await thread.run(prompt, {
+            signal,
+            ...(askOptions.outputSchema !== undefined && { outputSchema: askOptions.outputSchema }),
+          });
           const text = typeof turn.finalResponse === "string" ? turn.finalResponse : JSON.stringify(turn.finalResponse);
           debugResponse({ model: agentOptions.model, response: text });
           return text;
-        } finally {
-          activeTurns.delete(activeTurn);
-        }
+        });
       },
       async close() {
         debugClose({ model: agentOptions.model });
-        closeController.abort(new DOMException("Agent closed", "AbortError"));
-        await Promise.allSettled(activeTurns);
+        await lifecycle.close();
       },
     };
   };
@@ -74,10 +65,4 @@ function stringSystemMessage(systemMessage: unknown): string | undefined {
     throw new TypeError("codexEngine requires systemMessage to be a string");
   }
   return systemMessage;
-}
-
-function throwIfAborted(signal: AbortSignal): void {
-  if (signal.aborted) {
-    throw signal.reason ?? new DOMException("Aborted", "AbortError");
-  }
 }
