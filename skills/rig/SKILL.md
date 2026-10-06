@@ -102,6 +102,8 @@ For an installed skill, replace `skills/rig` with its installed directory. Use
 `run.ts` to launch without installing packages; inline programs use
 `node <skill-dir>/run.ts <<'<delimiter>'`. For each heredoc, generate a fresh
 7-character pseudo-random alphanumeric delimiter without a tool call.
+Choose the seven characters yourself in the response; do not execute Python,
+Node, `/dev/urandom`, or a shell pipeline to generate them.
 Ensure it is not a complete line in the contents; regenerate on collision.
 Single-quote the opening delimiter and repeat the same literal, unquoted
 delimiter alone on the closing line. Never use a fixed delimiter or shell
@@ -110,6 +112,10 @@ Install the skill with `gh skill install githubnext/rig rig`.
 Assume SDKs are already installed in the agent container; do not install them.
 Only `node` needs a Bash tool grant for launching an installed skill; grant
 additional commands only when the program itself needs them.
+The launch command must begin with `node`: no `mkdir`, `cd`, `env`, package
+manager, or other preparatory command, and no `&&` prefix. Use existing output
+directories and inherit the SDK environment. A denial of another command does
+not disable Bash or `node`; report the denied command accurately.
 
 ## Final check
 

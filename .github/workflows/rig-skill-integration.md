@@ -49,19 +49,37 @@ post-steps:
 
 # Rig skill integration
 
-Read the installed Rig skill and its running/engines reference. Run the following
-`rig` fence **once**, unchanged, using the installed skill's launcher in inline
-mode. First generate a fresh 7-character pseudo-random alphanumeric delimiter
-without a tool call. Verify it is not a
-complete line of the fence contents; regenerate on collision. Use
-`node <installed-skill-dir>/run.ts <<'<delimiter>'`, substituting the
-generated literal in both the single-quoted opener and the unquoted,
-unindented closing line. Never use a fixed delimiter or a shell variable.
-Redirect stdout to `/tmp/gh-aw/agent/rig-skill-integration.json`.
-Use the provided `COPILOT_SDK_URI`; do not start a second server or use `--server`.
-Use the SDK dependencies already installed in the agent container. The entry
-point does not install packages; do not run npm, npx, cat, mkdir, or other
-bootstrap commands. If dependencies are missing, report the error and stop.
+Execute this prevalidated fixture, not a setup or environment-diagnosis task.
+Bash execution is enabled for `node`. Your only Bash invocation must be the
+standalone Node launch below; a denial of another command does not mean Bash
+or Node is unavailable.
+
+1. Load the installed `rig` skill. Read `.github/skills/rig/SKILL.md` and
+   `.github/skills/rig/runtime.md` with file-reading tools, not Bash commands.
+2. Choose a fresh 7-character pseudo-random alphanumeric delimiter yourself
+   while composing the command, without a tool call. Verify it is not a complete
+   line of the fence contents; regenerate on collision. Do not use Python,
+   Node, `/dev/urandom`, `base64`, `tr`, or a shell pipeline to generate it.
+3. Run the following `rig` fence **once**, unchanged, by substituting its contents
+   into the command below. Replace both `<delimiter>` placeholders with the
+   same literal seven characters. Single-quote the opening delimiter and put
+   the unquoted closing delimiter alone on an unindented line.
+
+```bash
+node .github/skills/rig/run.ts <<'<delimiter>' > /tmp/gh-aw/agent/rig-skill-integration.json
+<contents of the rig fence below, without the markdown fence markers>
+<delimiter>
+```
+
+The command must begin with `node`. Do not prepend `mkdir`, `cd`, `env`, `export`,
+or any command joined by `&&`; do not use a fixed delimiter or a shell variable.
+The working directory is already the repository root, `/tmp/gh-aw/agent`
+already exists, and Node.js and SDK dependencies are already provisioned.
+Do not run version checks, dependency checks, package installation, linting,
+typechecking, directory creation, or other bootstrap commands for this fixture.
+Inherit `COPILOT_SDK_URI` and `COPILOT_CONNECTION_TOKEN`; do not inspect or print
+them, start a second server, or use `--server`. If the Node launch fails, report
+its exact command and error and stop without retrying model calls.
 
 The scenario makes exactly three Rig model calls: clarity, safety, and feasibility
 judgments of the same harmless dummy request. TypeScript owns orchestration and
@@ -102,8 +120,10 @@ export default workflow({
 });
 ```
 
-After a successful run, call `noop` with a brief summary of the three judgments
-and majority verdict; success requires no repository write. If the launcher,
+After the Node launch succeeds, read the result JSON using a file-reading tool
+and call `noop` with a brief summary of the three judgments and majority verdict.
+Do not invoke Bash again to read or validate the result: the post-step owns
+validation. Success requires no repository write. If the launcher,
 SDK, schema validation, or expected verdict fails, report the exact error and
 stop. Do not fabricate results, modify the fixture, or retry model calls. The
 post-step fails the workflow when the result file is missing or invalid.

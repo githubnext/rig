@@ -72,10 +72,19 @@ afterEach(() => {
 describe("Rig skill agentic workflow", () => {
   it("requires only node for installed-skill bootstrap and launch", () => {
     expect(markdown).toContain('bash: ["node"]');
-    expect(markdown).toContain("node <installed-skill-dir>/run.ts <<'<delimiter>'");
+    expect(markdown).toContain("node .github/skills/rig/run.ts <<'<delimiter>'");
     expect(markdown).toContain("7-character pseudo-random alphanumeric delimiter");
     expect(markdown).not.toContain("randomBytes");
     expect(markdown).toContain("regenerate on collision");
+  });
+
+  it("directs one standalone launch without repeating denied preparation", () => {
+    expect(markdown).toContain("Your only Bash invocation");
+    expect(markdown).toContain("The command must begin with `node`");
+    expect(markdown).toContain("Do not prepend `mkdir`, `cd`, `env`, `export`");
+    expect(markdown).toContain("already exists, and Node.js and SDK dependencies are already provisioned");
+    expect(markdown).toContain("Do not use Python");
+    expect(markdown).toContain("Do not invoke Bash again");
   });
 
   it("runs the actual workflow fence with exactly three small SDK calls", async () => {

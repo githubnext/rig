@@ -22,6 +22,9 @@ Run Rig programs with Node.js 24 or later using the installed skill's `run.ts`
 launcher and host-provisioned dependencies. Do not install packages from the
 agent prompt; report missing dependencies and stop. Use heredocs and redirections
 for inline programs and output files, following the skill's fresh-delimiter rules.
+Choose the 7-character delimiter yourself without a tool call. Start the launch
+command with `node`; do not prepend `mkdir`, `cd`, `env`, or any `&&` preparation.
+Use existing output directories; `/tmp/gh-aw/agent` is already provisioned.
 Read only named environment variables needed by the program; do not dump the
 environment or print credentials.
 

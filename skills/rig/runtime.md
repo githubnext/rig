@@ -7,7 +7,9 @@ Read this reference when launching or typechecking programs, handling stdin, or 
 Treat a fenced `rig` block as a runnable program. Pass its contents to the launcher with a heredoc:
 
 Before constructing each heredoc command, generate a fresh 7-character
-pseudo-random alphanumeric string to use as the delimiter. No tool call is needed.
+pseudo-random alphanumeric string to use as the delimiter. Choose the seven
+characters yourself while composing the command; do not call a tool or run
+Python, Node, `/dev/urandom`, `base64`, `tr`, or a shell pipeline to generate them.
 
 Check that the generated delimiter is not an entire line of the contents,
 including a possible trailing `\r`; regenerate if it collides. Substitute the
@@ -55,6 +57,21 @@ For agentic workflows, the launch Bash allowlist is just
 `bash: ["node"]`. Heredocs and input/output redirections avoid `cat`, `echo`,
 and separate file-creation commands. Neither launch nor typechecking invokes
 npm or npx, and neither downloads dependencies.
+Start the launch command directly with `node`; do not prepend `mkdir`, `cd`,
+`env`, dependency checks, or any other command with `&&`. Read the installed
+skill and its reference with file-reading tools, not shell bootstrap commands.
+For a provided, unchanged, prevalidated fixture, skip lint and typecheck
+preflights and execute the launcher once. For newly generated programs, retain
+the skill's lint and typecheck checks.
+
+Redirect output only into an existing directory. In GitHub Agentic Workflows,
+`/tmp/gh-aw/agent` is already provisioned; never run `mkdir` for it. If another
+required directory is missing, report that prerequisite instead of adding a
+disallowed preparation command. Inherit SDK environment variables without
+`env` or `export` commands. If an unrelated command is denied before the launcher
+runs, remove that command and use the permitted standalone Node launch; do not
+claim that Bash is unavailable. If the launcher itself fails, report its exact
+error and respect the workflow's retry policy.
 This reduces tool configuration, not sandbox permissions: allowing arbitrary
 Node code still permits filesystem and subprocess operations. Add commands
 required by the program's own tool calls separately.

@@ -33,6 +33,16 @@ it("requires fresh seven-character and quoted heredoc delimiters", () => {
   expect(canonicalManifest).not.toContain("<<'RIG'");
 });
 
+it("requires direct Node launch without shell preparation", () => {
+  expect(canonicalManifest).toContain("Choose the seven characters yourself");
+  expect(canonicalManifest).toContain("The launch command must begin with `node`");
+  expect(canonicalManifest).toContain("no `&&` prefix");
+  expect(canonicalManifest).toContain("does\nnot disable Bash or `node`");
+  const runtime = readFileSync(resolve(skillRoot, "runtime.md"), "utf8");
+  expect(runtime).toContain("`/tmp/gh-aw/agent` is already provisioned");
+  expect(runtime).toContain("prevalidated fixture, skip lint and typecheck");
+});
+
 it("exposes the same public modules from the standalone skill and repository", () => {
   const repositoryPackage = JSON.parse(readFileSync(resolve(repoRoot, "package.json"), "utf8"));
   const skillPackage = JSON.parse(readFileSync(resolve(skillRoot, "package.json"), "utf8"));
