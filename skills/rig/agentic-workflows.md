@@ -132,9 +132,14 @@ an OpenAI key. Gemini inherits the provisioned CLI, model, and
 Codex pins a model that supports the Responses API; Copilot rejects `auto`
 on that endpoint before the outer engine can invoke Rig.
 Compilation and stub/local-gateway tests do not establish live compatibility.
-Codex does not enforce Bash command allowlists, so its workflow declares
-`bash: ["*"]`; the one-command/no-retry procedure is a prompt contract,
-not a shell security boundary. Gemini and Pi permit only `printf` and `node`.
+The Copilot compatibility adapter disables Codex's native shell tool. Its
+workflow therefore declares `bash: false` and exposes only the fixture-specific
+`rig-fixture.run_rig` MCP tool through a trusted HTTP driver on the runner.
+The driver accepts no source, commands, paths, or credentials; it reads the
+installed skill, launches the checked-in fixture once with an allowlisted
+environment and the non-secret proxy key, validates stdout, and persists it
+for the independent post-step. Failed calls cannot be retried. Gemini and Pi
+continue to permit only `printf` and `node`.
 These smoke tests create no repository changes and disable AI threat analysis
 of safe outputs; the agent job remains read-only and the post-step validates
 the persisted result independently.

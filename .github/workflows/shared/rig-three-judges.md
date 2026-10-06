@@ -21,11 +21,16 @@ post-steps:
 
 ## Required integration procedure
 
-Load the installed `rig` skill and read its `SKILL.md`, `runtime.md`, and
+If the `rig-fixture` server exposes `run_rig`, call that tool **exactly once**
+with `{}`. Its trusted driver owns reading the installed skill, launching
+the unchanged fixture below, and persisting the result. Do not use Bash or
+look for separate file-reading tools in this case.
+
+Otherwise, load the installed `rig` skill and read its `SKILL.md`, `runtime.md`, and
 `engines.md` with file-reading tools. This is fixture execution, not code
 generation or an environment-diagnosis task.
 
-Run **exactly once**, unchanged:
+Without `run_rig`, run **exactly once**, unchanged:
 
 ```bash
 printf '%s\n' '{}' | node skills/rig/run.ts .github/fixtures/provider-three-judges.ts > /tmp/gh-aw/agent/rig-three-judges.json
