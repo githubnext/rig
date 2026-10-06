@@ -82,3 +82,49 @@ asks a real `small` model to launch the unchanged three-judge fixture once,
 and checks the workflow's actual post-step assertions. The judges use real
 model calls, not stubs. It does not simulate the Actions firewall or modify
 the built-in gh-aw driver.
+
+## Pi fixture tool
+
+The [Pi integration](../../.github/workflows/rig-skill-integration-pi.md) selects
+`engine.driver: pi_agent_core_driver.cjs`. The managed driver loads the
+harness-provisioned Pi SDK through gh-aw's `pi_runtime.cjs` and owns the session.
+`engine.config.settings.extensions` explicitly loads the checkout's trusted
+`.github/drivers/pi-rig-extension.ts` using an absolute `${{ github.workspace }}`
+path. The standard resource loader preserves gh-aw's provider, steering,
+Bash/edit policy, tool budgets, MCP, codemode, and JSONL event handling.
+It does not replace the SDK session with a bare `pi-agent-core` loop, which
+would lose those managed resources and policies.
+gh-aw rejects custom driver paths with restricted tools; using the recognized
+built-in SDK driver keeps the compiler's restriction checks intact.
+
+The extension calls `pi.registerTool()` with a TypeBox empty-object schema.
+The model calls `run_rig({})`; unlike the Copilot source tool, this fixture tool
+accepts no source, executable, path, model override, or credential. The host fixes
+the checkout launcher and provider fixture, sends `{}` through stdin without a
+shell, and forwards only `PATH`, `RIG_JUDGE_ENGINE=pi`, and the managed
+`PI_CODING_AGENT_DIR`. The judges read the generated gateway model configuration;
+upstream credentials remain in AWF.
+
+One invocation is enforced before asynchronous work, including failed attempts.
+The tool supports cancellation, a 180-second timeout, and a 1 MiB limit per
+output stream. It removes stale results, validates all three typed judgments,
+model selection, and majority verdict, and only then persists stdout for the
+independent post-step. Exceptions become failed Pi tool results, not fabricated
+success. The workflow reports incomplete and never retries on tool failure.
+Registering the extension starts no subprocess; only an explicit tool call does.
+
+This is a trusted, scenario-specific extension inside the existing Actions
+firewall, not a general shell grant or a sandbox for arbitrary Rig source.
+The checkout's existing `pi-agent-core`/`pi-ai` dependencies type and execute the
+judges; the driver resolves the coding-agent SDK already installed by gh-aw
+rather than installing another copy from the prompt.
+
+Pinned primary-source contracts used for this integration:
+
+| Source | Relevant contract |
+| --- | --- |
+| [Pi v1.0.0 SDK](https://github.com/earendil-works/pi/blob/v1.0.0/packages/coding-agent/docs/sdk.md#configuring-a-session) | Resource-loader extension discovery, SDK MCP/codemode setup, `bindExtensions()`, session disposal |
+| [Pi v1.0.0 extensions](https://github.com/earendil-works/pi/blob/v1.0.0/packages/coding-agent/docs/extensions.md#custom-tools) | `registerTool()`, schema validation, throwing on execution failure, cancellation, default direct exposure |
+| [Pi v1.0.0 settings](https://github.com/earendil-works/pi/blob/v1.0.0/packages/coding-agent/docs/settings.md#resources) | Explicit extension paths, absolute paths supported, agent-directory versus project resource resolution |
+| [gh-aw v0.91.2 driver](https://github.com/github/gh-aw/blob/v0.91.2/actions/setup/js/pi_agent_core_driver.cjs) | Managed resource loader and policy extensions, finalized JSONL events |
+| [gh-aw v0.91.2 runtime](https://github.com/github/gh-aw/blob/v0.91.2/actions/setup/js/pi_runtime.cjs) | Host/global SDK resolution, managed settings, skills and MCP configuration |

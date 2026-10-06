@@ -112,12 +112,15 @@ outputs, majority vote, and strict post-step assertions:
 | --- | --- | --- |
 | [Codex](../../.github/workflows/rig-skill-integration-codex.md) | Codex CLI / `codexEngine` | `copilot/auto`; `copilot-requests: write` |
 | [Gemini](../../.github/workflows/rig-skill-integration-gemini.md) | Gemini CLI / `geminiEngine` | `gemini-2.5-flash`; repository secret `GEMINI_API_KEY` |
-| [Pi](../../.github/workflows/rig-skill-integration-pi.md) | Pi CLI / `piEngine` | `copilot/gpt-5.3-codex`; `copilot-requests: write` |
+| [Pi](../../.github/workflows/rig-skill-integration-pi.md) | Pi managed SDK driver / `piEngine` | `copilot/gpt-5.3-codex`; `copilot-requests: write` |
 
 The [shared procedure](../../.github/workflows/shared/rig-three-judges.md)
-provisions Node.js 24 and checkout dependencies. It launches a checked-in
-fixture once with `{}` on stdin; file-mode launch still requires input even
-when the workflow has no arguments. Each variant configures its adapter
+provisions Node.js 24 and checkout dependencies. Codex and Gemini launch a
+checked-in fixture once through Bash with `{}` on stdin; file-mode launch still
+requires input even when the workflow has no arguments. Pi registers a fixed-fixture
+`run_rig` extension through `engine.driver` instead of Bash; see
+[Pi fixture tool](./harness-tools.md#pi-fixture-tool).
+Each variant configures its adapter
 explicitly instead of relying on credential-based engine auto-selection.
 Claude/Anthropic is not included.
 
@@ -137,6 +140,8 @@ compilation and stub/local-gateway tests do not establish live compatibility.
 Codex does not enforce Bash command allowlists, so its workflow declares
 `bash: ["*"]`; the one-command/no-retry procedure is a prompt contract,
 not a shell security boundary. Gemini and Pi permit only `printf` and `node`.
+Pi's command parser rejects the fixture pipeline's quoting and redirection;
+the trusted extension avoids shell parsing without widening the allowlist.
 These smoke tests create no repository changes and disable AI threat analysis
 of safe outputs; the agent job remains read-only and the post-step validates
 the persisted result independently.

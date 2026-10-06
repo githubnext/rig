@@ -151,7 +151,16 @@ it.each(["codex", "gemini", "pi"])("declares the %s workflow's provider and shar
     expect(markdown).toContain("copilot-requests: write");
     expect(lock).toContain("COPILOT_GITHUB_TOKEN: ${{ github.token }}");
     expect(lock).not.toContain("secrets.OPENAI_API_KEY");
-    if (engine === "pi") expect(lock).toContain("GH_AW_PI_MODEL_ID=gpt-5.3-codex");
+    if (engine === "pi") {
+      expect(lock).toContain("GH_AW_PI_MODEL_ID=gpt-5.3-codex");
+      expect(markdown).toContain("driver: pi_agent_core_driver.cjs");
+      expect(markdown).toContain("${{ github.workspace }}/.github/drivers/pi-rig-extension.ts");
+      expect(markdown).toContain("**exactly once** with `{}`");
+      expect(shared).toContain("instead\nof Bash");
+      expect(lock).toContain("/pi_agent_core_driver.cjs");
+      expect(lock).toContain(".github/drivers/pi-rig-extension.ts");
+      expect(lock).toContain('"bash":["echo","ls","pwd","cat","head","tail","grep","wc","sort","uniq","date","yq","printf","node"]');
+    }
   } else {
     expect(lock).toContain("GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}");
     expect(lock).toContain("GEMINI_API_BASE_URL:");
