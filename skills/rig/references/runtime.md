@@ -25,24 +25,26 @@ Prefer an explicit default export even though the fallback exists.
 
 ## Installed skill bootstrap
 
+Install the skill using GitHub CLI, not a package manager:
+
+```bash
+gh skill install githubnext/rig rig
+gh skill list
+```
+
 Replace `skills/rig` in these commands with the installed skill directory.
-`run.ts` needs only Node built-ins before loading the runtime. It checks the
-skill's dependencies and, if any are missing, runs npm in that directory with
-lifecycle scripts disabled, without changing the caller's working directory.
-Installation diagnostics go to stderr; stdout remains reserved for the result.
-An npm startup or installation failure stops the run with a nonzero exit.
-Already-installed dependencies are reused without an npm invocation.
+`run.ts` loads the runtime without installing packages or changing the caller's
+working directory. `gh skill install` copies skill files; it does not provision
+the SDK dependencies listed in `package.json`. Assume those dependencies,
+including any optional engine SDKs in use, are already installed in the agent
+container. Do not attempt to install them from the driver or agent prompt.
+Missing dependencies stop the run with a nonzero exit and an error on stderr.
+`rig.ts` remains the direct runtime entry point. Node.js 24 or later is required.
 
-Node.js 24 or later is required. npm must be on PATH and the skill directory
-must be writable on the first run; registry access is needed for uncached
-dependencies. Optional engine SDKs still need to be provisioned separately.
-`rig.ts` remains the direct runtime entry point when dependencies are already
-provisioned.
-
-For agentic workflows, the bootstrap/launch Bash allowlist is just
+For agentic workflows, the launch Bash allowlist is just
 `bash: ["node"]`. Heredocs and input/output redirections avoid `cat`, `echo`,
-and separate file-creation commands. npm (and npx for typechecking) runs inside
-the Node process; it must be available but needs no separate agent tool grant.
+and separate file-creation commands. Neither launch nor typechecking invokes
+npm or npx, and neither downloads dependencies.
 This reduces tool configuration, not sandbox permissions: allowing arbitrary
 Node code still permits filesystem and subprocess operations. Add commands
 required by the program's own tool calls separately.
@@ -86,6 +88,10 @@ node skills/rig/run.ts src/program.ts --typecheck
 
 Success prints `typecheck passed` and exits 0. Failure reports TypeScript diagnostics.
 
+Typechecking requires a preinstalled `typescript` package in the workspace or
+skill dependency tree. Rig runs its compiler using Node directly; a missing
+compiler is an explicit error, not a request to install or download one.
+
 For a standalone `.ts` program outside an ESM package, the launcher uses a temporary `.mts` shadow. Relative sibling imports still require the program directory or an ancestor to contain `{"type":"module"}` in `package.json`.
 
 ## GitHub Agentic Workflows
@@ -102,7 +108,7 @@ tools:
   bash: ["node"]
 ```
 
-Import `configureAgent` and `copilotEngine` in the fenced program and call `configureAgent(copilotEngine())` before defining agents. Launch with the installed skill's `run.ts`. Grant `copilot-requests: write`, allow the Node/npm registry network ecosystem for bootstrap, and enable only the additional tools and network access the program uses.
+Import `configureAgent` and `copilotEngine` in the fenced program and call `configureAgent(copilotEngine())` before defining agents. Launch with the installed skill's `run.ts` and host-provisioned dependencies. Grant `copilot-requests: write`, and enable only the additional tools and network access the program uses.
 
 Edit workflows with an agent or run `gh aw compile --watch` for immediate feedback. Before committing, run `gh aw compile <workflow-id> --strict` and include the generated `.lock.yml`.
 

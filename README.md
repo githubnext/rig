@@ -12,23 +12,15 @@ gh skill install githubnext/rig rig
 ```
 
 Requires GitHub CLI 2.90.0 or later. Running programs requires Node.js 24 or
-later. The `run.ts` entry point installs missing skill dependencies with npm
-(lifecycle scripts disabled), then launches the program.
+later and the skill's SDK dependencies provided by the host. `gh skill install`
+copies skill files; it does not install their SDK packages. The `run.ts` entry
+point launches programs without invoking a package manager.
 
-Use `gh skill list` to find the installed skill directory. npm must be on PATH,
-and the directory must be writable with registry access for the first install.
+Use `gh skill list` to find the installed skill directory.
 The launcher examples below use paths from a repository
 checkout; for an installed skill, substitute its directory for `skills/rig`.
 
 `skills/rig/SKILL.md` is the canonical, publishable skill manifest.
-
-To run from a checkout:
-
-```bash
-git clone https://github.com/githubnext/rig.git
-cd rig
-npm ci
-```
 
 ## Use Rig in 2 ways
 
@@ -46,9 +38,8 @@ tools:
   bash: ["node"]
 ```
 
-Only `node` needs a Bash grant to bootstrap and launch the installed skill.
-Use heredocs or redirections rather than `cat`/`echo` pipelines, and allow the
-Node/npm registry network ecosystem for missing dependencies. Grant additional
+Only `node` needs a Bash grant to launch the installed skill.
+Use heredocs or redirections rather than `cat`/`echo` pipelines. Grant additional
 commands only for the program's own tool calls. This is a smaller tool
 allowlist, not a security boundary: Node can still start subprocesses.
 
@@ -165,8 +156,9 @@ Use `--typecheck` to validate a program without running it:
 node skills/rig/run.ts --typecheck < program.ts
 ```
 
-This uses `npx` to run TypeScript 5.9.3 and may require npm registry access
-if that version is not cached.
+This runs a preinstalled TypeScript compiler using Node directly. The
+`typescript` package must be available in the workspace or skill dependency
+tree; Rig does not download it or invoke npm/npx.
 
 ## Docs
 

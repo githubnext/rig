@@ -54,8 +54,9 @@ Read the installed Rig skill and its running/engines reference. Run the followin
 mode via `node <installed-skill-dir>/run.ts <<'RIG'`, with the fence contents
 followed by `RIG`. Redirect stdout to `/tmp/gh-aw/agent/rig-skill-integration.json`.
 Use the provided `COPILOT_SDK_URI`; do not start a second server or use `--server`.
-The entry point installs missing skill dependencies automatically; do not run
-separate npm, cat, mkdir, or other bootstrap commands.
+Use the SDK dependencies already installed in the agent container. The entry
+point does not install packages; do not run npm, npx, cat, mkdir, or other
+bootstrap commands. If dependencies are missing, report the error and stop.
 
 The scenario makes exactly three Rig model calls: clarity, safety, and feasibility
 judgments of the same harmless dummy request. TypeScript owns orchestration and

@@ -1,7 +1,7 @@
 /**
  * @file skills/rig/rig.ts @last-analyzed 716ca95 @edit-time 2026-08-28T04:01:24Z
  * @purpose Minimal TypeScript multi-agent harness: typed input/output schemas, prompt intents, sub-agent delegation, workflow orchestration, Copilot SDK runtime
- * @deps @github/copilot-sdk (CopilotClient,RuntimeConnection,approveAll); node:path,url,os,fs,fs/promises,child_process,util,async_hooks
+ * @deps @github/copilot-sdk (CopilotClient,RuntimeConnection,approveAll); node:path,url,os,module,fs,fs/promises,child_process,util,async_hooks
  * T:Json type null|bool|num|str|Json[]|{[k]:Json}
  * T:Schema type StringSchema|NumberSchema|IntegerSchema|BooleanSchema|NullSchema|UnknownSchema|ArraySchema|ObjectSchema|RecordSchema|EnumSchema|OptionalSchema|NullableSchema
  * T:NullableSchema<Inner> type {nullable:true;inner:Inner;description?} accepts inner|null
@@ -106,6 +106,7 @@
  */
 import { basename, dirname, isAbsolute, resolve } from "node:path";
 import { availableParallelism } from "node:os";
+import { createRequire } from "node:module";
 import { fileURLToPath, pathToFileURL } from "node:url";
 import { writeSync } from "node:fs";
 import { access, mkdir, mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
@@ -1775,6 +1776,18 @@ async function typecheckProgram(programPath: string, cwd: string, displayPath = 
       `Typecheck mode requires tsconfig.json at one of: ${candidateTsconfigPaths.join(", ")}`,
     );
   }
+  let compilerPath: string | undefined;
+  for (const context of [resolve(cwd, "package.json"), import.meta.url]) {
+    try {
+      compilerPath = createRequire(context).resolve("typescript/bin/tsc");
+      break;
+    } catch (error) {
+      if (!(error instanceof Error && "code" in error && error.code === "MODULE_NOT_FOUND")) throw error;
+    }
+  }
+  if (!compilerPath) {
+    throw new Error("Typecheck mode requires a preinstalled TypeScript compiler in the workspace or skill dependencies.");
+  }
   const tempRoot = resolve(cwd, ".tmp");
   await mkdir(tempRoot, { recursive: true });
   const tempDir = await mkdtemp(resolve(tempRoot, "rig-typecheck-"));
@@ -1796,18 +1809,15 @@ async function typecheckProgram(programPath: string, cwd: string, displayPath = 
       include: [checkPath],
     }), "utf8");
     await execFileAsync(
-      "npx",
-      ["--yes", "--package", "typescript@5.9.3", "--", "tsc", "--project", projectPath, "--pretty", "false"],
-      {
-        cwd,
-        env: { ...process.env, npm_config_ignore_scripts: "true" },
-      },
+      process.execPath,
+      [compilerPath, "--project", projectPath, "--pretty", "false"],
+      { cwd },
     );
     debugLauncherTypecheck({ phase: "passed", program: displayPath });
   } catch (error) {
     const execError = error as NodeJS.ErrnoException & { stdout?: string; stderr?: string };
     if (execError.code === "ENOENT") {
-      throw new Error("Typecheck mode requires `npx tsc` to be available in PATH.");
+      throw new Error("Unable to start Node.js for typecheck mode.");
     }
     const rawDiagnostics = [execError.stdout, execError.stderr]
       .filter((entry) => typeof entry === "string" && entry.trim())

@@ -2,7 +2,7 @@
 name: rig
 description: Create, review, and run typed TypeScript agents and workflows with Rig. Use when writing Rig programs, generating runnable rig markdown fences, defining agent schemas and prompt intents, or configuring Rig engines and addons.
 license: MIT
-compatibility: Requires Node.js 24 or later; the installed skill's run.ts installs missing dependencies using npm. Live agent calls require a configured Copilot SDK endpoint or another supported engine.
+compatibility: Requires Node.js 24 or later and preinstalled skill dependencies. Typechecking also requires a preinstalled TypeScript compiler. Live agent calls require a configured Copilot SDK endpoint or another supported engine.
 ---
 
 # rig
@@ -93,9 +93,11 @@ node skills/rig/run.ts --typecheck < program.ts
 ```
 
 For an installed skill, replace `skills/rig` with its installed directory. Use
-`run.ts` to bootstrap dependencies and launch; inline programs use
+`run.ts` to launch without installing packages; inline programs use
 `node <skill-dir>/run.ts <<'RIG'` with the program followed by `RIG`.
-Only `node` needs a Bash tool grant for bootstrapping and launching; grant
+Install the skill with `gh skill install githubnext/rig rig`.
+Assume SDKs are already installed in the agent container; do not install them.
+Only `node` needs a Bash tool grant for launching an installed skill; grant
 additional commands only when the program itself needs them.
 
 ## Final check
