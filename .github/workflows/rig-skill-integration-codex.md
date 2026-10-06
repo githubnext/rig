@@ -11,7 +11,11 @@ permissions:
 model: copilot/gpt-5.3-codex
 engine:
   id: codex
+  mcp:
+    tool-timeout: 4m
   config: |
+    [mcp_servers.rig-fixture]
+    tool_timeout_sec = 240
     [shell_environment_policy.set]
     RIG_JUDGE_ENGINE = "codex"
     CODEX_HOME = "/tmp/gh-aw/mcp-config"
@@ -20,7 +24,6 @@ engine:
 tools:
   bash: false
   cli-proxy: false
-  timeout: 240
 mcp-servers:
   rig-fixture:
     type: http
