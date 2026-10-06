@@ -121,11 +121,22 @@ configureAgent(geminiEngine());
   - `OPENAI_API_KEY` → `codexEngine()`
   - `GEMINI_API_KEY` or `GOOGLE_API_KEY` → `geminiEngine()`
   - otherwise → `copilotEngine()`
-- `copilotEngine(options)` accepts Copilot client options plus `server` and `connection`. It supports Rig tools and uses the Copilot SDK HTTP transport by default; launcher `--server` selects stdio.
+- `copilotEngine(options)` accepts Copilot client options plus `server` and `connection`. It supports Rig tools and uses the Copilot SDK HTTP transport by default; launcher `--server` selects stdio. Rig forwards output schemas through the SDK's `responseSchema` option. String system messages are appended to the SDK instructions; SDK `append`, `replace`, and `customize` configurations are also accepted.
 - `piEngine({ provider, models? })` uses `@earendil-works/pi-agent-core`, requires a provider for model lookup, and supports Rig tools.
 - `anthropicEngine(options)` uses `@anthropic-ai/sdk`, reads `ANTHROPIC_API_KEY`, supports Rig tools, and accepts `maxTokens` and `maxIterations`.
 - `codexEngine(options)` uses `@openai/codex-sdk`, accepts thread options under `thread`, preserves the thread across repair turns, maps Rig system messages to developer instructions, and forwards structured output schemas. It rejects Rig tools because the SDK does not expose custom tool registration.
 - `geminiEngine(options)` runs an installed Gemini CLI in headless JSON mode and resumes its session across repair turns. It accepts `command`, `cwd`, CLI `args`, environment variables, and `approvalMode`; it rejects Rig tools because the CLI does not expose registration.
+
+The standalone skill pins Copilot SDK 1.0.16. Repository dependencies also cover
+Anthropic SDK 0.129.0, Codex SDK/CLI 0.159.0, and Pi 0.87.1. Gemini CLI is an
+external prerequisite; its headless flags are verified against stable 0.61.0.
+Claude Code is not used by the Anthropic adapter, which calls the API directly.
+Repository agentic workflows pin Copilot CLI 1.0.92 and compile with gh-aw 0.91.1.
+
+Agentic workflow provider settings come from
+`GH_AW_COPILOT_SDK_MULTI_PROVIDER_JSON`: `model`, `providers` (each with `name`
+and `baseUrl`), and `models` (each with `id` and `provider`). Invalid JSON or
+missing required fields fail explicitly instead of falling back to another model.
 
 ## Debug logging
 

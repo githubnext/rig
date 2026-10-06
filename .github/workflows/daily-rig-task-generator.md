@@ -14,7 +14,9 @@ permissions:
   issues: read
   pull-requests: read
   copilot-requests: write
-engine: copilot
+engine:
+  id: copilot
+  version: "1.0.92"
 strict: true
 timeout-minutes: 60
 tools:

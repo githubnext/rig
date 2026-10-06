@@ -113,7 +113,7 @@ import { execFile } from "node:child_process";
 import { promisify } from "node:util";
 import { AsyncLocalStorage } from "node:async_hooks";
 import { CopilotClient, RuntimeConnection, approveAll } from "@github/copilot-sdk";
-import type { CopilotClientOptions } from "@github/copilot-sdk";
+import type { CopilotClientOptions, NamedProviderConfig, ProviderModelConfig, SystemMessageConfig } from "@github/copilot-sdk";
 
 export type Json = null | boolean | number | string | Json[] | { [key: string]: Json };
 export type ValidationResult = { ok: true } | { ok: false; error: string };
@@ -508,8 +508,8 @@ function resolveDefaultCopilotConnection(): NonNullable<CopilotClientOptions["co
 
 type CopilotMultiProvider = {
   model: string;
-  providers: unknown[];
-  models: unknown[];
+  providers: NamedProviderConfig[];
+  models: ProviderModelConfig[];
 };
 
 function resolveCopilotMultiProvider(): CopilotMultiProvider | undefined {
@@ -517,14 +517,41 @@ function resolveCopilotMultiProvider(): CopilotMultiProvider | undefined {
   if (!raw) {
     return undefined;
   }
-  try {
-    const value = JSON.parse(raw) as Partial<CopilotMultiProvider>;
-    return typeof value.model === "string" && Array.isArray(value.providers) && Array.isArray(value.models)
-      ? { model: value.model, providers: value.providers, models: value.models }
-      : undefined;
-  } catch {
-    return undefined;
+  const value = JSON.parse(raw) as Partial<CopilotMultiProvider> | null;
+  if (!value || typeof value.model !== "string"
+    || !Array.isArray(value.providers) || !Array.isArray(value.models)
+    || !value.providers.every((provider) => provider && typeof provider.name === "string" && typeof provider.baseUrl === "string")
+    || !value.models.every((model) => model && typeof model.id === "string" && typeof model.provider === "string")) {
+    throw new TypeError("GH_AW_COPILOT_SDK_MULTI_PROVIDER_JSON requires a model, providers with name/baseUrl, and models with id/provider");
   }
+  return { model: value.model, providers: value.providers, models: value.models };
+}
+
+function copilotSystemMessage(value: unknown): SystemMessageConfig | undefined {
+  if (value === undefined) return undefined;
+  if (typeof value === "string") return { content: value };
+  if (!value || typeof value !== "object" || Array.isArray(value)) {
+    throw new TypeError("copilotEngine requires a string or system message configuration");
+  }
+  const config = value as SystemMessageConfig;
+  if (config.mode !== undefined && config.mode !== "append" && config.mode !== "replace" && config.mode !== "customize") {
+    throw new TypeError("copilotEngine system message mode must be append, replace, or customize");
+  }
+  if ((config.content !== undefined && typeof config.content !== "string")
+    || (config.mode === "replace" && typeof config.content !== "string")) {
+    throw new TypeError("copilotEngine system message content must be a string");
+  }
+  if (config.mode === "customize" && config.sections !== undefined) {
+    if (!config.sections || typeof config.sections !== "object" || Array.isArray(config.sections)
+      || !Object.values(config.sections).every((section) =>
+        section && typeof section === "object"
+        && (typeof section.action === "function"
+          || ["replace", "remove", "append", "prepend", "preserve"].includes(section.action))
+        && (section.content === undefined || typeof section.content === "string"))) {
+      throw new TypeError("copilotEngine system message sections must contain valid overrides");
+    }
+  }
+  return config;
 }
 
 function copilotSendTimeout(): number {
@@ -606,6 +633,7 @@ export function copilotEngine(options: CopilotEngineOptions = {}): AgentFactory 
   const { server, connection, ...clientOptions } = options;
   const multiProvider = resolveCopilotMultiProvider();
   return async (agentOptions) => {
+    const systemMessage = copilotSystemMessage(agentOptions.systemMessage);
     debugCopilotCreate({ model: agentOptions.model, transport: connection ? "custom" : server ? "stdio" : "uri" });
     const client = new CopilotClient({
       ...clientOptions,
@@ -615,9 +643,9 @@ export function copilotEngine(options: CopilotEngineOptions = {}): AgentFactory 
       model: multiProvider?.model ?? agentOptions.model,
       streaming: false,
       onPermissionRequest: approveAll,
-      ...(multiProvider ? { providers: multiProvider.providers, models: multiProvider.models } as any : {}),
-      ...(agentOptions.systemMessage !== undefined && { systemMessage: agentOptions.systemMessage as any }),
-      ...(agentOptions.tools !== undefined && { tools: agentOptions.tools as any }),
+      ...(multiProvider ? { providers: multiProvider.providers, models: multiProvider.models } : {}),
+      ...(systemMessage !== undefined && { systemMessage }),
+      ...(agentOptions.tools !== undefined && { tools: agentOptions.tools }),
     });
     session.on?.((event: unknown) => {
       debugCopilotEvent(() => event);
@@ -628,17 +656,17 @@ export function copilotEngine(options: CopilotEngineOptions = {}): AgentFactory 
         debugCopilotAsk({ prompt, structured: askOptions.outputSchema !== undefined });
         throwIfAborted(askOptions.signal);
         const response = await abortable(
-          (session.sendAndWait as any)(
+          session.sendAndWait(
             {
               prompt,
-              ...(askOptions.signal ? { signal: askOptions.signal } : {}),
-              ...(askOptions.outputSchema !== undefined ? { outputSchema: askOptions.outputSchema } : {}),
+              ...(askOptions.outputSchema !== undefined ? { responseSchema: askOptions.outputSchema } : {}),
             },
             copilotSendTimeout(),
           ),
           askOptions.signal,
-          () => (session as any).abort?.(),
+          () => session.abort(),
         );
+        throwIfAborted(askOptions.signal);
         const text = responseText(response);
         debugCopilotResponse({ response: text });
         return text;
@@ -3325,18 +3353,21 @@ function throwIfAborted(signal?: AbortSignal): void {
   }
 }
 
-function abortable<T>(promise: Promise<T>, signal?: AbortSignal, onAbort?: () => void): Promise<T> {
+function abortable<T>(promise: Promise<T>, signal?: AbortSignal, onAbort?: () => void | Promise<void>): Promise<T> {
   throwIfAborted(signal);
   if (!signal) {
     return promise;
   }
   return new Promise<T>((resolve, reject) => {
-    const abort = () => {
+    const abort = async () => {
+      const reason = signal.reason ?? new DOMException("Aborted", "AbortError");
       try {
-        onAbort?.();
-      } finally {
-        reject(signal.reason ?? new DOMException("Aborted", "AbortError"));
+        await onAbort?.();
+      } catch (error) {
+        reject(new AggregateError([reason, error], "Failed to abort agent request"));
+        return;
       }
+      reject(reason);
     };
     signal.addEventListener("abort", abort, { once: true });
     promise.then(resolve, reject).finally(() => signal.removeEventListener("abort", abort));

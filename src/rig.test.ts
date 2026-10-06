@@ -5,8 +5,8 @@ const fsMocks = vi.hoisted(() => ({
 }));
 
 const mocks = vi.hoisted(() => {
-  let sendAndWaitImpl: (request: { prompt: string; signal?: AbortSignal; outputSchema?: unknown }) => unknown | Promise<unknown> = async () => JSON.stringify("default");
-  const sendAndWaitRequests: Array<{ prompt: string; signal?: AbortSignal; outputSchema?: unknown }> = [];
+  let sendAndWaitImpl: (request: { prompt: string; responseSchema?: unknown }) => unknown | Promise<unknown> = async () => JSON.stringify("default");
+  const sendAndWaitRequests: Array<{ prompt: string; responseSchema?: unknown }> = [];
   let onImpl: ((handler: (event: unknown) => void) => void) | undefined;
   const approveAll = vi.fn();
   const disconnectSession = vi.fn(async () => {});
@@ -17,12 +17,13 @@ const mocks = vi.hoisted(() => {
       onImpl?.(handler);
       return () => {};
     }) : undefined,
-    sendAndWait: async (request: { prompt: string; signal?: AbortSignal; outputSchema?: unknown }) => {
+    sendAndWait: async (request: { prompt: string; responseSchema?: unknown }) => {
       sendAndWaitRequests.push(request);
       const response = await sendAndWaitImpl(request);
       return typeof response === "string" ? response : JSON.stringify(response);
     },
     disconnect: disconnectSession,
+    abort: vi.fn(async () => {}),
   }));
   const forUri = vi.fn(() => ({ kind: "uri", url: "localhost:7777" }));
   const forStdio = vi.fn(() => ({ kind: "stdio" }));
@@ -31,7 +32,7 @@ const mocks = vi.hoisted(() => {
     copilotClientCtor(options);
     return { createSession, stop: stopClient };
   };
-  const setSendAndWaitImpl = (impl: (request: { prompt: string; signal?: AbortSignal; outputSchema?: unknown }) => unknown | Promise<unknown>) => {
+  const setSendAndWaitImpl = (impl: (request: { prompt: string; responseSchema?: unknown }) => unknown | Promise<unknown>) => {
     sendAndWaitImpl = impl;
   };
   const setOnImpl = (impl?: (handler: (event: unknown) => void) => void) => {
@@ -761,31 +762,19 @@ describe("agent invocation", () => {
     await call("x");
 
     expect(mocks.sendAndWaitRequests[0]).toEqual(expect.objectContaining({
-      outputSchema: toJsonSchema(output),
+      responseSchema: toJsonSchema(output),
     }));
   });
 
   it("supports timeout and abort signals", async () => {
-    mocks.setSendAndWaitImpl(async ({ signal }) => {
-      await new Promise((_, reject) => {
-        signal?.addEventListener("abort", () => reject(signal.reason), { once: true });
-        setTimeout(() => reject(new Error("should have aborted")), 5000);
-      });
-      return "";
-    });
+    mocks.setSendAndWaitImpl(() => new Promise(() => {}));
 
     const slow = agent({ name: "timeout-test" });
     await expect(slow("go", { timeout: 50 })).rejects.toThrow(/Timed out/);
   });
 
   it("supports timeout as an addon", async () => {
-    mocks.setSendAndWaitImpl(async ({ signal }) => {
-      await new Promise((_, reject) => {
-        signal?.addEventListener("abort", () => reject(signal.reason), { once: true });
-        setTimeout(() => reject(new Error("should have aborted")), 5000);
-      });
-      return "";
-    });
+    mocks.setSendAndWaitImpl(() => new Promise(() => {}));
 
     const slow = agent({ name: "timeout-test", addons: timeout({ timeout: 50 }) });
     await expect(slow("go")).rejects.toThrow(/Timed out/);
