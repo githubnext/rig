@@ -8,7 +8,7 @@ on:
 permissions:
   contents: read
   copilot-requests: write
-model: copilot/auto
+model: copilot/gpt-5.3-codex
 engine:
   id: pi
 tools:
@@ -26,6 +26,6 @@ env:
 # Rig Pi three-judge integration
 
 Use the Pi agent-core adapter, not the Copilot SDK. Both the outer engine and
-the three judges use `copilot/auto`. The fixture reads the harness-provisioned
+the three judges use `copilot/gpt-5.3-codex`. The fixture reads the harness-provisioned
 Pi gateway model configuration; never substitute a native OpenAI or Anthropic
-provider, inspect credentials, or choose a fixed model.
+provider, inspect credentials, or choose a different model.

@@ -26,19 +26,24 @@ afterEach(async () => {
   }
 });
 
-function gateway(baseUrl = "http://api-proxy:10002", api = "openai-completions") {
+function gateway(baseUrl = "http://api-proxy:10002", api = "openai-completions", model = "gpt-5.3-codex") {
   return {
     providers: {
-      "aw-gateway": { baseUrl, api, apiKey: "awf-proxy", models: [{ id: "auto" }] },
+      "aw-gateway": { baseUrl, api, apiKey: "awf-proxy", models: [{ id: model }] },
     },
   };
 }
 
-it.each(["openai-completions", "openai-responses"])("preserves Copilot auto routing using %s", async api => {
-  const { model, models } = piGateway(gateway(undefined, api));
-  expect(model).toBe("auto");
-  expect(models.getModel("aw-gateway", "auto")).toMatchObject({
-    id: "auto", api, provider: "aw-gateway", baseUrl: "http://api-proxy:10002",
+it.each([
+  ["openai-completions", "auto"],
+  ["openai-responses", "auto"],
+  ["openai-completions", "gpt-5.3-codex"],
+  ["openai-responses", "gpt-5.3-codex"],
+])("preserves the configured Copilot model using %s for %s", async (api, configuredModel) => {
+  const { model, models } = piGateway(gateway(undefined, api, configuredModel));
+  expect(model).toBe(configuredModel);
+  expect(models.getModel("aw-gateway", configuredModel)).toMatchObject({
+    id: configuredModel, api, provider: "aw-gateway", baseUrl: "http://api-proxy:10002",
   });
   expect(await models.getAuth("aw-gateway")).toMatchObject({ auth: { apiKey: "awf-proxy" } });
   expect(models.getProvider("openai")).toBeUndefined();
@@ -84,11 +89,11 @@ it.each(["success", "bad-json", "empty-reason", "provider-error"])(
         : judgments[requests.length - 1];
       response.writeHead(200, { "content-type": "text/event-stream" });
       response.write(`data: ${JSON.stringify({
-        id: "judge-test", object: "chat.completion.chunk", created: 1, model: "auto",
+        id: "judge-test", object: "chat.completion.chunk", created: 1, model: "gpt-5.3-codex",
         choices: [{ index: 0, delta: { role: "assistant", content }, finish_reason: null }],
       })}\n\n`);
       response.end(`data: ${JSON.stringify({
-        id: "judge-test", object: "chat.completion.chunk", created: 1, model: "auto",
+        id: "judge-test", object: "chat.completion.chunk", created: 1, model: "gpt-5.3-codex",
         choices: [{ index: 0, delta: {}, finish_reason: "stop" }],
         usage: { prompt_tokens: 12, completion_tokens: 12, total_tokens: 24 },
       })}\n\ndata: [DONE]\n\n`);
@@ -112,7 +117,7 @@ it.each(["success", "bad-json", "empty-reason", "provider-error"])(
       assertThreeJudges(JSON.parse(stdout), "pi");
       expect(requests).toHaveLength(3);
       for (const [index, request] of requests.entries()) {
-        expect(request.body["model"]).toBe("auto");
+        expect(request.body["model"]).toBe("gpt-5.3-codex");
         expect(JSON.stringify(request.body["messages"])).toContain(["clarity", "safety", "feasibility"][index]);
         expect(request.authorization).toBe("Bearer awf-proxy");
         expect(request.path).toBe("/chat/completions");

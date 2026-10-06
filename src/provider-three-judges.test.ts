@@ -147,10 +147,11 @@ it.each(["codex", "gemini", "pi"])("declares the %s workflow's provider and shar
   expect(shared).toContain("Never fabricate\nresults or call `noop` on failure");
   expect(lock).toContain("assert-three-judges.ts");
   if (engine !== "gemini") {
-    expect(markdown).toContain("model: copilot/auto");
+    expect(markdown).toContain(`model: copilot/${engine === "pi" ? "gpt-5.3-codex" : "auto"}`);
     expect(markdown).toContain("copilot-requests: write");
     expect(lock).toContain("COPILOT_GITHUB_TOKEN: ${{ github.token }}");
     expect(lock).not.toContain("secrets.OPENAI_API_KEY");
+    if (engine === "pi") expect(lock).toContain("GH_AW_PI_MODEL_ID=gpt-5.3-codex");
   } else {
     expect(lock).toContain("GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}");
     expect(lock).toContain("GEMINI_API_BASE_URL:");
@@ -160,6 +161,13 @@ it.each(["codex", "gemini", "pi"])("declares the %s workflow's provider and shar
 it("preserves non-secret Codex fixture settings across shell filtering", () => {
   const lock = readFileSync(new URL("../.github/workflows/rig-skill-integration-codex.lock.yml", import.meta.url), "utf8");
   expect(lock).toContain('"set":{"CODEX_API_KEY":"awf-proxy","CODEX_HOME":"/tmp/gh-aw/mcp-config","GH_AW_MODEL_AGENT_CODEX":"auto","RIG_JUDGE_ENGINE":"codex"}');
+});
+
+it("requires the pinned Copilot model in persisted Pi results", async () => {
+  const result = { ...await runWorkflow(createProviderFixture()), engine: "pi", model: "gpt-5.3-codex" };
+  assertThreeJudges(result, "pi");
+  result.model = "auto";
+  expect(() => assertThreeJudges(result, "pi")).toThrow();
 });
 
 it.each(["engine", "model", "request", "call-count", "verdict", "missing-judges", "order", "decision", "reason", "null"])(

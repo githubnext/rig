@@ -80,7 +80,7 @@ Success is recorded in the run logs without creating an issue or pull request.
 Matching daily/manual fixtures cover [Codex](.github/workflows/rig-skill-integration-codex.md),
 [Gemini](.github/workflows/rig-skill-integration-gemini.md), and
 [Pi](.github/workflows/rig-skill-integration-pi.md) through their Rig adapters.
-Codex and Pi use `copilot/auto`; Gemini requires `GEMINI_API_KEY`.
+Codex uses `copilot/auto`, Pi uses `copilot/gpt-5.3-codex`, and Gemini requires `GEMINI_API_KEY`.
 See [provider workflow setup and limitations](skills/rig/agentic-workflows.md#other-provider-adapters).
 
 Then write a Rig program. Here is a release coordinator with specialized

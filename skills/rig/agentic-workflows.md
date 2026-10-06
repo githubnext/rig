@@ -112,7 +112,7 @@ outputs, majority vote, and strict post-step assertions:
 | --- | --- | --- |
 | [Codex](../../.github/workflows/rig-skill-integration-codex.md) | Codex CLI / `codexEngine` | `copilot/auto`; `copilot-requests: write` |
 | [Gemini](../../.github/workflows/rig-skill-integration-gemini.md) | Gemini CLI / `geminiEngine` | `gemini-2.5-flash`; repository secret `GEMINI_API_KEY` |
-| [Pi](../../.github/workflows/rig-skill-integration-pi.md) | Pi CLI / `piEngine` | `copilot/auto`; `copilot-requests: write` |
+| [Pi](../../.github/workflows/rig-skill-integration-pi.md) | Pi CLI / `piEngine` | `copilot/gpt-5.3-codex`; `copilot-requests: write` |
 
 The [shared procedure](../../.github/workflows/shared/rig-three-judges.md)
 provisions Node.js 24 and checkout dependencies. It launches a checked-in
@@ -126,7 +126,9 @@ and preserves its selector, `CODEX_HOME`, `auto` model, and non-secret
 `awf-proxy` API-key placeholder through `shell_environment_policy.set`.
 Pi uses the generated `PI_CODING_AGENT_DIR/models.json` gateway provider with
 that same non-secret placeholder; it does not use native Copilot OAuth or
-an OpenAI key. Gemini inherits the provisioned CLI, model, and
+an OpenAI key. Its outer engine and judges pin `gpt-5.3-codex` because gh-aw's
+Pi preflight rejects `auto` when it is not advertised as a concrete proxy model.
+Gemini inherits the provisioned CLI, model, and
 `GEMINI_API_BASE_URL`. Do not print or copy upstream secrets into fixture source.
 
 The compiler warns that `copilot/auto` may select a model without Codex's
