@@ -72,11 +72,11 @@ afterEach(() => {
 
 describe("Rig skill agentic workflow", () => {
   it("registers a custom driver for harness-owned fixture execution", () => {
-    expect(markdown).toContain("driver: .github/drivers/rig-sdk-driver.ts");
+    expect(markdown).toContain("driver: .github/drivers/copilot-sdk-driiver.ts");
     expect(markdown).toContain('Call `run_rig` **once**');
     expect(markdown).toContain('bash: ["printf", "node"]');
     expect(markdown).not.toContain("| node .github/skills/rig/run.ts >");
-    const driver = readFileSync(new URL("../.github/drivers/rig-sdk-driver.ts", import.meta.url), "utf8");
+    const driver = readFileSync(new URL("../.github/drivers/copilot-sdk-driiver.ts", import.meta.url), "utf8");
     expect(driver).toContain('from "../../skills/rig/launch-tool.ts"');
     expect(driver).toContain("createRigLaunchTool({ uri, connectionToken, cwd })");
     expect(driver).not.toContain("launcherPath:");
