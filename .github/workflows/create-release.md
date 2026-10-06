@@ -60,7 +60,7 @@ safe-outputs:
       permissions:
         contents: write
       steps:
-        - uses: actions/checkout@v7
+        - uses: actions/checkout@v7.0.1
           with:
             fetch-depth: 0
         - name: Create tag and publish release
