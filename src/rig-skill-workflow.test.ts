@@ -76,7 +76,7 @@ describe("Rig skill agentic workflow", () => {
       request: expect.stringContaining("three fruit names"),
       modelCalls: 3,
       verdict: "approve",
-      judgments: ["clarity", "safety", "feasibility"].map(criterion => ({
+      judgments: ["clarity", "safety", "feasibility"].map((criterion: string) => ({
         criterion, decision: "approve", reason: "Harmless and practical.",
       })),
     });
