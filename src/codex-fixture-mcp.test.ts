@@ -15,7 +15,7 @@ vi.mock("node:fs/promises", async original => ({
 }));
 const result = {
   engine: "codex", model: "gpt-5.3-codex", request: dummyRequest, modelCalls: 3, verdict: "approve",
-  judgments: criteria.map(criterion => ({ criterion, decision: "approve", reason: "Harmless and practical." })),
+  judgments: criteria.map((criterion: typeof criteria[number]) => ({ criterion, decision: "approve", reason: "Harmless and practical." })),
 };
 
 beforeEach(() => {
