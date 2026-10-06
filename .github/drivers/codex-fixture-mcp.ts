@@ -24,15 +24,26 @@ export function createFixtureLauncher(cwd: string, resultPath: string, timeoutMs
     }
     const output = await new Promise<string>((resolve, reject) => {
       const child = spawn(process.execPath, ["skills/rig/run.ts", ".github/fixtures/provider-three-judges.ts"], {
-        cwd, env, stdio: ["pipe", "pipe", "pipe"],
+        cwd, env, detached: true, stdio: ["pipe", "pipe", "pipe"],
       });
       let stdout = "";
       let stderr = "";
       let bytes = 0;
       let failure: Error | undefined;
       const fail = (error: Error) => {
-        failure ??= error;
-        child.kill("SIGKILL");
+        if (failure) return;
+        failure = error;
+        // Stop the SDK-owned Codex subprocesses as well as the launcher.
+        if (child.pid) {
+          try {
+            process.kill(-child.pid, "SIGKILL");
+          } catch (killError) {
+            if (!(killError instanceof Error && "code" in killError && killError.code === "ESRCH")) {
+              console.error(killError);
+              child.kill("SIGKILL");
+            }
+          }
+        } else child.kill("SIGKILL");
       };
       const timer = setTimeout(() => fail(new Error("Rig fixture timed out")), timeoutMs);
       child.once("error", fail);
@@ -50,7 +61,7 @@ export function createFixtureLauncher(cwd: string, resultPath: string, timeoutMs
       }
       child.once("close", (code, signal) => {
         clearTimeout(timer);
-        if (failure) reject(failure);
+        if (failure) reject(new Error(`${failure.message}${stderr ? `: ${stderr}` : ""}`));
         else if (code !== 0) reject(new Error(`Rig fixture failed (${signal ?? code}): ${stderr}`));
         else resolve(stdout);
       });

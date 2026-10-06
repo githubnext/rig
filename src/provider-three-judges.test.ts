@@ -70,7 +70,10 @@ describe.each(["codex", "gemini"])("%s three-judge fixture", engine => {
         expect(options.outputSchema.properties.decision.enum).toEqual(["approve", "reject"]);
       }
       for (const [options] of mocks.codex.mock.calls) {
-        expect(options).toEqual({ config: { mcp_servers: { safeoutputs: { enabled: false } }, web_search: "disabled" } });
+        expect(options).toEqual({ config: {
+          mcp_servers: { safeoutputs: { enabled: false }, "rig-fixture": { enabled: false } },
+          web_search: "disabled",
+        } });
       }
     } else {
       expect(mocks.codex).not.toHaveBeenCalled();

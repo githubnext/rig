@@ -53,6 +53,15 @@ pre-agent-steps:
       done
       echo "::error::Rig fixture MCP driver did not become ready"
       exit 1
+post-steps:
+  - name: Upload Codex fixture evidence
+    if: always()
+    uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+    with:
+      name: rig-codex-fixture
+      path: |
+        /tmp/gh-aw/agent/rig-three-judges.json
+        /tmp/gh-aw/agent/rig-fixture-mcp.log
 skills:
   - skills/rig
 imports:
@@ -75,3 +84,5 @@ The Copilot compatibility adapter disables Codex's native shell tool.
 Call the `rig-fixture` server's `run_rig` tool once with `{}` instead of Bash.
 The trusted driver reads the required installed skill files, runs only the
 checked-in fixture, and persists validated output for the post-step.
+The judges disable both inherited MCP servers; they must not recursively
+launch the fixture or emit workflow safe outputs.

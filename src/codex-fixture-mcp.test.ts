@@ -34,7 +34,11 @@ beforeEach(() => {
     return child;
   });
 });
-afterEach(() => vi.unstubAllEnvs());
+afterEach(() => {
+  vi.unstubAllEnvs();
+  vi.restoreAllMocks();
+  vi.useRealTimers();
+});
 
 it("runs only the checked-in fixture and persists independently validated output", async () => {
   vi.stubEnv("GITHUB_TOKEN", "upstream-secret");
@@ -87,6 +91,41 @@ it.each(["exit", "invalid-json", "invalid-result"])("does not persist failed fix
   const launch = createFixtureLauncher("/checkout", "/output.json");
   await expect(launch()).rejects.toThrow();
   await expect(launch()).rejects.toThrow("only be launched once");
+  expect(mocks.writeFile).not.toHaveBeenCalled();
+});
+
+it("times out the fixture and terminates the SDK subprocess group", async () => {
+  vi.useFakeTimers();
+  const child = Object.assign(new EventEmitter(), {
+    pid: 31415, stdin: new PassThrough(), stdout: new PassThrough(), stderr: new PassThrough(), kill: vi.fn(),
+  });
+  mocks.spawn.mockReturnValueOnce(child);
+  const kill = vi.spyOn(process, "kill").mockImplementation(() => {
+    child.emit("close", null, "SIGKILL");
+    return true;
+  });
+  const launch = createFixtureLauncher("/checkout", "/output.json", 10);
+  const rejected = expect(launch()).rejects.toThrow("Rig fixture timed out");
+  await vi.advanceTimersByTimeAsync(20);
+  await rejected;
+  expect(kill).toHaveBeenCalledWith(-31415, "SIGKILL");
+  expect(mocks.writeFile).not.toHaveBeenCalled();
+});
+
+it("rejects oversized output and kills the fixture without persisting it", async () => {
+  const child = Object.assign(new EventEmitter(), {
+    stdin: new PassThrough(), stdout: new PassThrough(), stderr: new PassThrough(),
+    kill: vi.fn(() => {
+      child.emit("close", null, "SIGKILL");
+      return true;
+    }),
+  });
+  mocks.spawn.mockImplementationOnce(() => {
+    queueMicrotask(() => child.stdout.write(Buffer.alloc(1024 * 1024 + 1)));
+    return child;
+  });
+  await expect(createFixtureLauncher("/checkout", "/output.json")()).rejects.toThrow("output exceeds 1 MiB");
+  expect(child.kill).toHaveBeenCalledWith("SIGKILL");
   expect(mocks.writeFile).not.toHaveBeenCalled();
 });
 

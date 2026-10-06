@@ -140,6 +140,8 @@ installed skill, launches the checked-in fixture once with an allowlisted
 environment and the non-secret proxy key, validates stdout, and persists it
 for the independent post-step. Failed calls cannot be retried. Gemini and Pi
 continue to permit only `printf` and `node`.
+Codex judges disable the inherited fixture-launch and safe-output MCP servers
+so only the outer agent can orchestrate the launch and report completion.
 These smoke tests create no repository changes and disable AI threat analysis
 of safe outputs; the agent job remains read-only and the post-step validates
 the persisted result independently.
