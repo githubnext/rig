@@ -6,20 +6,15 @@ import { fileURLToPath } from "node:url";
 const repoRoot = resolve(dirname(fileURLToPath(import.meta.url)), "..");
 const skillRoot = resolve(repoRoot, "skills/rig");
 const canonicalManifest = readFileSync(resolve(skillRoot, "SKILL.md"), "utf8");
-const registrationPath = resolve(repoRoot, ".github/skills/rig/SKILL.md");
-const registration = readFileSync(registrationPath, "utf8");
 
-it("registers the canonical Rig skill with matching discovery metadata", () => {
+it("keeps the exportable Rig skill as the only manifest", () => {
   const frontmatter = /^---\n([\s\S]*?)\n---\n/;
   const metadata = canonicalManifest.match(frontmatter)?.[1];
   expect(metadata).toBeDefined();
-  expect(registration.match(frontmatter)?.[1]).toBe(metadata);
   expect(metadata).toContain("name: rig\n");
   expect(metadata).toContain("license: MIT\n");
   expect(metadata).toContain("compatibility: Requires Node.js 24");
-  const links = [...registration.matchAll(/\]\(([^)]+)\)/g)];
-  expect(links).toHaveLength(1);
-  expect(resolve(dirname(registrationPath), links[0]![1]!)).toBe(resolve(skillRoot, "SKILL.md"));
+  expect(existsSync(resolve(repoRoot, ".github/skills/rig/SKILL.md"))).toBe(false);
 });
 
 it("keeps every canonical skill reference available", () => {
