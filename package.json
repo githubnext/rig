@@ -26,8 +26,12 @@
     "@github/copilot-sdk": "^1.0.16",
     "@openai/codex-sdk": "^0.159.0",
     "@types/node": "^25.9.1",
+    "source-map-js": "file:packages/source-map-compat",
     "typescript": "^5.8.0",
     "vitest": "^4.1.11",
     "zx": "^8.8.5"
+  },
+  "overrides": {
+    "source-map-js": "$source-map-js"
   }
 }
