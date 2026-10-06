@@ -78,6 +78,17 @@ Import `configureAgent` and `copilotEngine` in the fenced program and call `conf
 
 Edit workflows with an agent or run `gh aw compile --watch` for immediate feedback. Before committing, run `gh aw compile <workflow-id> --strict` and include the generated `.lock.yml`.
 
+For testing changes to the skill itself, declare `skills: [skills/rig]` to install
+the current checkout instead of a released commit. The repository's
+[Rig Skill Integration workflow](../../../.github/workflows/rig-skill-integration.md)
+does this daily or on manual dispatch. Its no-input `rig` fence runs exactly
+three `small` judges through the SDK endpoint, with `maxTurns: 1`, no repair
+addon, and deterministic majority voting. A post-step validates the result and
+fails on missing output, invalid judgments, or an unexpected verdict. The outer
+workflow engine is also `small` because its provider configuration determines
+the model used by SDK sessions; the three-call count covers the Rig scenario,
+not the surrounding workflow engine's turns.
+
 ## Agent interface
 
 Adapters implement the SDK-neutral interface:

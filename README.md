@@ -42,6 +42,13 @@ skills:
   - githubnext/rig/skills/rig/SKILL.md@<full-commit-sha>
 ```
 
+The [Rig Skill Integration workflow](.github/workflows/rig-skill-integration.md)
+tests the skill from the current checkout daily or via `workflow_dispatch`.
+It runs three `small` Copilot SDK judges (clarity, safety, feasibility) against
+a harmless dummy request and computes the majority verdict in TypeScript.
+There is no synthesis call or retry; missing or invalid results fail the run.
+Success is recorded in the run logs without creating an issue or pull request.
+
 Then write a Rig program. Here is a release coordinator with specialized
 subagents. Their ordering is prompt-directed; use `workflow()` for deterministic
 orchestration.
