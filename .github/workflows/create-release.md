@@ -21,7 +21,12 @@ permissions:
   issues: read
   pull-requests: read
   copilot-requests: write
+engine:
+  id: copilot
+  version: "1.0.92"
 strict: true
+concurrency:
+  job-discriminator: "${{ github.run_id }}"
 timeout-minutes: 25
 tools:
   github:

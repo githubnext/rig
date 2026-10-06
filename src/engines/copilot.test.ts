@@ -65,8 +65,8 @@ it("uses agentic workflow SDK connection and provider settings", async () => {
   process.env["COPILOT_CONNECTION_TOKEN"] = "connection-token";
   process.env["GH_AW_COPILOT_SDK_MULTI_PROVIDER_JSON"] = JSON.stringify({
     model: "claude-sonnet-4.6",
-    providers: [{ name: "copilot" }],
-    models: [{ id: "claude-sonnet-4.6" }],
+    providers: [{ name: "copilot", baseUrl: "https://provider.example" }],
+    models: [{ id: "claude-sonnet-4.6", provider: "copilot" }],
   });
 
   await copilotEngine()({ model: "small" });
@@ -76,8 +76,8 @@ it("uses agentic workflow SDK connection and provider settings", async () => {
     model: "claude-sonnet-4.6",
     streaming: false,
     onPermissionRequest: mocks.approveAll,
-    providers: [{ name: "copilot" }],
-    models: [{ id: "claude-sonnet-4.6" }],
+    providers: [{ name: "copilot", baseUrl: "https://provider.example" }],
+    models: [{ id: "claude-sonnet-4.6", provider: "copilot" }],
   });
 });
 
@@ -104,6 +104,43 @@ it("aborts an in-flight SDK request when its signal aborts", async () => {
 
   await expect(request).rejects.toThrow("cancelled");
   expect(abort).toHaveBeenCalledOnce();
+});
+
+it("surfaces SDK abort failures without an unhandled rejection", async () => {
+  const abortError = new Error("abort transport failed");
+  const abort = vi.fn().mockRejectedValue(abortError);
+  mocks.createSession.mockResolvedValue({
+    sendAndWait: vi.fn(() => new Promise(() => {})),
+    abort,
+    disconnect: vi.fn(),
+  });
+  const implementation = await copilotEngine()({ model: "small" });
+  const controller = new AbortController();
+  const request = implementation.ask("hello", { signal: controller.signal });
+  const reason = new Error("cancelled");
+
+  controller.abort(reason);
+
+  await expect(request).rejects.toMatchObject({
+    message: "Failed to abort agent request",
+    errors: [reason, abortError],
+  });
+});
+
+it("does not return an empty success when the SDK settles during cancellation", async () => {
+  let finish: ((value: undefined) => void) | undefined;
+  mocks.createSession.mockResolvedValue({
+    sendAndWait: vi.fn(() => new Promise<undefined>((resolve) => { finish = resolve; })),
+    abort: vi.fn(async () => { finish?.(undefined); }),
+    disconnect: vi.fn(),
+  });
+  const implementation = await copilotEngine()({ model: "small" });
+  const controller = new AbortController();
+  const request = implementation.ask("hello", { signal: controller.signal });
+
+  controller.abort(new Error("cancelled"));
+
+  await expect(request).rejects.toThrow("cancelled");
 });
 
 it("preserves explicit client options", async () => {
@@ -144,4 +181,53 @@ it("uses a stdio connection when server option is true", async () => {
   expect(mocks.forStdio).toHaveBeenCalledOnce();
   expect(mocks.forUri).not.toHaveBeenCalled();
   expect(mocks.copilotClientCtor).toHaveBeenCalledWith({ connection: { kind: "stdio" } });
+});
+
+it("maps structured output to the SDK responseSchema option", async () => {
+  const sendAndWait = vi.fn().mockResolvedValue({ data: { content: '{"text":"ok"}' } });
+  mocks.createSession.mockResolvedValue({ sendAndWait, disconnect: vi.fn() });
+  const implementation = await copilotEngine()({ model: "small" });
+  const outputSchema = { type: "object", properties: { text: { type: "string" } } };
+
+  await expect(implementation.ask("hello", { outputSchema })).resolves.toBe('{"text":"ok"}');
+
+  expect(sendAndWait).toHaveBeenCalledWith({ prompt: "hello", responseSchema: outputSchema }, expect.any(Number));
+});
+
+it("normalizes a string system message to the SDK append configuration", async () => {
+  await copilotEngine()({ model: "small", systemMessage: "Be concise." });
+
+  expect(mocks.createSession).toHaveBeenCalledWith(expect.objectContaining({
+    systemMessage: { content: "Be concise." },
+  }));
+});
+
+it("preserves SDK system message configurations", async () => {
+  const systemMessage = { mode: "customize" as const, sections: { tone: { action: "append" as const, content: "Be concise." } } };
+  await copilotEngine()({ model: "small", systemMessage });
+
+  expect(mocks.createSession).toHaveBeenCalledWith(expect.objectContaining({ systemMessage }));
+});
+
+it.each([
+  [],
+  { mode: "invalid" },
+  { mode: "replace" },
+  { content: 42 },
+  { mode: "customize", sections: { tone: { action: "invalid" } } },
+])("rejects invalid system message configuration %j before creating a client", async (systemMessage) => {
+  await expect(copilotEngine()({ model: "small", systemMessage })).rejects.toThrow("copilotEngine");
+  expect(mocks.copilotClientCtor).not.toHaveBeenCalled();
+});
+
+it.each([
+  "not json",
+  "null",
+  '{"model":"small","providers":[{"name":"test"}],"models":[]}',
+  '{"model":"small","providers":[],"models":[{"id":"test"}]}',
+])("reports invalid workflow provider configuration %s", (value) => {
+  process.env["GH_AW_COPILOT_SDK_MULTI_PROVIDER_JSON"] = value;
+
+  expect(() => copilotEngine()).toThrow();
+  expect(mocks.copilotClientCtor).not.toHaveBeenCalled();
 });

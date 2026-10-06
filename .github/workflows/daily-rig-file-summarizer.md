@@ -13,6 +13,7 @@ permissions:
   copilot-requests: write
 engine:
   id: copilot
+  version: "1.0.92"
   copilot-sdk: true
 strict: true
 timeout-minutes: 30
@@ -30,7 +31,7 @@ safe-outputs:
     title-prefix: "[rig-summarizer] "
     labels: [automation, ai-agent]
     close-older-issues: true
-    expires: 7
+    expires: 7d
 ---
 
 ## Task
