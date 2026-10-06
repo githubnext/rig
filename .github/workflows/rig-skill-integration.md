@@ -78,8 +78,10 @@ already exists, and Node.js and SDK dependencies are already provisioned.
 Do not run version checks, dependency checks, package installation, linting,
 typechecking, directory creation, or other bootstrap commands for this fixture.
 Inherit `COPILOT_SDK_URI` and `COPILOT_CONNECTION_TOKEN`; do not inspect or print
-them, start a second server, or use `--server`. If the Node launch fails, report
-its exact command and error and stop without retrying model calls.
+them, start a second server, or use `--server`. If the Node launch returns a
+nonzero exit code, call `report_incomplete` immediately with that code and the
+exact stderr error. Do not read the result file, run `cat` or another command,
+diagnose the environment, or retry model calls after a failed launch.
 If that launch is denied, do not repeat or reformulate the Bash command:
 call `report_incomplete` immediately. The one-invocation limit includes denials.
 

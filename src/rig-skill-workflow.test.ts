@@ -107,6 +107,7 @@ describe("Rig skill agentic workflow", () => {
     expect(markdown).toContain("Do not invoke Bash again");
     expect(markdown).toContain("Never call `noop` on failure");
     expect(markdown).toContain("The one-invocation limit includes denials");
+    expect(markdown).toContain("Do not read the result file, run `cat` or another command");
   });
 
   it("runs the actual workflow fence with exactly three small SDK calls", async () => {
