@@ -56,15 +56,17 @@ engine:
 skills:
   - githubnext/rig/skills/rig/SKILL.md@<full-commit-sha>
 tools:
-  bash: ["node"]
+  bash: ["printf", "node"]
 ```
 
 The [shared Rig template](.github/workflows/shared/rig.md) provisions Node.js 24
-and allows `node`. In this repository, import
+and allows `printf` and `node`. In this repository, import
 `shared/rig.md` instead. Without the template, configure these prerequisites
 explicitly; see the [runtime reference](skills/rig/runtime.md#github-agentic-workflows).
 Grant `copilot-requests: write` and provision the skill's dependencies in the host.
-Use heredocs or redirections rather than `cat`/`echo` pipelines. Grant additional
+For Copilot SDK workflows, use `printf '%s\n' ... | node` rather than heredocs,
+which gh-aw v0.91.1's SDK permission parser rejects. Single-quote each source
+line and escape literal apostrophes as `'"'"'`. Grant additional
 commands only for the program's own tool calls. This is a smaller tool
 allowlist, not a security boundary: Node can still start subprocesses.
 
@@ -122,19 +124,18 @@ Its [integration guide](skills/rig/runtime.md#choosing-an-integration)
 compares engine capabilities, model selection, tool ownership, and output
 enforcement.
 
-For every heredoc below, replace `<delimiter>` with a fresh 7-character
-pseudo-random alphanumeric string; no tool call is needed to generate it.
-Check it is not an entire line of the contents, single-quote the opener, and
-repeat the exact unquoted delimiter alone on the closing line. See the
-[inline-program guide](skills/rig/runtime.md#inline-programs) for the
-delimiter rules; do not reuse fixed delimiters or shell variables.
+Use the fixed `printf '%s\n'` format with one single-quoted argument per source
+line. Escape literal apostrophes as `'"'"'`; do not use source as the format
+string or double-quote it. See the
+[inline-program guide](skills/rig/runtime.md#inline-programs) for quoting rules
+and heredoc alternatives outside the Copilot SDK workflow driver.
 
 **Design on the fly** — just describe what you want as a string and let the model figure out the rest:
 
 ```bash
-node skills/rig/run.ts <<'<delimiter>'
-export default "Run npm test, diagnose any failures, apply the smallest safe fix, and repeat up to 3 times.";
-<delimiter>
+printf '%s\n' \
+  'export default "Run npm test, diagnose any failures, apply the smallest safe fix, and repeat up to 3 times.";' \
+  | node skills/rig/run.ts
 ```
 
 Or ask Copilot (with the skill) to generate a full program for you. Describe your goal in natural language and Copilot returns a runnable `rig` markdown fence like this:
@@ -166,20 +167,18 @@ export default ralfLoop;
 ```
 ````
 
-Pass the fence contents directly to the launcher with a heredoc:
+Pass the fence contents directly to the launcher with a literal pipeline:
 
 ```bash
-node skills/rig/run.ts <<'<delimiter>'
-// Paste the rig fence contents here.
-<delimiter>
+printf '%s\n' \
+  '<one single-quoted argument per source line of the rig fence>' \
+  | node skills/rig/run.ts
 ```
 
 Or run a program file:
 
 ```bash
-node skills/rig/run.ts src/program.ts <<'<delimiter>'
-Review this diff
-<delimiter>
+printf '%s\n' 'Review this diff' | node skills/rig/run.ts src/program.ts
 ```
 
 Use `--typecheck` to validate a program without running it:

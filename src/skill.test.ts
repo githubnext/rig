@@ -25,24 +25,22 @@ it("keeps every canonical skill reference available", () => {
   }
 });
 
-it("requires fresh seven-character and quoted heredoc delimiters", () => {
-  expect(canonicalManifest).toContain("7-character pseudo-random alphanumeric delimiter without a tool call");
-  expect(canonicalManifest).not.toContain("randomBytes");
-  expect(canonicalManifest).toContain("regenerate on collision");
-  expect(canonicalManifest).toContain("Single-quote the opening delimiter");
-  expect(canonicalManifest).not.toContain("<<'RIG'");
+it("requires literal printf source transport for Copilot SDK workflows", () => {
+  expect(canonicalManifest).toContain("printf '%s\\n'");
+  expect(canonicalManifest).toContain("one single-quoted argument per source line");
+  expect(canonicalManifest).toContain("`'\"'\"'`");
+  expect(canonicalManifest).toContain("Do not use heredocs");
+  expect(canonicalManifest).toContain('bash: ["printf", "node"]');
 });
 
-it("requires direct Node launch without shell preparation", () => {
-  expect(canonicalManifest).toContain("Choose the seven characters yourself");
-  expect(canonicalManifest).toContain("The launch command must begin with `node`");
+it("requires a literal launch pipeline without shell preparation", () => {
+  expect(canonicalManifest).toContain("The launch pipeline must begin with `printf`");
   expect(canonicalManifest).toContain("no `&&` prefix");
-  expect(canonicalManifest).toContain("does\nnot disable Bash or `node`");
   const runtime = readFileSync(resolve(skillRoot, "runtime.md"), "utf8");
   expect(runtime).toContain("`/tmp/gh-aw/agent` is already provisioned");
   expect(runtime).toContain("prevalidated fixture, skip lint and typecheck");
   expect(runtime).toContain("permission parser treats heredoc");
-  expect(runtime).toContain("Do not broaden the shell allowlist");
+  expect(runtime).toContain("pipeline instead, not a heredoc or a blanket shell grant");
 });
 
 it("exposes the same public modules from the standalone skill and repository", () => {

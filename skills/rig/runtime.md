@@ -4,7 +4,26 @@ Read this reference when launching or typechecking programs, handling stdin, or 
 
 ## Inline programs
 
-Treat a fenced `rig` block as a runnable program. Pass its contents to the launcher with a heredoc:
+Treat a fenced `rig` block as a runnable program. For Copilot SDK workflows,
+pass its contents to the launcher through a literal `printf` pipeline:
+
+```bash
+printf '%s\n' \
+  '// Agent role: summarize this repository in one sentence.' \
+  'export default "Summarize this repository in one sentence.";' \
+  | node skills/rig/run.ts
+```
+
+Use one single-quoted argument per source line, including `''` for empty lines.
+Escape each literal apostrophe as `'"'"'`; for example, the source line
+`const label = "don't";` becomes `'const label = "don'"'"'t";'`.
+Always use the fixed format `'%s\n'`, never the source as a format string.
+This preserves percent signs, backslashes, dollar signs, and backticks literally.
+Do not double-quote source, expand variables, encode it, or execute substitutions.
+Each argument emits its original line followed by a newline. Copy the whole
+fence without markdown markers; do not rewrite the TypeScript.
+
+Heredocs remain an alternative outside the Copilot SDK workflow driver:
 
 Before constructing each heredoc command, generate a fresh 7-character
 pseudo-random alphanumeric string to use as the delimiter. Choose the seven
@@ -53,11 +72,11 @@ container. Do not attempt to install them from the driver or agent prompt.
 Missing dependencies stop the run with a nonzero exit and an error on stderr.
 `rig.ts` remains the direct runtime entry point. Node.js 24 or later is required.
 
-For agentic workflows, the launch Bash allowlist is just
-`bash: ["node"]`. Heredocs and input/output redirections avoid `cat`, `echo`,
-and separate file-creation commands. Neither launch nor typechecking invokes
+For inline agentic workflows, explicitly grant both stages with
+`bash: ["printf", "node"]`, or import the shared Rig template below. This avoids
+`cat`, `echo`, and separate file-creation commands. Neither launch nor typechecking invokes
 npm or npx, and neither downloads dependencies.
-Start the launch command directly with `node`; do not prepend `mkdir`, `cd`,
+Start the inline launch pipeline with `printf`; do not prepend `mkdir`, `cd`,
 `env`, dependency checks, or any other command with `&&`. Read the installed
 skill and its reference with file-reading tools, not shell bootstrap commands.
 For a provided, unchanged, prevalidated fixture, skip lint and typecheck
@@ -69,17 +88,15 @@ Redirect output only into an existing directory. In GitHub Agentic Workflows,
 required directory is missing, report that prerequisite instead of adding a
 disallowed preparation command. Inherit SDK environment variables without
 `env` or `export` commands. If an unrelated command is denied before the launcher
-runs, remove that command and use the permitted standalone Node launch; do not
+runs, remove that command and use the permitted `printf` plus `node` pipeline; do not
 claim that Bash is unavailable. If the launcher itself fails, report its exact
 error and respect the workflow's retry policy.
 
 GitHub Agentic Workflows v0.91.1's Copilot SDK permission parser treats heredoc
-body lines as shell commands. It can therefore reject a valid standalone
-`node` launch despite `bash: ["node"]`. If this happens, report the exact denial
-as a workflow permission-parser limitation, not a missing Node runtime or SDK.
-Do not broaden the shell allowlist or encode the program to evade enforcement.
-The workflow host needs a heredoc-aware permission parser before this inline
-launch pattern can run in that SDK driver.
+body lines as shell commands. Use the explicitly permitted `printf` plus `node`
+pipeline instead, not a heredoc or a blanket shell grant. If either stage is
+denied, report the exact command and required grant, not a missing Node runtime
+or SDK. Respect the workflow's retry policy.
 
 This reduces tool configuration, not sandbox permissions: allowing arbitrary
 Node code still permits filesystem and subprocess operations. Add commands
@@ -90,9 +107,7 @@ required by the program's own tool calls separately.
 Export the root and pass stdin plus the file path:
 
 ```bash
-node skills/rig/run.ts src/program.ts <<'<delimiter>'
-Review this diff
-<delimiter>
+printf '%s\n' 'Review this diff' | node skills/rig/run.ts src/program.ts
 ```
 
 Stdin coercion follows the root schema:
@@ -146,7 +161,7 @@ engine:
 skills:
   - githubnext/rig/skills/rig/SKILL.md@<full-commit-sha>
 tools:
-  bash: ["node"]
+  bash: ["printf", "node"]
 ```
 
 Import `configureAgent` and `copilotEngine` in the fenced program and call `configureAgent(copilotEngine())` before defining agents. Launch with the installed skill's `run.ts` and host-provisioned dependencies. Grant `copilot-requests: write`, and enable only the additional tools and network access the program uses.
@@ -159,7 +174,7 @@ runtimes:
   node:
     version: "24"
 tools:
-  bash: ["node"]
+  bash: ["printf", "node"]
 network:
   allowed: [defaults, github, node]
 ```
