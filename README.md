@@ -1,6 +1,7 @@
 # rig
 
-`rig` is a minimal TypeScript agent harness skill for sandboxed agentic workflows.
+`rig` is a minimal TypeScript agent harness skill for typed agents, workflows,
+and runnable `rig` markdown fences.
 
 <img src="docs/lifecycle.svg" alt="Agentic Workflow Lifecycle — how a Markdown brief becomes a live, AI-powered GitHub Actions workflow" width="100%"/>
 
@@ -13,7 +14,19 @@ gh skill install githubnext/rig rig
 Requires GitHub CLI 2.90.0 or later. Running programs requires Node.js 24 or
 later and the dependencies in the installed skill's `package.json`.
 
+Use `gh skill list` to find the installed skill directory, then install its npm
+dependencies there. The launcher examples below use paths from a repository
+checkout; for an installed skill, substitute its directory for `skills/rig`.
+
 `skills/rig/SKILL.md` is the canonical, publishable skill manifest.
+
+To run from a checkout:
+
+```bash
+git clone https://github.com/githubnext/rig.git
+cd rig
+npm ci
+```
 
 ## Use Rig in 2 ways
 
@@ -29,7 +42,9 @@ skills:
   - githubnext/rig/skills/rig/SKILL.md@<full-commit-sha>
 ```
 
-Then write a Rig program. Here is a full release pipeline with specialized sub-agents:
+Then write a Rig program. Here is a release coordinator with specialized
+subagents. Their ordering is prompt-directed; use `workflow()` for deterministic
+orchestration.
 
 ```ts
 import { agent, p, s } from "rig";
@@ -54,7 +69,7 @@ const draftRelease = agent({ model: "small",
 });
 // Agent role: plan the next release using the provided specialists.
 const releaseAgent = agent({ model: "small",
-  instructions: p`Plan the next release using ${p.bash("git diff --stat -- .")} and ${p.bash("git log --oneline -20")}.`,
+  instructions: p`Use ${p.bash("git diff -- .")} and ${p.bash("git log --oneline -20")} as context. Delegate to analyzeChanges, then chooseVersion with the analysis, then draftRelease with the selected bump, rationale, and summary. Return the combined release plan.`,
   output: s.object({ title: s.string, bump: s.enum("patch", "minor", "major"), checklist: s.array(s.string), risks: s.array(s.string) }),
   agents: { analyzeChanges, chooseVersion, draftRelease },
 });
@@ -63,6 +78,13 @@ export default releaseAgent;
 ```
 
 ### 2) Run a Rig program directly with `skills/rig/rig.ts`
+
+By default, Rig selects an engine from `COPILOT_SDK_URI`, `RIG_ENGINE`, or
+supported provider API-key variables. Without those settings it uses Copilot
+over HTTP at `localhost:7777`. To have the launcher start Copilot over stdio,
+append `--server` to a run command; this requires an installed, authenticated
+Copilot CLI. Other engines require their SDK dependencies or CLI and credentials;
+see the [runtime reference](skills/rig/references/runtime.md).
 
 **Design on the fly** — just describe what you want as a string and let the model figure out the rest:
 
@@ -92,7 +114,7 @@ const fix = agent({
 });
 // Agent role: run a RALF loop iterating diagnose-fix cycles until tests pass.
 const ralfLoop = agent({
-  model: "large",
+  model: "small",
   output: s.object({ iterations: s.number, fixed: s.boolean }),
   agents: { diagnose, fix },
   instructions: p`Run ${p.bash("npm test")} then loop: diagnose failures, fix, repeat up to 3 times.`,
@@ -105,7 +127,7 @@ Extract the fence contents and pipe them directly to the launcher:
 
 ```bash
 cat <<'RIG' | node skills/rig/rig.ts
-# paste the rig fence contents here
+// Paste the rig fence contents here.
 RIG
 ```
 
@@ -120,6 +142,9 @@ Use `--typecheck` to validate a program without running it:
 ```bash
 cat program.ts | node skills/rig/rig.ts --typecheck
 ```
+
+This uses `npx` to run TypeScript 5.9.3 and may require npm registry access
+if that version is not cached.
 
 ## Docs
 
