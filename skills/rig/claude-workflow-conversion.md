@@ -307,4 +307,4 @@ workflow patterns — use them as starting points when converting a script:
 
 - [Dynamic workflows](dynamic-workflows.md) — full rig workflow API.
 - [Agent API and schemas](agent-api.md) — `s.*` helpers and call options.
-- [Running and engines](runtime.md) — launching a workflow program.
+- [Running programs](runtime.md) — launching a workflow program.

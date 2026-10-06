@@ -25,6 +25,23 @@ it("keeps every canonical skill reference available", () => {
   }
 });
 
+it("keeps runtime guidance small and routes detailed references", () => {
+  const runtime = readFileSync(resolve(skillRoot, "runtime.md"), "utf8");
+  expect(Buffer.byteLength(runtime)).toBeLessThan(6000);
+  expect(runtime.trimEnd().split("\n").length).toBeLessThanOrEqual(110);
+  expect(canonicalManifest.trimEnd().split("\n").length).toBeLessThanOrEqual(200);
+  for (const file of ["launcher-details.md", "agentic-workflows.md", "engines.md", "debugging.md"]) {
+    expect(runtime).toContain(`](./${file})`);
+    expect(canonicalManifest).toContain(`](./${file})`);
+    const content = readFileSync(resolve(skillRoot, file), "utf8");
+    expect(Buffer.byteLength(content), file).toBeLessThan(12000);
+    for (const [, link] of content.matchAll(/\]\(([^)]+)\)/g)) {
+      if (/^(https?:|#)/.test(link!)) continue;
+      expect(existsSync(resolve(skillRoot, link!.split("#")[0]!)), `${file}: ${link}`).toBe(true);
+    }
+  }
+});
+
 it("requires literal printf source transport for Copilot SDK workflows", () => {
   expect(canonicalManifest).toContain("printf '%s\\n'");
   expect(canonicalManifest).toContain("one single-quoted argument per source line");
