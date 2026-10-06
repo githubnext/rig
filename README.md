@@ -77,6 +77,12 @@ a harmless dummy request and computes the majority verdict in TypeScript.
 There is no synthesis call or retry; missing or invalid results fail the run.
 Success is recorded in the run logs without creating an issue or pull request.
 
+Matching daily/manual fixtures cover [Codex](.github/workflows/rig-skill-integration-codex.md),
+[Gemini](.github/workflows/rig-skill-integration-gemini.md), and
+[Pi](.github/workflows/rig-skill-integration-pi.md) through their Rig adapters.
+Codex and Pi use `copilot/auto`; Gemini requires `GEMINI_API_KEY`.
+See [provider workflow setup and limitations](skills/rig/agentic-workflows.md#other-provider-adapters).
+
 Then write a Rig program. Here is a release coordinator with specialized
 subagents. Their ordering is prompt-directed; use `workflow()` for deterministic
 orchestration.
