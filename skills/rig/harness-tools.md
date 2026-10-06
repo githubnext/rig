@@ -57,7 +57,7 @@ The built-in gh-aw SDK driver owns `createSession`. Declaring
 `tools.run_rig` in workflow YAML does not register this tool.
 The driver must explicitly import/register it and receive the harness-owned
 connection settings. This repository's integration workflow uses
-`engine.driver: .github/drivers/copilot-sdk-driiver.ts` to register the tool with
+`engine.driver: .github/drivers/copilot-sdk-driver.ts` to register the tool with
 gh-aw's compiler-owned tool filtering and permission handler. That driver
 accepts only the exact fixture source from the prompt, enforces one launch,
 and writes successful stdout for post-step validation.
