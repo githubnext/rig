@@ -46,6 +46,12 @@ export default reviewDiff;
 
 Defaults: `name: "agent"`, `model: "small"`, `maxTurns: 4`, string input/output, and no addons.
 
+For GitHub Agentic Workflows, tell the user to import the
+[shared Rig template](../../.github/workflows/shared/rig.md) or explicitly allow
+`node` in `tools.bash` and provision Node.js 24+ with the skill's dependencies.
+See [Running and engines](./runtime.md) for
+the import syntax and Copilot SDK configuration.
+
 ## High-frequency decisions
 
 | Need | Choose |
@@ -93,17 +99,19 @@ node skills/rig/run.ts --typecheck < program.ts
 ```
 
 For an installed skill, replace `skills/rig` with its installed directory. Use
-`run.ts` to launch without installing packages; inline programs use
-`node <skill-dir>/run.ts <<'RIG_<generated-hex>'`. For each heredoc, generate a
-fresh `RIG_` delimiter with `node:crypto`'s `randomBytes(16).toString("hex")`.
-Ensure it is not a complete line in the contents; regenerate on collision.
-Single-quote the opening delimiter and repeat the same literal, unquoted
-delimiter alone on the closing line. Never use a fixed delimiter or shell
-variable; see [Running and engines](references/runtime.md).
+`run.ts` to launch without installing packages. For Copilot SDK workflows, pipe
+literal source with `printf '%s\n' '<source line>' ... | node <skill-dir>/run.ts`.
+Use one single-quoted argument per source line, escaping each literal apostrophe
+as `'"'"'`. Keep `%s\n` as the fixed format; never use source as a format string,
+double-quote source, or expand shell variables. Do not use heredocs with the
+SDK driver; see [Running and engines](./runtime.md) for quoting and alternatives.
 Install the skill with `gh skill install githubnext/rig rig`.
 Assume SDKs are already installed in the agent container; do not install them.
-Only `node` needs a Bash tool grant for launching an installed skill; grant
-additional commands only when the program itself needs them.
+Import the shared Rig workflow template or explicitly allow `printf` and `node`
+with `bash: ["printf", "node"]`. Grant other commands only when the program needs
+them. The launch pipeline must begin with `printf`: no `mkdir`, `cd`, `env`,
+package manager, or other preparation, and no `&&` prefix. Use existing output
+directories and inherit the SDK environment. Report denied commands accurately.
 
 ## Final check
 
@@ -118,10 +126,10 @@ additional commands only when the program itself needs them.
 
 Read only when the task needs the listed detail:
 
-- [Agent API and schemas](references/agent-api.md) — spec fields, schema overloads, tools, and invocation options.
-- [Prompt intents](references/prompt-intents.md) — complete helper semantics, dynamic inputs, writes, and failure behavior.
-- [Composition and addons](references/composition.md) — delegation patterns, dynamic sets, repair, steering, and addon lifecycle.
-- [Dynamic workflows](references/dynamic-workflows.md) — bounded fan-out, failure semantics, limits, budget, events, and convergence loops.
-- [Claude workflow conversion](references/claude-workflow-conversion.md) — mapping Claude Code dynamic-workflow scripts onto rig primitives, including model selection and the Anthropic engine.
-- [Running and engines](references/runtime.md) — markdown/file launch modes, typechecking, Agentic Workflows, and SDK adapters.
-- [Linting](references/linting.md) — linter usage, autofixes, rules, and rule development.
+- [Agent API and schemas](./agent-api.md) — spec fields, schema overloads, tools, and invocation options.
+- [Prompt intents](./prompt-intents.md) — complete helper semantics, dynamic inputs, writes, and failure behavior.
+- [Composition and addons](./composition.md) — delegation patterns, dynamic sets, repair, steering, and addon lifecycle.
+- [Dynamic workflows](./dynamic-workflows.md) — bounded fan-out, failure semantics, limits, budget, events, and convergence loops.
+- [Claude workflow conversion](./claude-workflow-conversion.md) — mapping Claude Code dynamic-workflow scripts onto rig primitives, including model selection and the Anthropic engine.
+- [Running and engines](./runtime.md) — markdown/file launch modes, typechecking, Agentic Workflows, and SDK adapters.
+- [Linting](./linting.md) — linter usage, autofixes, rules, and rule development.

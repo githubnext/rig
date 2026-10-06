@@ -18,18 +18,29 @@ it("keeps the exportable Rig skill as the only manifest", () => {
 });
 
 it("keeps every canonical skill reference available", () => {
-  const links = [...canonicalManifest.matchAll(/\]\((references\/[^)]+)\)/g)];
+  const links = [...canonicalManifest.matchAll(/\]\((\.\/[^)]+)\)/g)];
   expect(links.length).toBeGreaterThan(0);
   for (const link of links) {
     expect(existsSync(resolve(skillRoot, link[1]!)), link[1]).toBe(true);
   }
 });
 
-it("requires fresh crypto-generated and quoted heredoc delimiters", () => {
-  expect(canonicalManifest).toContain('randomBytes(16).toString("hex")');
-  expect(canonicalManifest).toContain("regenerate on collision");
-  expect(canonicalManifest).toContain("Single-quote the opening delimiter");
-  expect(canonicalManifest).not.toContain("<<'RIG'");
+it("requires literal printf source transport for Copilot SDK workflows", () => {
+  expect(canonicalManifest).toContain("printf '%s\\n'");
+  expect(canonicalManifest).toContain("one single-quoted argument per source line");
+  expect(canonicalManifest).toContain("`'\"'\"'`");
+  expect(canonicalManifest).toContain("Do not use heredocs");
+  expect(canonicalManifest).toContain('bash: ["printf", "node"]');
+});
+
+it("requires a literal launch pipeline without shell preparation", () => {
+  expect(canonicalManifest).toContain("The launch pipeline must begin with `printf`");
+  expect(canonicalManifest).toContain("no `&&` prefix");
+  const runtime = readFileSync(resolve(skillRoot, "runtime.md"), "utf8");
+  expect(runtime).toContain("`/tmp/gh-aw/agent` is already provisioned");
+  expect(runtime).toContain("prevalidated fixture, skip lint and typecheck");
+  expect(runtime).toContain("permission parser treats heredoc");
+  expect(runtime).toContain("pipeline instead, not a heredoc or a blanket shell grant");
 });
 
 it("exposes the same public modules from the standalone skill and repository", () => {

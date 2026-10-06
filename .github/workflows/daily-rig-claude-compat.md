@@ -46,7 +46,7 @@ safe-outputs:
     allowed-files:
       - "README.md"
       - "skills/rig/SKILL.md"
-      - "skills/rig/references/*.md"
+      - "skills/rig/*.md"
       - "skills/rig/samples/*.md"
       - "skills/rig/rig.ts"
       - "skills/rig/engines/anthropic.ts"
@@ -66,8 +66,8 @@ Read these files before deciding whether to edit anything:
 
 - `README.md`
 - `skills/rig/SKILL.md`
-- `skills/rig/references/dynamic-workflows.md`
-- `skills/rig/references/claude-workflow-conversion.md`
+- `skills/rig/dynamic-workflows.md`
+- `skills/rig/claude-workflow-conversion.md`
 - `skills/rig/rig.ts`
 - `skills/rig/engines/anthropic.ts`
 - `src/workflow.test.ts`

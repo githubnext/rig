@@ -1,5 +1,6 @@
 import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
+import { execFileSync } from "node:child_process";
 import { Readable, Writable } from "node:stream";
 import { runInNewContext } from "node:vm";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
@@ -70,11 +71,43 @@ afterEach(() => {
 });
 
 describe("Rig skill agentic workflow", () => {
-  it("requires only node for installed-skill bootstrap and launch", () => {
-    expect(markdown).toContain('bash: ["node"]');
-    expect(markdown).toContain("node <installed-skill-dir>/run.ts <<'RIG_<generated-hex>'");
-    expect(markdown).toContain('randomBytes(16).toString("hex")');
-    expect(markdown).toContain("regenerate on collision");
+  it("explicitly grants both stages of the installed-skill launch pipeline", () => {
+    expect(markdown).toContain('bash: ["printf", "node"]');
+    expect(markdown).toContain("printf '%s\\n' \\");
+    expect(markdown).toContain("| node .github/skills/rig/run.ts >");
+    expect(markdown).toContain("Do not use a heredoc");
+    const shared = readFileSync(new URL("../.github/workflows/shared/rig.md", import.meta.url), "utf8");
+    expect(shared).toContain('bash: ["printf", "node"]');
+  });
+
+  it.each([program, 'const value = "don\'t expand $HOME, $(exit 42), `exit 42`, %s, \\\\n";\n\n// literal | && ; < >'])(
+    "transports literal source through printf without shell expansion: %s",
+    source => {
+      const arguments_ = source.split("\n").map((line: string) => `'${line.replaceAll("'", "'\"'\"'")}'`).join(" \\\n  ");
+      const command = `printf '%s\\n' \\\n  ${arguments_} \\\n  | "${process.execPath}" --input-type=module -e 'for await (const chunk of process.stdin) process.stdout.write(chunk)'`;
+      expect(execFileSync("bash", ["-o", "pipefail", "-c", command], { encoding: "utf8" })).toBe(`${source}\n`);
+    },
+  );
+
+  it("keeps runtime printf examples executable and literal", () => {
+    const runtime = readFileSync(new URL("../skills/rig/runtime.md", import.meta.url), "utf8");
+    const example = runtime.match(/```bash\n(printf[\s\S]*?)\n```/)?.[1];
+    expect(example).toBeDefined();
+    const command = example!.replace("| node skills/rig/run.ts", `| "${process.execPath}" --input-type=module -e 'for await (const chunk of process.stdin) process.stdout.write(chunk)'`);
+    expect(execFileSync("bash", ["-o", "pipefail", "-c", command], { encoding: "utf8" }))
+      .toBe('// Agent role: summarize this repository in one sentence.\nexport default "Summarize this repository in one sentence.";\n');
+  });
+
+  it("directs one standalone launch without repeating denied preparation", () => {
+    expect(markdown).toContain("Your only Bash invocation");
+    expect(markdown).toContain("The command must begin with `printf`");
+    expect(markdown).toContain("Do not prepend `mkdir`, `cd`, `env`, `export`");
+    expect(markdown).toContain("already exists, and Node.js and SDK dependencies are already provisioned");
+    expect(markdown).toContain("Do not double-quote source");
+    expect(markdown).toContain("Do not invoke Bash again");
+    expect(markdown).toContain("Never call `noop` on failure");
+    expect(markdown).toContain("The one-invocation limit includes denials");
+    expect(markdown).toContain("Do not read the result file, run `cat` or another command");
   });
 
   it("runs the actual workflow fence with exactly three small SDK calls", async () => {

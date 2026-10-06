@@ -2,6 +2,14 @@ import { defineConfig } from "vitest/config";
 import { resolve } from "path";
 
 export default defineConfig({
+  test: {
+    server: {
+      deps: {
+        // Keep ESM imports and require() on Node's shared CommonJS cache.
+        external: [/\/packages\/source-map-compat\//],
+      },
+    },
+  },
   resolve: {
     alias: [
       { find: /^rig$/, replacement: resolve(__dirname, "skills/rig/rig.ts") },
