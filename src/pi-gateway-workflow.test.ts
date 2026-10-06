@@ -5,6 +5,7 @@ import type { Server } from "node:http";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { promisify } from "node:util";
+import type { AgentToolResult } from "@earendil-works/pi-agent-core";
 import { afterEach, expect, it } from "vitest";
 import { assertThreeJudges } from "../.github/fixtures/assert-three-judges.ts";
 import { piGateway } from "../.github/fixtures/pi-gateway.ts";
@@ -63,9 +64,9 @@ it.each([
   expect(() => piGateway(value)).toThrow();
 });
 
-it.each(["success", "bad-json", "empty-reason", "provider-error"].flatMap(scenario =>
-  ["launcher", "extension"].flatMap(launch =>
-    ["openai-completions", "openai-responses"].map(api => ({ scenario, launch, api })),
+it.each(["success", "bad-json", "empty-reason", "provider-error"].flatMap((scenario: string) =>
+  ["launcher", "extension"].flatMap((launch: string) =>
+    ["openai-completions", "openai-responses"].map((api: string) => ({ scenario, launch, api })),
   ),
 ))(
   "runs the actual Pi fixture through $launch against $api: $scenario",
@@ -127,7 +128,7 @@ it.each(["success", "bad-json", "empty-reason", "provider-error"].flatMap(scenar
     const path = join(directory, "result.json");
     const tool = createPiRigTool({ cwd: process.cwd(), agentDir: directory, outputPath: path });
     const command = launch === "extension" ? tool.execute("fixture", {}).then(result => {
-      const content = result.content.find(part => part.type === "text");
+      const content = result.content.find((part: AgentToolResult<unknown>["content"][number]) => part.type === "text");
       if (!content || content.type !== "text") throw new Error("Expected the fixture tool's JSON output");
       return { stdout: content.text, stderr: "" };
     }) : new Promise<{ stdout: string; stderr: string }>((resolve, reject) => {

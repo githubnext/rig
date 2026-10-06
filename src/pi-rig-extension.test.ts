@@ -8,12 +8,12 @@ import { criteria, dummyRequest } from "../.github/fixtures/three-judges.ts";
 const directories: string[] = [];
 const validResult = {
   engine: "pi", model: "gpt-5.3-codex", request: dummyRequest, modelCalls: 3, verdict: "approve",
-  judgments: criteria.map(criterion => ({ criterion, decision: "approve", reason: "Harmless and practical." })),
+  judgments: criteria.map((criterion: typeof criteria[number]) => ({ criterion, decision: "approve", reason: "Harmless and practical." })),
 };
 
 afterEach(async () => {
   vi.unstubAllEnvs();
-  await Promise.all(directories.splice(0).map(path => rm(path, { recursive: true, force: true })));
+  await Promise.all(directories.splice(0).map((path: string) => rm(path, { recursive: true, force: true })));
 });
 
 async function fixture(source: string, timeoutMs?: number) {

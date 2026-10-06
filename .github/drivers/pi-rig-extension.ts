@@ -15,7 +15,7 @@ type PiRigOptions = {
 };
 
 export function createPiRigTool(options: PiRigOptions): PiRigTool {
-  if (![options.cwd, options.agentDir, options.outputPath].every(value => value.trim())) {
+  if (![options.cwd, options.agentDir, options.outputPath].every((value: string) => value.trim())) {
     throw new TypeError("Pi Rig tool requires workspace, agent directory, and output paths");
   }
   const timeoutMs = options.timeoutMs ?? 180_000;
