@@ -6,7 +6,7 @@ import { createRigLaunchTool } from "rig/launch-tool";
 
 const temporaryDirs: string[] = [];
 afterEach(async () => {
-  await Promise.all(temporaryDirs.splice(0).map(path => rm(path, { recursive: true, force: true })));
+  await Promise.all(temporaryDirs.splice(0).map((path: string) => rm(path, { recursive: true, force: true })));
 });
 
 async function fixture(source: string, timeoutMs?: number) {

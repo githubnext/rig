@@ -725,7 +725,7 @@ function copilotResponseSchema(schema: JsonSchemaObject): JsonSchemaObject {
   }
   for (const key of ["anyOf", "oneOf", "allOf"]) {
     const value = schema[key];
-    if (Array.isArray(value)) result[key] = value.map(item => isJsonSchemaObject(item) ? copilotResponseSchema(item) : item);
+    if (Array.isArray(value)) result[key] = value.map((item: unknown) => isJsonSchemaObject(item) ? copilotResponseSchema(item) : item);
   }
   return result;
 }
