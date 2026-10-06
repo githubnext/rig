@@ -1,6 +1,6 @@
 import { Codex } from "@openai/codex-sdk";
 import type { CodexOptions, ThreadOptions } from "@openai/codex-sdk";
-import { debug } from "../rig.ts";
+import { debug, normalizeResponseSchema } from "../rig.ts";
 import type { AgentFactory } from "../rig.ts";
 import { agentLifecycle } from "./utils.ts";
 
@@ -42,7 +42,7 @@ export function codexEngine(options: CodexEngineOptions = {}): AgentFactory {
           debugAsk({ model: agentOptions.model, prompt, structured: askOptions.outputSchema !== undefined });
           const turn = await thread.run(prompt, {
             signal,
-            ...(askOptions.outputSchema !== undefined && { outputSchema: askOptions.outputSchema }),
+            ...(askOptions.outputSchema !== undefined && { outputSchema: normalizeResponseSchema(askOptions.outputSchema) }),
           });
           const text = typeof turn.finalResponse === "string" ? turn.finalResponse : JSON.stringify(turn.finalResponse);
           debugResponse({ model: agentOptions.model, response: text });

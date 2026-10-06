@@ -13,7 +13,7 @@ const mocks = vi.hoisted(() => {
 
 vi.mock("@openai/codex-sdk", () => ({ Codex: mocks.Codex }));
 
-import { defineTool } from "rig";
+import { defineTool, s, toJsonSchema } from "rig";
 import { codexEngine } from "rig/engines/codex";
 
 beforeEach(() => {
@@ -90,6 +90,42 @@ it("forwards output schemas to Codex and stringifies structured responses", asyn
       outputSchema,
     }),
   );
+});
+
+it("closes Rig object schemas recursively without mutating them or changing record semantics", async () => {
+  const runtimeAgent = await codexEngine()({ model: "small" });
+  const outputSchema = toJsonSchema(s.object({
+    result: s.object({ decision: s.enum("approve", "reject") }),
+    judgments: s.array(s.object({ reason: s.string })),
+    metadata: s.record(s.object({ value: s.string })),
+  }));
+  const original = structuredClone(outputSchema);
+
+  await runtimeAgent.ask("judge", { outputSchema });
+
+  expect(mocks.run.mock.calls[0]![1].outputSchema).toEqual({
+    ...original,
+    additionalProperties: false,
+    properties: {
+      result: {
+        type: "object", properties: { decision: { type: "string", enum: ["approve", "reject"] } },
+        required: ["decision"], additionalProperties: false,
+      },
+      judgments: {
+        type: "array", items: {
+          type: "object", properties: { reason: { type: "string" } },
+          required: ["reason"], additionalProperties: false,
+        },
+      },
+      metadata: {
+        type: "object", additionalProperties: {
+          type: "object", properties: { value: { type: "string" } },
+          required: ["value"], additionalProperties: false,
+        },
+      },
+    },
+  });
+  expect(outputSchema).toEqual(original);
 });
 
 it("rejects non-string system messages", () => {

@@ -21,7 +21,12 @@ post-steps:
 
 ## Required integration procedure
 
-Load the installed `rig` skill and read its `SKILL.md`, `runtime.md`, and
+If the `rig-fixture` server exposes `run_rig`, call that tool **exactly once**
+with `{}`. Its trusted driver owns reading the installed skill, launching
+the unchanged fixture below, and persisting the result. Do not use Bash or
+look for separate file-reading tools in this case.
+
+Otherwise, load the installed `rig` skill and read its `SKILL.md`, `runtime.md`, and
 `engines.md` with file-reading tools. This is fixture execution, not code
 generation or an environment-diagnosis task.
 
@@ -29,7 +34,7 @@ For the Pi managed SDK driver, call `run_rig` **exactly once** with `{}` instead
 of Bash. The trusted extension owns the fixed fixture, input, and output path.
 Never supply source or credentials, and do not replace the tool with a pipeline.
 
-For Codex and Gemini, run **exactly once**, unchanged:
+For Gemini, run **exactly once**, unchanged:
 
 ```bash
 printf '%s\n' '{}' | node skills/rig/run.ts .github/fixtures/provider-three-judges.ts > /tmp/gh-aw/agent/rig-three-judges.json

@@ -9,7 +9,7 @@ export function assertThreeJudges(value: unknown, engine: string): void {
   const result = value as Record<string, unknown>;
   assert.equal(result["engine"], engine);
   assert.ok(typeof result["model"] === "string" && result["model"].trim().length > 0);
-  if (engine === "codex") assert.equal(result["model"], "auto");
+  if (engine === "codex") assert.equal(result["model"], "gpt-5.3-codex");
   if (engine === "pi") assert.equal(result["model"], "gpt-5.3-codex");
   if (engine === "gemini") assert.equal(result["model"], "gemini-2.5-flash");
   assert.equal(result["request"], dummyRequest);
