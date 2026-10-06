@@ -135,3 +135,12 @@ it("aborts and waits for active Codex turns when closed", async () => {
   expect(turnSignal?.aborted).toBe(true);
   await expect(runtimeAgent.ask("after close")).rejects.toThrow("Agent closed");
 });
+
+it("does not start a pre-aborted Codex turn", async () => {
+  const runtimeAgent = await codexEngine()({ model: "small" });
+  const controller = new AbortController();
+  controller.abort(new Error("cancelled"));
+
+  await expect(runtimeAgent.ask("hello", { signal: controller.signal })).rejects.toThrow("cancelled");
+  expect(mocks.run).not.toHaveBeenCalled();
+});

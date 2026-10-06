@@ -12,7 +12,10 @@ const mocks = vi.hoisted(() => {
 });
 
 vi.mock("@anthropic-ai/sdk", () => ({ default: mocks.Anthropic }));
-vi.mock("@anthropic-ai/sdk/helpers/beta/json-schema", () => ({ betaTool: mocks.betaTool }));
+vi.mock("@anthropic-ai/sdk/helpers/beta/json-schema", async (importOriginal) => ({
+  ...await importOriginal<typeof import("@anthropic-ai/sdk/helpers/beta/json-schema")>(),
+  betaTool: mocks.betaTool,
+}));
 
 import { defineTool, s } from "rig";
 import { anthropicEngine } from "rig/engines/anthropic";
@@ -53,7 +56,9 @@ it("creates an Anthropic tool runner and preserves its conversation", async () =
     messages: [{ role: "user", content: "first" }],
     system: "Be concise.",
     tools: [],
-  }, { signal });
+  }, { signal: expect.any(AbortSignal) });
+  const requestSignal = mocks.toolRunner.mock.calls[0]![1].signal as AbortSignal;
+  expect(requestSignal.aborted).toBe(false);
   expect(mocks.toolRunner.mock.calls[1]![0].messages).toEqual([
     { role: "user", content: "first" },
     { role: "assistant", content: [{ type: "text", text: "saved" }] },
@@ -118,5 +123,107 @@ it("uses Anthropic request defaults and returns all text blocks", async () => {
     max_tokens: 8192,
     messages: [{ role: "user", content: "hello" }],
     tools: [],
-  }, undefined);
+  }, { signal: expect.any(AbortSignal) });
+});
+
+it("forwards object output schemas using the SDK structured-output helper", async () => {
+  const runtimeAgent = await anthropicEngine()({ model: "small" });
+  const outputSchema = {
+    type: "object",
+    properties: { answer: { type: "string", minLength: 1 } },
+    required: ["answer"],
+  };
+
+  await runtimeAgent.ask("hello", { outputSchema });
+
+  expect(mocks.toolRunner.mock.calls[0]![0].output_config).toEqual({
+    format: expect.objectContaining({
+      type: "json_schema",
+      schema: expect.objectContaining({ type: "object", additionalProperties: false }),
+    }),
+  });
+  expect(outputSchema.properties.answer.minLength).toBe(1);
+});
+
+it.each([
+  { type: "string" },
+  { type: "array", items: { type: "string" } },
+  { type: "object", additionalProperties: { type: "string" } },
+  { type: "object", properties: { value: {} } },
+  { type: "object", properties: { values: { type: "object", additionalProperties: { type: "number" } } } },
+  { type: "object", properties: { value: { enum: [1, 2] } } },
+])(
+  "keeps schemas unsupported by Anthropic structured output prompt-driven: %j",
+  async (outputSchema) => {
+    const runtimeAgent = await anthropicEngine()({ model: "small" });
+
+    await runtimeAgent.ask("hello", { outputSchema });
+
+    expect(mocks.toolRunner.mock.calls[0]![0]).not.toHaveProperty("output_config");
+  },
+);
+
+it("supports nested typed properties, arrays, enums, and nullable fields", async () => {
+  const runtimeAgent = await anthropicEngine()({ model: "small" });
+  const outputSchema = {
+    type: "object",
+    properties: {
+      values: { type: "array", items: { type: "object", properties: { ok: { type: "boolean" } } } },
+      status: { type: "string", enum: ["ok", "failed"] },
+      reason: { anyOf: [{ type: "string" }, { type: "null" }] },
+    },
+  };
+
+  await runtimeAgent.ask("hello", { outputSchema });
+
+  expect(mocks.toolRunner.mock.calls[0]![0].output_config.format.schema.properties).toEqual({
+    values: {
+      type: "array",
+      items: { type: "object", properties: { ok: { type: "boolean" } }, additionalProperties: false },
+    },
+    status: expect.objectContaining({ type: "string" }),
+    reason: { anyOf: [{ type: "string" }, { type: "null" }] },
+  });
+});
+
+it.each([42, { content: "not an Anthropic system prompt" }, [{ type: "image" }]])(
+  "rejects invalid Anthropic system messages before creating a client: %j",
+  (systemMessage) => {
+    expect(() => anthropicEngine()({ model: "small", systemMessage })).toThrow("anthropicEngine requires systemMessage");
+    expect(mocks.constructor).not.toHaveBeenCalled();
+  },
+);
+
+it("preserves Anthropic system text blocks", async () => {
+  const systemMessage = [{ type: "text", text: "Be concise.", cache_control: { type: "ephemeral" } }];
+  const runtimeAgent = await anthropicEngine()({ model: "small", systemMessage });
+
+  await runtimeAgent.ask("hello");
+
+  expect(mocks.toolRunner.mock.calls[0]![0].system).toEqual(systemMessage);
+});
+
+it("aborts and waits for active Anthropic requests on close", async () => {
+  mocks.toolRunner.mockImplementationOnce((params, options) => ({
+    runUntilDone: () => new Promise((_resolve, reject) => {
+      options.signal.addEventListener("abort", () => reject(options.signal.reason), { once: true });
+    }),
+    params,
+  }));
+  const runtimeAgent = await anthropicEngine()({ model: "small" });
+  const result = runtimeAgent.ask("hello");
+
+  await runtimeAgent.close();
+
+  await expect(result).rejects.toThrow("Agent closed");
+  await expect(runtimeAgent.ask("after close")).rejects.toThrow("Agent closed");
+});
+
+it("does not start a pre-aborted Anthropic turn", async () => {
+  const runtimeAgent = await anthropicEngine()({ model: "small" });
+  const controller = new AbortController();
+  controller.abort(new Error("cancelled"));
+
+  await expect(runtimeAgent.ask("hello", { signal: controller.signal })).rejects.toThrow("cancelled");
+  expect(mocks.toolRunner).not.toHaveBeenCalled();
 });

@@ -14,6 +14,7 @@ import { defineTool } from "rig";
 import { geminiEngine } from "rig/engines/gemini";
 
 type MockChild = EventEmitter & {
+  stdin: PassThrough;
   stdout: PassThrough;
   stderr: PassThrough;
   kill: ReturnType<typeof vi.fn>;
@@ -21,6 +22,7 @@ type MockChild = EventEmitter & {
 
 function childProcess(): MockChild {
   const child = new EventEmitter() as MockChild;
+  child.stdin = new PassThrough();
   child.stdout = new PassThrough();
   child.stderr = new PassThrough();
   child.kill = vi.fn();
@@ -179,4 +181,68 @@ it("does not spawn for a pre-aborted turn", async () => {
   await expect(runtimeAgent.ask("hello", { signal: controller.signal }))
     .rejects.toThrow("cancelled");
   expect(mocks.spawn).not.toHaveBeenCalled();
+});
+
+it("closes stdin so headless Gemini does not wait for piped input", async () => {
+  const child = childProcess();
+  mocks.spawn.mockReturnValueOnce(child);
+  child.stdin.once("finish", () => respond(child, { response: "ok" }));
+  const runtimeAgent = await geminiEngine()({ model: "small" });
+
+  await expect(runtimeAgent.ask("hello")).resolves.toBe("ok");
+  expect(child.stdin.writableEnded).toBe(true);
+});
+
+it("completes a real headless subprocess that waits for stdin EOF", async () => {
+  const { spawn } = await vi.importActual<typeof import("node:child_process")>("node:child_process");
+  mocks.spawn.mockImplementation(spawn);
+  const runtimeAgent = await geminiEngine({
+    command: process.execPath,
+    args: [
+      "--input-type=module",
+      "-e",
+      'process.stdin.resume(); process.stdin.once("end", () => console.log(JSON.stringify({ response: "stdin closed" })));',
+      "--",
+    ],
+  })({ model: "small" });
+
+  try {
+    await expect(runtimeAgent.ask("hello", { signal: AbortSignal.timeout(2_000) })).resolves.toBe("stdin closed");
+  } finally {
+    await runtimeAgent.close();
+  }
+});
+
+it.each([null, [], {}, { response: 42 }, { response: "ok", session_id: "" }, { error: "failed" }])(
+  "rejects malformed Gemini JSON envelopes: %j",
+  async (output) => {
+    mocks.spawn.mockImplementationOnce(() => {
+      const child = childProcess();
+      respond(child, output);
+      return child;
+    });
+    const runtimeAgent = await geminiEngine()({ model: "small" });
+
+    await expect(runtimeAgent.ask("hello")).rejects.toThrow("invalid response envelope");
+  },
+);
+
+it("does not resume a session returned by a failed Gemini request", async () => {
+  mocks.spawn
+    .mockImplementationOnce(() => {
+      const child = childProcess();
+      respond(child, { session_id: "failed-session", error: { message: "request failed" } });
+      return child;
+    })
+    .mockImplementationOnce(() => {
+      const child = childProcess();
+      respond(child, { response: "ok" });
+      return child;
+    });
+  const runtimeAgent = await geminiEngine()({ model: "small" });
+
+  await expect(runtimeAgent.ask("first")).rejects.toThrow("request failed");
+  await expect(runtimeAgent.ask("retry")).resolves.toBe("ok");
+  expect(mocks.spawn.mock.calls[1]![1]).toContain("--session-id");
+  expect(mocks.spawn.mock.calls[1]![1]).not.toContain("--resume");
 });

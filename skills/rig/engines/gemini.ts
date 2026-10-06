@@ -1,8 +1,8 @@
 import { randomUUID } from "node:crypto";
 import { spawn } from "node:child_process";
-import type { ChildProcessWithoutNullStreams } from "node:child_process";
 import { debug } from "../rig.ts";
 import type { AgentFactory } from "../rig.ts";
+import { agentLifecycle } from "./utils.ts";
 
 const debugCreate = debug("engine:gemini:create");
 const debugAsk = debug("engine:gemini:ask");
@@ -19,11 +19,13 @@ export type GeminiEngineOptions = {
 
 type GeminiOutput = {
   session_id?: string;
+} & ({
+  response: string;
+  error?: undefined;
+} | {
   response?: string;
-  error?: {
-    message?: string;
-  };
-};
+  error: { message?: string };
+});
 
 export function geminiEngine(options: GeminiEngineOptions = {}): AgentFactory {
   const {
@@ -40,64 +42,46 @@ export function geminiEngine(options: GeminiEngineOptions = {}): AgentFactory {
     }
     debugCreate({ model: agentOptions.model, command, ...(cwd !== undefined && { cwd }) });
     const systemMessage = stringSystemMessage(agentOptions.systemMessage);
-    const closeController = new AbortController();
-    const activeTurns = new Set<Promise<unknown>>();
-    let activeProcess: ChildProcessWithoutNullStreams | undefined;
+    const lifecycle = agentLifecycle("geminiEngine");
     let sessionId: string | undefined;
 
     return {
-      async ask(prompt, askOptions = {}) {
-        debugAsk({ model: agentOptions.model, prompt, resumed: sessionId !== undefined });
-        throwIfAborted(closeController.signal);
-        if (activeProcess) {
-          throw new Error("geminiEngine does not support concurrent turns");
-        }
-        const signal = askOptions.signal
-          ? AbortSignal.any([askOptions.signal, closeController.signal])
-          : closeController.signal;
-        throwIfAborted(signal);
-        const nextSessionId = sessionId ?? randomUUID();
-        const fullPrompt = sessionId === undefined && systemMessage
-          ? `${systemMessage}\n\n${prompt}`
-          : prompt;
-        const cliArgs = [
-          ...extraArgs,
-          "--model",
-          agentOptions.model,
-          "--output-format",
-          "json",
-          ...(approvalMode ? ["--approval-mode", approvalMode] : []),
-          ...(sessionId ? ["--resume", sessionId] : ["--session-id", nextSessionId]),
-          "--prompt",
-          fullPrompt,
-        ];
-        const activeTurn = runGemini(command, cliArgs, {
-          ...(cwd !== undefined && { cwd }),
-          env: { ...process.env, ...env },
-          signal,
-          onSpawn(child) {
-            activeProcess = child;
-          },
-        });
-        activeTurns.add(activeTurn);
-        try {
-          const output = await activeTurn;
-          sessionId = output.session_id ?? nextSessionId;
-          if (output.error) {
+      ask(prompt, askOptions = {}) {
+        return lifecycle.run(askOptions.signal, async (signal) => {
+          debugAsk({ model: agentOptions.model, prompt, resumed: sessionId !== undefined });
+          const nextSessionId = sessionId ?? randomUUID();
+          const fullPrompt = sessionId === undefined && systemMessage
+            ? `${systemMessage}\n\n${prompt}`
+            : prompt;
+          const cliArgs = [
+            ...extraArgs,
+            "--model",
+            agentOptions.model,
+            "--output-format",
+            "json",
+            ...(approvalMode ? ["--approval-mode", approvalMode] : []),
+            ...(sessionId ? ["--resume", sessionId] : ["--session-id", nextSessionId]),
+            "--prompt",
+            fullPrompt,
+          ];
+          const output = await runGemini(command, cliArgs, {
+            ...(cwd !== undefined && { cwd }),
+            env: { ...process.env, ...env },
+            signal,
+          });
+          signal.throwIfAborted();
+          if (output.error !== undefined) {
             throw new Error(output.error.message ?? "Gemini CLI request failed");
           }
-          const text = output.response ?? "";
+          sessionId = output.session_id ?? nextSessionId;
+          const text = output.response;
           debugResponse({ model: agentOptions.model, session: sessionId, response: text });
           return text;
-        } finally {
-          activeProcess = undefined;
-          activeTurns.delete(activeTurn);
-        }
+        });
       },
       async close() {
         debugClose({ model: agentOptions.model, session: sessionId });
-        closeController.abort(new DOMException("Agent closed", "AbortError"));
-        await Promise.allSettled(activeTurns);
+        await lifecycle.close();
       },
     };
   };
@@ -110,7 +94,6 @@ function runGemini(
     cwd?: string;
     env: NodeJS.ProcessEnv;
     signal: AbortSignal;
-    onSpawn(child: ChildProcessWithoutNullStreams): void;
   },
 ): Promise<GeminiOutput> {
   return new Promise((resolve, reject) => {
@@ -119,7 +102,6 @@ function runGemini(
       env: options.env,
       signal: options.signal,
     });
-    options.onSpawn(child);
     let stdout = "";
     let stderr = "";
     let processError: unknown;
@@ -145,6 +127,10 @@ function runGemini(
       if (killTimer) {
         clearTimeout(killTimer);
       }
+      if (options.signal.aborted) {
+        reject(options.signal.reason);
+        return;
+      }
       if (processError) {
         reject(processError);
         return;
@@ -153,13 +139,38 @@ function runGemini(
         reject(new Error(stderr.trim() || `Gemini CLI exited with code ${code}`));
         return;
       }
+      let output: unknown;
       try {
-        resolve(JSON.parse(stdout) as GeminiOutput);
+        output = JSON.parse(stdout);
       } catch {
         reject(new Error("Gemini CLI returned invalid JSON"));
+        return;
       }
+      if (!isGeminiOutput(output)) {
+        reject(new Error("Gemini CLI returned an invalid response envelope"));
+        return;
+      }
+      resolve(output);
     });
+    child.stdin.end();
   });
+}
+
+function isGeminiOutput(value: unknown): value is GeminiOutput {
+  if (value === null || typeof value !== "object" || Array.isArray(value)) {
+    return false;
+  }
+  const output = value as Record<string, unknown>;
+  if (output["session_id"] !== undefined
+    && (typeof output["session_id"] !== "string" || output["session_id"].length === 0)) {
+    return false;
+  }
+  const error = output["error"];
+  if (error !== undefined) {
+    return error !== null && typeof error === "object" && !Array.isArray(error)
+      && (!("message" in error) || typeof error.message === "string");
+  }
+  return typeof output["response"] === "string";
 }
 
 function stringSystemMessage(systemMessage: unknown): string | undefined {
@@ -170,10 +181,4 @@ function stringSystemMessage(systemMessage: unknown): string | undefined {
     throw new TypeError("geminiEngine requires systemMessage to be a string");
   }
   return systemMessage;
-}
-
-function throwIfAborted(signal: AbortSignal): void {
-  if (signal.aborted) {
-    throw signal.reason ?? new DOMException("Aborted", "AbortError");
-  }
 }
