@@ -1,9 +1,9 @@
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1100 540" width="1100" height="540" role="img" aria-label="Agentic Workflow Lifecycle">
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 930 610" width="930" height="610" style="width:100%;height:auto;display:block" role="img" aria-label="Agentic Workflow Lifecycle">
   <title>Agentic Workflow Lifecycle</title>
   <defs>
     <style>
       text { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Helvetica, Arial, sans-serif; }
-      .mono { font-family: 'SFMono-Regular', Consolas, 'Liberation Mono', Menlo, monospace; font-size: 6.5px; }
+      .mono { font-family: 'SFMono-Regular', Consolas, 'Liberation Mono', Menlo, monospace; }
 
       /* Light mode defaults are applied via SVG attributes; dark overrides below */
       @media (prefers-color-scheme: dark) {
@@ -38,8 +38,8 @@
     <marker id="arrowG" markerWidth="7" markerHeight="7" refX="5" refY="2.5" orient="auto">
       <path d="M0,0 L0,5 L7,2.5 z" fill="#2a8a3a"/>
     </marker>
-    <marker id="arrowR" markerWidth="7" markerHeight="7" refX="2.5" refY="5" orient="auto">
-      <path d="M0,0 L5,0 L2.5,7 z" fill="#c0392b"/>
+    <marker id="arrowR" markerWidth="7" markerHeight="7" refX="5" refY="2.5" orient="auto">
+      <path d="M0,0 L0,5 L7,2.5 z" fill="#c0392b"/>
     </marker>
     <marker id="arrowO" markerWidth="7" markerHeight="7" refX="5" refY="2.5" orient="auto">
       <path d="M0,0 L0,5 L7,2.5 z" fill="#d4860a"/>
@@ -47,14 +47,14 @@
   </defs>
 
   <!-- Background -->
-  <rect class="bg-outer" width="1100" height="540" fill="#f6f8fa"/>
+  <rect class="bg-outer" width="930" height="610" fill="#f6f8fa"/>
 
   <!-- Titles -->
-  <text x="550" y="36" text-anchor="middle" font-size="20" font-weight="bold" class="t-main" fill="#1a1a2e">Agentic Workflow Lifecycle</text>
-  <text x="550" y="57" text-anchor="middle" font-size="13" class="t-sub" fill="#555">How a Markdown brief becomes a live, AI-powered GitHub Actions workflow</text>
+  <text x="465" y="36" text-anchor="middle" font-size="20" font-weight="bold" class="t-main" fill="#1a1a2e">Agentic Workflow Lifecycle</text>
+  <text x="465" y="57" text-anchor="middle" font-size="13" class="t-sub" fill="#555">How a Markdown brief becomes a live, AI-powered GitHub Actions workflow</text>
 
   <!-- Container card -->
-  <rect x="30" y="70" width="1040" height="380" rx="14" class="bg-container" fill="#ffffff" stroke="#d1d5db" stroke-width="1.5"/>
+  <rect x="30" y="70" width="870" height="460" rx="14" class="bg-container" fill="#ffffff" stroke="#d1d5db" stroke-width="1.5"/>
 
   <!-- ── STEP 1 ──────────────────────────────────────────── -->
   <circle cx="135" cy="102" r="15" fill="#4a90d9"/>
@@ -127,19 +127,16 @@
   <text x="525" y="159" text-anchor="middle" font-size="8" fill="#888">Runner environment</text>
 
   <rect x="485" y="168" width="80" height="20" rx="4" class="step3-btn-a" fill="#d4f5d4"/>
-  <text x="497" y="181" font-size="8" fill="#2a8a3a">🔒 </text>
+  <text x="491" y="181" font-size="8" fill="#2a8a3a">🔒 </text>
   <text x="525" y="181" text-anchor="middle" font-size="9" font-weight="bold" fill="#2a8a3a">Sandbox</text>
 
   <rect x="485" y="194" width="80" height="20" rx="4" class="step3-btn-b" fill="#e8f0e8"/>
-  <text x="497" y="207" font-size="8" fill="#8bc34a">○ </text>
+  <text x="491" y="207" font-size="8" fill="#8bc34a">○ </text>
   <text x="525" y="207" text-anchor="middle" font-size="9" fill="#558b55">Firewall</text>
 
   <rect x="485" y="220" width="80" height="20" rx="4" class="step3-btn-a" fill="#d4f5d4"/>
-  <text x="497" y="233" font-size="8" fill="#2a8a3a">✓ </text>
+  <text x="491" y="233" font-size="8" fill="#2a8a3a">✓ </text>
   <text x="525" y="233" text-anchor="middle" font-size="9" fill="#2a8a3a">Safe-outputs</text>
-
-  <text x="525" y="316" text-anchor="middle" font-size="11" font-weight="bold" fill="#2a8a3a">GitHub Actions</text>
-  <text x="525" y="436" text-anchor="middle" font-size="11" class="t-footer" fill="#555">Runner environment</text>
 
   <!-- ── ARROW 3↓4 ─────────────────────────────────────── -->
   <line x1="525" y1="305" x2="525" y2="348" stroke="#c0392b" stroke-width="2" marker-end="url(#arrowR)"/>
@@ -163,13 +160,15 @@
   <rect x="483" y="452" width="84" height="16" rx="3" class="step4-btn" fill="#ffd5d5"/>
   <text x="525" y="463" text-anchor="middle" font-size="8" fill="#e74c3c">reasons at runtime</text>
 
+  <text x="525" y="514" text-anchor="middle" font-size="11" font-weight="bold" fill="#c0392b">AI Agent</text>
+
   <!-- ── ARROW 4→5 ─────────────────────────────────────── -->
   <line x1="590" y1="440" x2="644" y2="440" stroke="#d4860a" stroke-width="2" marker-end="url(#arrowO)"/>
   <text x="617" y="433" text-anchor="middle" font-size="10" fill="#d4860a">posts</text>
 
   <!-- ── STEP 5 ──────────────────────────────────────────── -->
-  <circle cx="800" cy="102" r="15" fill="#c8960c"/>
-  <text x="800" y="107" text-anchor="middle" font-size="14" font-weight="bold" fill="white">5</text>
+  <circle cx="761" cy="102" r="15" fill="#c8960c"/>
+  <text x="761" y="107" text-anchor="middle" font-size="14" font-weight="bold" fill="white">5</text>
 
   <rect x="655" y="115" width="212" height="330" rx="12" class="step5-card" fill="#ffffff" stroke="#d1d5db" stroke-width="1"/>
   <text x="761" y="143" text-anchor="middle" font-size="13" font-weight="bold" fill="#c8960c">Structured Output</text>
@@ -193,15 +192,13 @@
   <text x="667" y="347" font-size="9" fill="#888" font-style="italic">Posted automatically by the agent</text>
   <text x="667" y="360" font-size="9" fill="#888" font-style="italic">to GitHub Issues / Discussions</text>
 
-  <text x="761" y="399" text-anchor="middle" font-size="11" fill="#888" font-style="italic">Agent composes this at runtime</text>
-
   <text x="761" y="436" text-anchor="middle" font-size="11" class="t-footer" fill="#555">Agent composes this at runtime</text>
 
   <!-- ── FOOTER ─────────────────────────────────────────── -->
-  <text x="550" y="476" text-anchor="middle" font-size="11.5" class="t-footer" fill="#555">
-    The <tspan font-family="'SFMono-Regular',Consolas,monospace" fill="#4a90d9">gh aw compile</tspan> step runs once when you author the workflow. Steps 3–5 repeat on every trigger.
+  <text x="465" y="560" text-anchor="middle" font-size="11.5" class="t-footer" fill="#555">
+    Compile once with <tspan font-family="'SFMono-Regular',Consolas,monospace" fill="#4a90d9">gh aw compile</tspan>. Steps 3–5 repeat on every trigger.
   </text>
-  <text x="550" y="498" text-anchor="middle" font-size="11.5" class="t-footer" fill="#555">
+  <text x="465" y="582" text-anchor="middle" font-size="11.5" class="t-footer" fill="#555">
     The agent decides <tspan font-style="italic">how</tspan> to complete the task at runtime — you only write <tspan font-style="italic">what</tspan> you want.
   </text>
 </svg>
