@@ -112,12 +112,16 @@ outputs, majority vote, and strict post-step assertions:
 | --- | --- | --- |
 | [Codex](../../.github/workflows/rig-skill-integration-codex.md) | Codex CLI / `codexEngine` | `copilot/gpt-5.3-codex`; `copilot-requests: write` |
 | [Gemini](../../.github/workflows/rig-skill-integration-gemini.md) | Gemini CLI / `geminiEngine` | `gemini-2.5-flash`; repository secret `GEMINI_API_KEY` |
-| [Pi](../../.github/workflows/rig-skill-integration-pi.md) | Pi CLI / `piEngine` | `copilot/auto`; `copilot-requests: write` |
+| [Pi](../../.github/workflows/rig-skill-integration-pi.md) | Pi managed SDK driver / `piEngine` | `copilot/gpt-5.3-codex`; `copilot-requests: write` |
 
 The [shared procedure](../../.github/workflows/shared/rig-three-judges.md)
-provisions Node.js 24 and checkout dependencies. It launches a checked-in
-fixture once with `{}` on stdin; file-mode launch still requires input even
-when the workflow has no arguments. Each variant configures its adapter
+provisions Node.js 24 and checkout dependencies. Gemini launches a checked-in
+fixture once through Bash with `{}` on stdin; file-mode launch still requires
+input even when the workflow has no arguments. Codex exposes a fixture-only
+`rig-fixture.run_rig` MCP tool. Pi registers a fixed-fixture `run_rig` extension
+through `engine.driver` instead of Bash; see
+[Pi fixture tool](./harness-tools.md#pi-fixture-tool).
+Each variant configures its adapter
 explicitly instead of relying on credential-based engine auto-selection.
 Claude/Anthropic is not included.
 
@@ -126,7 +130,9 @@ and preserves its selector, `CODEX_HOME`, `gpt-5.3-codex` model, and non-secret
 `awf-proxy` API-key placeholder through `shell_environment_policy.set`.
 Pi uses the generated `PI_CODING_AGENT_DIR/models.json` gateway provider with
 that same non-secret placeholder; it does not use native Copilot OAuth or
-an OpenAI key. Gemini inherits the provisioned CLI, model, and
+an OpenAI key. Its outer engine and judges pin `gpt-5.3-codex` because gh-aw's
+Pi preflight rejects `auto` when it is not advertised as a concrete proxy model.
+Gemini inherits the provisioned CLI, model, and
 `GEMINI_API_BASE_URL`. Do not print or copy upstream secrets into fixture source.
 
 Codex pins a model that supports the Responses API; Copilot rejects `auto`
@@ -146,6 +152,8 @@ terminate the container-side process. Failed calls cannot be retried. Gemini and
 continue to permit only `printf` and `node`.
 Codex judges disable the inherited fixture-launch and safe-output MCP servers
 so only the outer agent can orchestrate the launch and report completion.
+Pi's command parser rejects the fixture pipeline's quoting and redirection;
+the trusted extension avoids shell parsing without widening the allowlist.
 These smoke tests create no repository changes and disable AI threat analysis
 of safe outputs; the agent job remains read-only and the post-step validates
 the persisted result independently.

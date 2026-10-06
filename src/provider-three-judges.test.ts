@@ -151,10 +151,20 @@ it.each(["codex", "gemini", "pi"])("declares the %s workflow's provider and shar
   expect(shared).toContain("Never fabricate\nresults or call `noop` on failure");
   expect(lock).toContain("assert-three-judges.ts");
   if (engine !== "gemini") {
-    expect(markdown).toContain(`model: copilot/${engine === "codex" ? "gpt-5.3-codex" : "auto"}`);
+    expect(markdown).toContain("model: copilot/gpt-5.3-codex");
     expect(markdown).toContain("copilot-requests: write");
     expect(lock).toContain("COPILOT_GITHUB_TOKEN: ${{ github.token }}");
     expect(lock).not.toContain("secrets.OPENAI_API_KEY");
+    if (engine === "pi") {
+      expect(lock).toContain("GH_AW_PI_MODEL_ID=gpt-5.3-codex");
+      expect(markdown).toContain("driver: pi_agent_core_driver.cjs");
+      expect(markdown).toContain("${{ github.workspace }}/.github/drivers/pi-rig-extension.ts");
+      expect(markdown).toContain("**exactly once** with `{}`");
+      expect(shared).toContain("instead\nof Bash");
+      expect(lock).toContain("/pi_agent_core_driver.cjs");
+      expect(lock).toContain(".github/drivers/pi-rig-extension.ts");
+      expect(lock).toContain('"bash":["echo","ls","pwd","cat","head","tail","grep","wc","sort","uniq","date","yq","printf","node"]');
+    }
   } else {
     expect(lock).toContain("GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}");
     expect(lock).toContain("GEMINI_API_BASE_URL:");
@@ -176,6 +186,13 @@ it("uses a declared fixture-only MCP driver instead of Codex's unsupported nativ
   expect(lock).toContain("node .github/drivers/codex-fixture-mcp.ts");
   expect(lock).toContain("http://host.docker.internal:8766/mcp");
   expect(lock).toContain('"shell_tool":false');
+});
+
+it("requires the pinned Copilot model in persisted Pi results", async () => {
+  const result = { ...await runWorkflow(createProviderFixture()), engine: "pi", model: "gpt-5.3-codex" };
+  assertThreeJudges(result, "pi");
+  result.model = "auto";
+  expect(() => assertThreeJudges(result, "pi")).toThrow();
 });
 
 it.each(["engine", "model", "request", "call-count", "verdict", "missing-judges", "order", "decision", "reason", "null"])(

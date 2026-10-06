@@ -8,9 +8,16 @@ on:
 permissions:
   contents: read
   copilot-requests: write
-model: copilot/auto
+model: copilot/gpt-5.3-codex
 engine:
   id: pi
+  driver: pi_agent_core_driver.cjs
+  config: |
+    {
+      "settings": {
+        "extensions": ["${{ github.workspace }}/.github/drivers/pi-rig-extension.ts"]
+      }
+    }
 tools:
   bash: ["printf", "node"]
 skills:
@@ -26,6 +33,13 @@ env:
 # Rig Pi three-judge integration
 
 Use the Pi agent-core adapter, not the Copilot SDK. Both the outer engine and
-the three judges use `copilot/auto`. The fixture reads the harness-provisioned
+the three judges use `copilot/gpt-5.3-codex`. The fixture reads the harness-provisioned
 Pi gateway model configuration; never substitute a native OpenAI or Anthropic
-provider, inspect credentials, or choose a fixed model.
+provider, inspect credentials, or choose a different model.
+
+The managed SDK driver registers the trusted `run_rig` extension tool. Call it
+**exactly once** with `{}`; do not use Bash or supply source, commands, paths,
+model settings, or credentials. The tool launches the unchanged checked-in
+fixture, supplies its empty input, and persists validated JSON for the post-step.
+On tool failure or denial, report the exact error with `report_incomplete` and
+stop; never retry or call `noop` on failure.

@@ -1,13 +1,15 @@
 import { execFile } from "node:child_process";
-import { mkdtemp, rm, writeFile } from "node:fs/promises";
+import { mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
 import { createServer } from "node:http";
 import type { Server } from "node:http";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { promisify } from "node:util";
+import type { AgentToolResult } from "@earendil-works/pi-agent-core";
 import { afterEach, expect, it } from "vitest";
 import { assertThreeJudges } from "../.github/fixtures/assert-three-judges.ts";
 import { piGateway } from "../.github/fixtures/pi-gateway.ts";
+import { createPiRigTool } from "../.github/drivers/pi-rig-extension.ts";
 
 const execute = promisify(execFile);
 let server: Server | undefined;
@@ -26,19 +28,24 @@ afterEach(async () => {
   }
 });
 
-function gateway(baseUrl = "http://api-proxy:10002", api = "openai-completions") {
+function gateway(baseUrl = "http://api-proxy:10002", api = "openai-completions", model = "gpt-5.3-codex") {
   return {
     providers: {
-      "aw-gateway": { baseUrl, api, apiKey: "awf-proxy", models: [{ id: "auto" }] },
+      "aw-gateway": { baseUrl, api, apiKey: "awf-proxy", models: [{ id: model }] },
     },
   };
 }
 
-it.each(["openai-completions", "openai-responses"])("preserves Copilot auto routing using %s", async api => {
-  const { model, models } = piGateway(gateway(undefined, api));
-  expect(model).toBe("auto");
-  expect(models.getModel("aw-gateway", "auto")).toMatchObject({
-    id: "auto", api, provider: "aw-gateway", baseUrl: "http://api-proxy:10002",
+it.each([
+  ["openai-completions", "auto"],
+  ["openai-responses", "auto"],
+  ["openai-completions", "gpt-5.3-codex"],
+  ["openai-responses", "gpt-5.3-codex"],
+])("preserves the configured Copilot model using %s for %s", async (api, configuredModel) => {
+  const { model, models } = piGateway(gateway(undefined, api, configuredModel));
+  expect(model).toBe(configuredModel);
+  expect(models.getModel("aw-gateway", configuredModel)).toMatchObject({
+    id: configuredModel, api, provider: "aw-gateway", baseUrl: "http://api-proxy:10002",
   });
   expect(await models.getAuth("aw-gateway")).toMatchObject({ auth: { apiKey: "awf-proxy" } });
   expect(models.getProvider("openai")).toBeUndefined();
@@ -57,9 +64,13 @@ it.each([
   expect(() => piGateway(value)).toThrow();
 });
 
-it.each(["success", "bad-json", "empty-reason", "provider-error"])(
-  "runs the actual Node launcher and Pi agent against a local Actions-style gateway: %s",
-  async scenario => {
+it.each(["success", "bad-json", "empty-reason", "provider-error"].flatMap((scenario: string) =>
+  ["launcher", "extension"].flatMap((launch: string) =>
+    ["openai-completions", "openai-responses"].map((api: string) => ({ scenario, launch, api })),
+  ),
+))(
+  "runs the actual Pi fixture through $launch against $api: $scenario",
+  async ({ scenario, launch, api }) => {
     const requests: { path: string; authorization: string | undefined; body: Record<string, unknown> }[] = [];
     const judgments = [
       '{"decision":"approve","reason":"Clear and specific."}',
@@ -83,12 +94,28 @@ it.each(["success", "bad-json", "empty-reason", "provider-error"])(
         : scenario === "empty-reason" ? '{"decision":"approve","reason":" "}'
         : judgments[requests.length - 1];
       response.writeHead(200, { "content-type": "text/event-stream" });
+      if (api === "openai-responses") {
+        const item = { id: "judge-message", type: "message", role: "assistant", content: [{ type: "output_text", text: content, annotations: [] }] };
+        for (const event of [
+          { type: "response.created", response: { id: "judge-response", model: "gpt-5.3-codex", status: "in_progress" } },
+          { type: "response.output_item.added", output_index: 0, item: { ...item, content: [] } },
+          { type: "response.content_part.added", output_index: 0, content_index: 0, part: { type: "output_text", text: "", annotations: [] } },
+          { type: "response.output_text.delta", output_index: 0, content_index: 0, delta: content },
+          { type: "response.output_item.done", output_index: 0, item },
+          { type: "response.completed", response: {
+            id: "judge-response", model: "gpt-5.3-codex", status: "completed", output: [item],
+            usage: { input_tokens: 12, output_tokens: 12, total_tokens: 24 },
+          } },
+        ]) response.write(`event: ${event.type}\ndata: ${JSON.stringify(event)}\n\n`);
+        response.end();
+        return;
+      }
       response.write(`data: ${JSON.stringify({
-        id: "judge-test", object: "chat.completion.chunk", created: 1, model: "auto",
+        id: "judge-test", object: "chat.completion.chunk", created: 1, model: "gpt-5.3-codex",
         choices: [{ index: 0, delta: { role: "assistant", content }, finish_reason: null }],
       })}\n\n`);
       response.end(`data: ${JSON.stringify({
-        id: "judge-test", object: "chat.completion.chunk", created: 1, model: "auto",
+        id: "judge-test", object: "chat.completion.chunk", created: 1, model: "gpt-5.3-codex",
         choices: [{ index: 0, delta: {}, finish_reason: "stop" }],
         usage: { prompt_tokens: 12, completion_tokens: 12, total_tokens: 24 },
       })}\n\ndata: [DONE]\n\n`);
@@ -97,8 +124,14 @@ it.each(["success", "bad-json", "empty-reason", "provider-error"])(
     const address = server.address();
     if (!address || typeof address === "string") throw new Error("Expected a local gateway port");
     directory = await mkdtemp(join(tmpdir(), "rig-pi-gateway-test-"));
-    await writeFile(join(directory, "models.json"), JSON.stringify(gateway(`http://127.0.0.1:${address.port}`)));
-    const command = new Promise<{ stdout: string; stderr: string }>((resolve, reject) => {
+    await writeFile(join(directory, "models.json"), JSON.stringify(gateway(`http://127.0.0.1:${address.port}`, api)));
+    const path = join(directory, "result.json");
+    const tool = createPiRigTool({ cwd: process.cwd(), agentDir: directory, outputPath: path });
+    const command = launch === "extension" ? tool.execute("fixture", {}).then(result => {
+      const content = result.content.find((part: AgentToolResult<unknown>["content"][number]) => part.type === "text");
+      if (!content || content.type !== "text") throw new Error("Expected the fixture tool's JSON output");
+      return { stdout: content.text, stderr: "" };
+    }) : new Promise<{ stdout: string; stderr: string }>((resolve, reject) => {
       const child = execFile(process.execPath, [
         "skills/rig/run.ts", ".github/fixtures/provider-three-judges.ts",
       ], {
@@ -112,13 +145,16 @@ it.each(["success", "bad-json", "empty-reason", "provider-error"])(
       assertThreeJudges(JSON.parse(stdout), "pi");
       expect(requests).toHaveLength(3);
       for (const [index, request] of requests.entries()) {
-        expect(request.body["model"]).toBe("auto");
-        expect(JSON.stringify(request.body["messages"])).toContain(["clarity", "safety", "feasibility"][index]);
+        expect(request.body["model"]).toBe("gpt-5.3-codex");
+        expect(JSON.stringify(request.body[api === "openai-responses" ? "input" : "messages"])).toContain(["clarity", "safety", "feasibility"][index]);
         expect(request.authorization).toBe("Bearer awf-proxy");
-        expect(request.path).toBe("/chat/completions");
+        expect(request.path).toBe(api === "openai-responses" ? "/responses" : "/chat/completions");
       }
-      const path = join(directory, "result.json");
-      await writeFile(path, stdout);
+      if (launch === "extension") {
+        expect(await readFile(path, "utf8")).toBe(stdout);
+        await expect(tool.execute("retry", {})).rejects.toThrow("only be launched once");
+        expect(requests).toHaveLength(3);
+      } else await writeFile(path, stdout);
       const assertion = await execute(process.execPath, [".github/fixtures/assert-three-judges.ts", path], {
         env: { RIG_JUDGE_ENGINE: "pi" },
       });
@@ -126,6 +162,11 @@ it.each(["success", "bad-json", "empty-reason", "provider-error"])(
     } else {
       await expect(command).rejects.toThrow("Missing or invalid clarity judgment");
       expect(requests).toHaveLength(1);
+      if (launch === "extension") {
+        await expect(readFile(path)).rejects.toMatchObject({ code: "ENOENT" });
+        await expect(tool.execute("retry", {})).rejects.toThrow("only be launched once");
+        expect(requests).toHaveLength(1);
+      }
     }
   },
   20_000,
