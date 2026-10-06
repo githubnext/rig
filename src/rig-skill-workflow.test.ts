@@ -110,6 +110,18 @@ describe("Rig skill agentic workflow", () => {
     expect(markdown).toContain("Do not read the result file, run `cat` or another command");
   });
 
+  it("requires credential forwarding without exposing the connection token", () => {
+    expect(markdown).toContain("Pass both `COPILOT_SDK_URI` and `COPILOT_CONNECTION_TOKEN` unchanged");
+    expect(markdown).toContain("Never put the token in");
+    expect(markdown).toContain("call `report_incomplete` and stop without launching");
+    const skill = readFileSync(new URL("../skills/rig/SKILL.md", import.meta.url), "utf8");
+    const runtime = readFileSync(new URL("../skills/rig/runtime.md", import.meta.url), "utf8");
+    expect(skill).toContain("`COPILOT_SDK_URI` and `COPILOT_CONNECTION_TOKEN`");
+    expect(skill).toContain("do not drop the token");
+    expect(runtime).toContain("RuntimeConnection.forUri(uri, { connectionToken })");
+    expect(runtime).toContain("Do not replace the environment with a map that omits the connection token");
+  });
+
   it("runs the actual workflow fence with exactly three small SDK calls", async () => {
     const result = JSON.parse(await runScenario());
     expect(result).toEqual({

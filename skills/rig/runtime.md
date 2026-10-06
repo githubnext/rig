@@ -86,8 +86,9 @@ the skill's lint and typecheck checks.
 Redirect output only into an existing directory. In GitHub Agentic Workflows,
 `/tmp/gh-aw/agent` is already provisioned; never run `mkdir` for it. If another
 required directory is missing, report that prerequisite instead of adding a
-disallowed preparation command. Inherit SDK environment variables without
-`env` or `export` commands. If an unrelated command is denied before the launcher
+disallowed preparation command. Pass the SDK endpoint and connection token to
+the Node process through its environment as described below, without `env` or
+`export` commands. If an unrelated command is denied before the launcher
 runs, remove that command and use the permitted `printf` plus `node` pipeline; do not
 claim that Bash is unavailable. If the launcher itself fails, report its exact
 error and respect the workflow's retry policy.
@@ -182,10 +183,27 @@ network:
 The template does not install dependencies or select the skill or engine.
 Provision dependencies in the host before running; do not install them from
 the agent prompt. Report missing dependencies and stop.
-Inherit `COPILOT_SDK_URI` and `COPILOT_CONNECTION_TOKEN`; do not use `--server`
-or start another server. Inspect only named environment variables, never dump
-credentials. A denied command does not mean all shell execution is blocked:
-report the exact denial and check it against `tools.bash`.
+### SDK connection credential handoff
+
+Pass both `COPILOT_SDK_URI` and `COPILOT_CONNECTION_TOKEN` from the harness
+environment to every Node subprocess that launches Rig. Preserve their values
+unchanged: inherit the parent environment, or forward both variables through a
+supported subprocess-environment configuration when supplying one explicitly.
+Do not replace the environment with a map that omits the connection token.
+This is environment forwarding, not a shell `env` or `export` command.
+
+`copilotEngine()` reads `COPILOT_CONNECTION_TOKEN` and passes it as
+`RuntimeConnection.forUri(uri, { connectionToken })`. Setting the URI alone does
+not authenticate a connection to a token-protected sidecar. The connection
+token authenticates the SDK transport; it is not a GitHub or provider API token.
+Never print it, embed it in generated source or shell commands, or write it to
+files. If the execution tool cannot forward the required environment, report
+that missing prerequisite instead of attempting an unauthenticated connection.
+Do not use `--server` or start another server to work around a failed handoff.
+
+Inspect only named environment variables, never dump credentials. A denied
+command does not mean all shell execution is blocked: report the exact denial
+and check it against `tools.bash`.
 
 Edit workflows with an agent or run `gh aw compile --watch` for immediate feedback. Before committing, run `gh aw compile <workflow-id> --strict` and include the generated `.lock.yml`.
 

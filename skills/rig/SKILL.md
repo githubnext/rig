@@ -111,7 +111,13 @@ Import the shared Rig workflow template or explicitly allow `printf` and `node`
 with `bash: ["printf", "node"]`. Grant other commands only when the program needs
 them. The launch pipeline must begin with `printf`: no `mkdir`, `cd`, `env`,
 package manager, or other preparation, and no `&&` prefix. Use existing output
-directories and inherit the SDK environment. Report denied commands accurately.
+directories. When launching against an existing Copilot SDK endpoint, pass both
+`COPILOT_SDK_URI` and `COPILOT_CONNECTION_TOKEN` through to the Node process
+unchanged; do not drop the token when configuring a subprocess environment.
+`copilotEngine()` forwards that token to the SDK connection automatically.
+Never print or embed the token in source or shell commands. See
+[Running and engines](./runtime.md) for credential handoff requirements.
+Report denied commands accurately.
 
 ## Final check
 
