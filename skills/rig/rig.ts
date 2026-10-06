@@ -674,7 +674,7 @@ export function copilotEngine(options: CopilotEngineOptions = {}): AgentFactory 
           session.sendAndWait(
             {
               prompt,
-              ...(askOptions.outputSchema !== undefined ? { responseSchema: copilotResponseSchema(askOptions.outputSchema) } : {}),
+              ...(askOptions.outputSchema !== undefined ? { responseSchema: normalizeResponseSchema(askOptions.outputSchema) } : {}),
             },
             copilotSendTimeout(),
           ),
@@ -707,12 +707,12 @@ export function copilotEngine(options: CopilotEngineOptions = {}): AgentFactory 
   };
 }
 
-function copilotResponseSchema(schema: JsonSchemaObject): JsonSchemaObject {
+export function normalizeResponseSchema(schema: JsonSchemaObject): JsonSchemaObject {
   const result = { ...schema };
   const properties = schema["properties"];
   if (isJsonSchemaObject(properties)) {
     result["properties"] = Object.fromEntries(Object.entries(properties).map(([key, value]) =>
-      [key, isJsonSchemaObject(value) ? copilotResponseSchema(value) : value]));
+      [key, isJsonSchemaObject(value) ? normalizeResponseSchema(value) : value]));
     if (schema["type"] === "object" && schema["additionalProperties"] === undefined) {
       result["additionalProperties"] = false;
     }
@@ -720,12 +720,12 @@ function copilotResponseSchema(schema: JsonSchemaObject): JsonSchemaObject {
   for (const key of ["items", "additionalProperties"]) {
     const value = schema[key];
     if (isJsonSchemaObject(value)) {
-      result[key] = copilotResponseSchema(value);
+      result[key] = normalizeResponseSchema(value);
     }
   }
   for (const key of ["anyOf", "oneOf", "allOf"]) {
     const value = schema[key];
-    if (Array.isArray(value)) result[key] = value.map((item: unknown) => isJsonSchemaObject(item) ? copilotResponseSchema(item) : item);
+    if (Array.isArray(value)) result[key] = value.map((item: unknown) => isJsonSchemaObject(item) ? normalizeResponseSchema(item) : item);
   }
   return result;
 }

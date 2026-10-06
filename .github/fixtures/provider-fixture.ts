@@ -17,7 +17,10 @@ export function createProviderFixture() {
       requiredEnv("CODEX_HOME");
       const model = requiredEnv("GH_AW_MODEL_AGENT_CODEX");
       return threeJudges(engine, model, codexEngine({
-        config: { mcp_servers: { safeoutputs: { enabled: false } }, web_search: "disabled" },
+        config: {
+          mcp_servers: { safeoutputs: { enabled: false }, "rig-fixture": { enabled: false } },
+          web_search: "disabled",
+        },
         thread: { sandboxMode: "read-only", approvalPolicy: "never", skipGitRepoCheck: true },
       }));
     }

@@ -110,7 +110,7 @@ outputs, majority vote, and strict post-step assertions:
 
 | Workflow | Outer engine / Rig adapter | Model / authentication |
 | --- | --- | --- |
-| [Codex](../../.github/workflows/rig-skill-integration-codex.md) | Codex CLI / `codexEngine` | `copilot/auto`; `copilot-requests: write` |
+| [Codex](../../.github/workflows/rig-skill-integration-codex.md) | Codex CLI / `codexEngine` | `copilot/gpt-5.3-codex`; `copilot-requests: write` |
 | [Gemini](../../.github/workflows/rig-skill-integration-gemini.md) | Gemini CLI / `geminiEngine` | `gemini-2.5-flash`; repository secret `GEMINI_API_KEY` |
 | [Pi](../../.github/workflows/rig-skill-integration-pi.md) | Pi CLI / `piEngine` | `copilot/auto`; `copilot-requests: write` |
 
@@ -122,19 +122,30 @@ explicitly instead of relying on credential-based engine auto-selection.
 Claude/Anthropic is not included.
 
 AWF owns upstream credentials. Codex inherits the harness's proxy configuration
-and preserves its selector, `CODEX_HOME`, `auto` model, and non-secret
+and preserves its selector, `CODEX_HOME`, `gpt-5.3-codex` model, and non-secret
 `awf-proxy` API-key placeholder through `shell_environment_policy.set`.
 Pi uses the generated `PI_CODING_AGENT_DIR/models.json` gateway provider with
 that same non-secret placeholder; it does not use native Copilot OAuth or
 an OpenAI key. Gemini inherits the provisioned CLI, model, and
 `GEMINI_API_BASE_URL`. Do not print or copy upstream secrets into fixture source.
 
-The compiler warns that `copilot/auto` may select a model without Codex's
-required capabilities. The workflow deliberately retains automatic routing;
-compilation and stub/local-gateway tests do not establish live compatibility.
-Codex does not enforce Bash command allowlists, so its workflow declares
-`bash: ["*"]`; the one-command/no-retry procedure is a prompt contract,
-not a shell security boundary. Gemini and Pi permit only `printf` and `node`.
+Codex pins a model that supports the Responses API; Copilot rejects `auto`
+on that endpoint before the outer engine can invoke Rig.
+Compilation and stub/local-gateway tests do not establish live compatibility.
+The Copilot compatibility adapter disables Codex's native shell tool. Its
+workflow therefore declares `bash: false` and exposes only the fixture-specific
+`rig-fixture.run_rig` MCP tool through a trusted HTTP driver on the runner.
+The driver accepts no source, commands, paths, or credentials; it reads the
+installed skill, launches the checked-in fixture once with an allowlisted
+environment and the non-secret proxy key, validates stdout, and persists it
+for the independent post-step. The runner-side driver launches the fixed child
+inside AWF's existing agent container, drops to the runner's UID/GID, and clears
+the child environment; it never enables Codex's model-facing exec tool.
+The child has its own timeout because terminating a Docker client does not
+terminate the container-side process. Failed calls cannot be retried. Gemini and Pi
+continue to permit only `printf` and `node`.
+Codex judges disable the inherited fixture-launch and safe-output MCP servers
+so only the outer agent can orchestrate the launch and report completion.
 These smoke tests create no repository changes and disable AI threat analysis
 of safe outputs; the agent job remains read-only and the post-step validates
 the persisted result independently.
