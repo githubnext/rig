@@ -53,7 +53,7 @@ node skills/rig/run.ts review.ts --typecheck
 
 Pin the [Rig skill](skills/rig/SKILL.md) and [shared launcher template](.github/workflows/shared/rig.md) to full commit SHAs. The template provides Node.js 24 and a narrow `printf`/`node` allowlist; the consuming workflow must enable the Copilot SDK, grant `copilot-requests: write`, and provision dependencies. See the [workflow setup guide](skills/rig/agentic-workflows.md) for the exact configuration and credential handoff.
 
-The [Monthly PR Clusters workflow](.github/workflows/monthly-pr-clusters.md) runs on the first of each month or manually, analyzing PRs merged in the trailing calendar month across all base branches. Each execution generates a new Rig clustering strategy after reviewing earlier experiments on the `memory/pr-cluster-rigs` repo-memory branch. It creates an issue with the three largest clusters and the complete generated Rig source, preserving previous reports and successful or failed rigs for future comparisons. The workflow prompt specifies behavior, not a fixed Rig implementation.
+The [Monthly PR Clusters workflow](.github/workflows/monthly-pr-clusters.md) runs daily at 09:00 UTC or manually, analyzing PRs merged in the trailing calendar month across all base branches. Each execution generates a new Rig clustering strategy after reviewing earlier experiments on the `memory/pr-cluster-rigs` repo-memory branch. It creates an issue with the three largest clusters and the complete generated Rig source, preserving previous reports and successful or failed rigs for future comparisons. The workflow prompt specifies behavior, not a fixed Rig implementation.
 
 ## Explore
 

@@ -52,7 +52,7 @@ describe("Monthly PR clusters workflow", () => {
     expect(prompt).not.toMatch(/```(?:rig|ts|typescript|javascript)/);
     expect(prompt).not.toContain("export default");
     expect(prompt).toContain("design the Rig at runtime");
-    expect(markdown).toContain('cron: "0 9 1 * *"');
+    expect(markdown).toContain('cron: "0 9 * * *"');
     expect(markdown).toContain("workflow_dispatch:");
     expect(markdown).toContain("\nmodel: small\n");
     expect(markdown).toContain("copilot-sdk: true");

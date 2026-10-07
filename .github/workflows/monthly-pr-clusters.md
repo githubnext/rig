@@ -8,7 +8,7 @@ intent: >
   exploring different, reproducible clustering strategies.
 on:
   schedule:
-    - cron: "0 9 1 * *"
+    - cron: "0 9 * * *"
   workflow_dispatch:
 permissions:
   contents: read
