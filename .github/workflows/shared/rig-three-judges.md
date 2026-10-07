@@ -34,7 +34,7 @@ For the Pi managed SDK driver, call `run_rig` **exactly once** with `{}` instead
 of Bash. The trusted extension owns the fixed fixture, input, and output path.
 Never supply source or credentials, and do not replace the tool with a pipeline.
 
-For Gemini, run **exactly once**, unchanged:
+For Gemini and DeepSeek Harness, run **exactly once**, unchanged:
 
 ```bash
 printf '%s\n' '{}' | node skills/rig/run.ts .github/fixtures/provider-three-judges.ts > /tmp/gh-aw/agent/rig-three-judges.json

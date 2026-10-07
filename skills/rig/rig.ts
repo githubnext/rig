@@ -565,7 +565,7 @@ function copilotSendTimeout(): number {
   return Number.isFinite(timeout) && timeout > 0 ? timeout : 24 * 60 * 60 * 1000;
 }
 
-type DefaultEngineKind = "copilot" | "anthropic" | "codex" | "gemini";
+type DefaultEngineKind = "copilot" | "anthropic" | "codex" | "deepseek" | "gemini";
 
 type DefaultEngineOptions = {
   cwd?: string;
@@ -588,7 +588,7 @@ function resolveDefaultEngineKind(options: DefaultEngineOptions = {}): DefaultEn
     return "copilot";
   }
   const configuredEngine = process.env["RIG_ENGINE"]?.trim().toLowerCase();
-  if (configuredEngine === "copilot" || configuredEngine === "anthropic" || configuredEngine === "codex" || configuredEngine === "gemini") {
+  if (configuredEngine === "copilot" || configuredEngine === "anthropic" || configuredEngine === "codex" || configuredEngine === "deepseek" || configuredEngine === "gemini") {
     return configuredEngine;
   }
   if (hasNonEmptyEnv("ANTHROPIC_API_KEY")) {
@@ -599,6 +599,9 @@ function resolveDefaultEngineKind(options: DefaultEngineOptions = {}): DefaultEn
   }
   if (hasNonEmptyEnv("GEMINI_API_KEY") || hasNonEmptyEnv("GOOGLE_API_KEY")) {
     return "gemini";
+  }
+  if (hasNonEmptyEnv("DEEPSEEK_API_KEY")) {
+    return "deepseek";
   }
   return "copilot";
 }
@@ -630,6 +633,10 @@ function defaultAgentFactory(options: DefaultEngineOptions = {}): AgentFactory {
     if (kind === "gemini") {
       const { geminiEngine } = await importOptionalEngine("./engines/gemini.ts");
       return geminiEngine(options.cwd ? { cwd: options.cwd } : {})(agentOptions);
+    }
+    if (kind === "deepseek") {
+      const { deepseekEngine } = await importOptionalEngine("./engines/deepseek.ts");
+      return deepseekEngine(options.cwd ? { cwd: options.cwd, processCwd: options.cwd } : {})(agentOptions);
     }
     const copilotOptions = options.cwd
       ? resolveCopilotOptions(options.cwd, options.startServer ? { startServer: true } : {})

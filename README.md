@@ -1,6 +1,6 @@
 # Rig
 
-**Small TypeScript agents with typed inputs, validated outputs, and composable workflows.** Write a program, hand it to the Rig skill, or run it with the launcher. Rig uses the Copilot SDK by default and also supports other [engines](skills/rig/engines.md).
+**Small TypeScript agents with typed inputs, validated outputs, and composable workflows.** Write a program, hand it to the Rig skill, or run it with the launcher. Rig uses the Copilot SDK by default and also supports Anthropic, Codex, DeepSeek Harness, Gemini, and Pi [engines](skills/rig/engines.md).
 
 ## Get started
 

@@ -9,6 +9,7 @@
     "./launch-tool": "./skills/rig/launch-tool.ts",
     "./engines/anthropic": "./skills/rig/engines/anthropic.ts",
     "./engines/codex": "./skills/rig/engines/codex.ts",
+    "./engines/deepseek": "./skills/rig/engines/deepseek.ts",
     "./engines/gemini": "./skills/rig/engines/gemini.ts",
     "./engines/pi": "./skills/rig/engines/pi.ts"
   },
@@ -23,6 +24,7 @@
   },
   "devDependencies": {
     "@anthropic-ai/sdk": "^0.129.0",
+    "@deepseek-ai/dsh-sdk-client": "0.2.0-rc.2",
     "@earendil-works/pi-agent-core": "^0.87.1",
     "@earendil-works/pi-ai": "^0.87.1",
     "@github/copilot-sdk": "^1.0.16",
