@@ -140,16 +140,21 @@ timeout. Treat them as non-negotiable:
    solution. Reserve object schemas for structured metadata such as the task picker,
    and do not make any solver re-emit a large solution inside a wrapper object.
 
-   Verify it by piping the source over stdin to the installed rig CLI, run from the skill
-   directory so Node's package self-reference resolves the bare `"rig"` import:
-   `--typecheck` first, and only on success `--server` to execute it. Give the writer up to
-   2 attempts total; on a failure, pass it back its own previous source and the exact
-   captured error, repeat the skeleton, and ask it to fix precisely what the error names,
-   preserving what already worked — do not invent unrelated API edits of your own. Stop
-   early if there is not enough time budget left for another attempt. Record each attempt's
-   typecheck and execute pass/fail together with the exact captured output, and parse the
-   final solution out of the successful run's JSON stdout. Record how long the whole
-   decomposition phase takes.
+   Verify non-empty source by piping it over stdin to the installed rig CLI, run from the
+   skill directory so Node's package self-reference resolves the bare `"rig"` import:
+   `--typecheck` first, and only on success `--server` to execute it. Treat a `null`,
+   missing, or whitespace-only writer result as a source-generation failure: never pass it
+   to the fixer or invoke the CLI with it. Give the writer up to 2 attempts total. If the
+   first result is non-empty, pass that source and the exact captured typecheck/execute error
+   to the fixer, repeat the skeleton, and ask it to fix precisely what the error names while
+   preserving what already worked — do not invent unrelated API edits of your own. If the
+   first result is empty, use the second attempt to ask the fixer to generate the complete
+   program from the original task and skeleton, explicitly noting that there is no source to
+   fix. Stop early if there is not enough time budget left for another attempt. Record each
+   attempt's source-generation result and typecheck/execute status (including "skipped" when
+   there is no valid source) with the exact captured output, and parse the final solution
+   out of the successful run's JSON stdout. Record how long the whole decomposition phase
+   takes.
 
 4. **Grade both.** A `large` agent limited to a single turn scores each solution 0-10 on
    how completely and correctly it satisfies the success criteria, picks a winner of
@@ -182,9 +187,10 @@ Emit one `create-issue` safe output with:
   - The chosen **task** (title, domain, one-paragraph description, success criteria list).
   - A **timing comparison** table: single-call duration vs. decomposed duration (ms), and
     the decomposed program's final pass/fail status.
-  - For each decomposition attempt, in order: the attempt number, typecheck pass/fail, and
-    execute pass/fail, with the exact captured error text (if any) in a collapsible
-    `<details>` block, and a one-line note on what was fixed in the next attempt (if any).
+  - For each decomposition attempt, in order: the attempt number, source-generation result,
+    typecheck, and execute status (including "skipped" when there is no valid source), with
+    the exact captured error text (if any) in a collapsible `<details>` block, and a one-line
+    note on what was fixed in the next attempt (if any).
   - The **grading** results: both scores, the winner, and the grader's rationale, verbatim.
   - The complete, verbatim **single-call solution** in a collapsible `<details>` block.
   - The complete, verbatim **decomposed rig program source** in a ```ts fence, and the
