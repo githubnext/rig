@@ -92,6 +92,10 @@ otherwise it uses Copilot at `localhost:7777`.
 Outside Agentic Workflows, `--server` starts Copilot over stdio and forces that
 engine. Other providers require their own supported model IDs; `small` is not
 a portable model identifier.
+For DeepSeek Harness, select `RIG_ENGINE=deepseek` (or set `DEEPSEEK_API_KEY`
+when no higher-priority provider is configured), install the optional Harness
+SDK, and choose a provider-supported model. See [Engines](./engines.md) for
+profile options, credentials, and cancellation behavior.
 
 ## Focused references
 

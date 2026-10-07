@@ -12,6 +12,10 @@ const mocks = vi.hoisted(() => ({
   startThread: vi.fn(),
   codex: vi.fn(),
   spawn: vi.fn(),
+  deepseek: vi.fn(),
+  deepseekSession: vi.fn(),
+  deepseekRun: vi.fn(),
+  deepseekClose: vi.fn(),
 }));
 
 vi.mock("@openai/codex-sdk", () => ({
@@ -24,6 +28,12 @@ vi.mock("node:child_process", async importOriginal => ({
   ...await importOriginal<typeof import("node:child_process")>(),
   spawn: mocks.spawn,
 }));
+vi.mock("@deepseek-ai/dsh-sdk-client", () => ({
+  DeepSeekHarness: function (options: unknown) {
+    mocks.deepseek(options);
+    return { session: mocks.deepseekSession, close: mocks.deepseekClose };
+  },
+}));
 
 beforeEach(() => {
   vi.clearAllMocks();
@@ -32,10 +42,20 @@ beforeEach(() => {
   vi.stubEnv("GH_AW_MODEL_AGENT_CODEX", "gpt-5.3-codex");
   vi.stubEnv("GEMINI_API_BASE_URL", "http://test-gemini-proxy");
   vi.stubEnv("GEMINI_MODEL", "gemini-2.5-flash");
+  vi.stubEnv("DSH_MODEL", "copilot/gpt-5.3-codex");
+  vi.stubEnv("RIG_JUDGE_MODEL", "copilot/gpt-5.3-codex");
+  vi.stubEnv("DSH_HOME", "/test/harness-deepseek");
+  vi.stubEnv("GITHUB_WORKSPACE", "/test/workspace");
   mocks.judge.mockReset();
   mocks.judge.mockReturnValue('{"decision":"approve","reason":"Harmless and practical."}');
   mocks.run.mockImplementation(async () => ({ finalResponse: mocks.judge() }));
   mocks.startThread.mockReturnValue({ run: mocks.run });
+  mocks.deepseekRun.mockImplementation(async () => ({
+    finalResponse: mocks.judge(),
+    events: [{ type: "turn/end", data: { reason: { kind: "completed" } } }],
+  }));
+  mocks.deepseekSession.mockReturnValue({ id: "test-session", run: mocks.deepseekRun });
+  mocks.deepseekClose.mockResolvedValue(undefined);
   mocks.spawn.mockImplementation(() => {
     const child = Object.assign(new EventEmitter(), {
       stdin: new PassThrough(), stdout: new PassThrough(), stderr: new PassThrough(),
@@ -53,7 +73,7 @@ afterEach(() => {
   vi.unstubAllEnvs();
 });
 
-describe.each(["codex", "gemini"])("%s three-judge fixture", engine => {
+describe.each(["codex", "deepseek", "gemini"])("%s three-judge fixture", engine => {
   it("runs three real Rig calls through the selected adapter and validates the result", async () => {
     vi.stubEnv("RIG_JUDGE_ENGINE", engine);
     const result = await runWorkflow(createProviderFixture());
@@ -75,6 +95,35 @@ describe.each(["codex", "gemini"])("%s three-judge fixture", engine => {
           mcp_servers: { safeoutputs: { enabled: false }, "rig-fixture": { enabled: false } },
           web_search: "disabled",
         } });
+      }
+    } else if (engine === "deepseek") {
+      expect(mocks.codex).not.toHaveBeenCalled();
+      expect(mocks.spawn).not.toHaveBeenCalled();
+      expect(mocks.deepseek).toHaveBeenCalledTimes(3);
+      expect(mocks.deepseekSession).toHaveBeenCalledTimes(3);
+      expect(mocks.deepseekClose).toHaveBeenCalledTimes(3);
+      for (const [options] of mocks.deepseek.mock.calls) {
+        expect(options).toEqual({
+          model: "gpt-5.3-codex",
+          provider: "awf-proxy",
+          dshHome: "/test/harness-deepseek",
+          profile: "sdk",
+          cwd: "/test/workspace",
+          processCwd: "/test/workspace",
+          patches: ["/test/workspace/.github/fixtures/deepseek-judges.patch.yml"],
+          env: {
+            PATH: process.env["PATH"],
+            HOME: process.env["HOME"],
+            NODE_EXTRA_CA_CERTS: process.env["NODE_EXTRA_CA_CERTS"],
+            OPENAI_API_KEY: "awf-proxy",
+            DSH_TELEMETRY_DISABLED: "1",
+            DSH_TOOLS_MODE: "native",
+          },
+        });
+      }
+      for (const [index, [prompt]] of mocks.deepseekRun.mock.calls.entries()) {
+        expect(prompt).toContain(["clarity", "safety", "feasibility"][index]);
+        expect(prompt).toContain("<output_schema>");
       }
     } else {
       expect(mocks.codex).not.toHaveBeenCalled();
@@ -123,6 +172,32 @@ it("surfaces provider errors without retries", async () => {
   expect(mocks.run).toHaveBeenCalledOnce();
 });
 
+it("surfaces DeepSeek provider errors without retrying or invoking remaining judges", async () => {
+  vi.stubEnv("RIG_JUDGE_ENGINE", "deepseek");
+  mocks.deepseekRun.mockRejectedValueOnce(new Error("Gateway unavailable"));
+
+  await expect(runWorkflow(createProviderFixture())).rejects.toThrow("Missing or invalid clarity judgment");
+  expect(mocks.deepseekRun).toHaveBeenCalledOnce();
+  expect(mocks.deepseekClose).toHaveBeenCalledOnce();
+});
+
+it.each(["RIG_JUDGE_MODEL", "DSH_HOME", "GITHUB_WORKSPACE"])("requires DeepSeek %s rather than falling back", name => {
+  vi.stubEnv("RIG_JUDGE_ENGINE", "deepseek");
+  vi.stubEnv(name, "");
+  expect(() => createProviderFixture()).toThrow(`${name} is required`);
+  expect(mocks.deepseek).not.toHaveBeenCalled();
+});
+
+it.each(["copilot/auto", "openai/gpt-5.3-codex", "deepseek/deepseek-v4-flash"])(
+  "rejects an unexpected DeepSeek model route: %s",
+  model => {
+    vi.stubEnv("RIG_JUDGE_ENGINE", "deepseek");
+    vi.stubEnv("RIG_JUDGE_MODEL", model);
+    expect(() => createProviderFixture()).toThrow("requires copilot/gpt-5.3-codex");
+    expect(mocks.deepseek).not.toHaveBeenCalled();
+  },
+);
+
 it.each(["RIG_JUDGE_ENGINE", "CODEX_HOME", "GH_AW_MODEL_AGENT_CODEX"])("requires %s rather than falling back to Copilot", name => {
   vi.stubEnv(name, "");
   expect(() => createProviderFixture()).toThrow(`${name} is required`);
@@ -134,11 +209,11 @@ it("rejects unsupported adapters, including the deferred Claude variant", () => 
   expect(() => createProviderFixture()).toThrow("Unsupported three-judge engine: claude");
 });
 
-it.each(["codex", "gemini", "pi"])("declares the %s workflow's provider and shared fixture contract", engine => {
+it.each(["codex", "deepseek", "gemini", "pi"])("declares the %s workflow's provider and shared fixture contract", engine => {
   const markdown = readFileSync(new URL(`../.github/workflows/rig-skill-integration-${engine}.md`, import.meta.url), "utf8");
   const shared = readFileSync(new URL("../.github/workflows/shared/rig-three-judges.md", import.meta.url), "utf8");
   const lock = readFileSync(new URL(`../.github/workflows/rig-skill-integration-${engine}.lock.yml`, import.meta.url), "utf8");
-  expect(markdown).toContain(`id: ${engine}`);
+  expect(markdown).toContain(`id: ${engine === "deepseek" ? "deepseek-harness" : engine}`);
   expect(markdown).toContain(`RIG_JUDGE_ENGINE: ${engine}`);
   expect(markdown).toContain("shared/rig-three-judges.md");
   expect(markdown).toContain("schedule: daily");
@@ -164,6 +239,16 @@ it.each(["codex", "gemini", "pi"])("declares the %s workflow's provider and shar
       expect(lock).toContain("/pi_agent_core_driver.cjs");
       expect(lock).toContain(".github/drivers/pi-rig-extension.ts");
       expect(lock).toContain('"bash":["echo","ls","pwd","cat","head","tail","grep","wc","sort","uniq","date","yq","printf","node"]');
+    }
+    if (engine === "deepseek") {
+      expect(markdown).toContain('version: "0.2.0-rc.2"');
+      expect(markdown).toContain("shared/deepseek-harness.md");
+      expect(lock).toContain("@deepseek-ai/dsh");
+      expect(lock).toContain("DSH_MODEL: copilot/gpt-5.3-codex");
+      expect(lock).toContain("RIG_JUDGE_MODEL: copilot/gpt-5.3-codex");
+      expect(lock).toContain("GH_AW_LLM_PROVIDER: github");
+      expect(lock).toContain(".github/drivers/deepseek-harness.cjs");
+      expect(lock).not.toContain("secrets.DEEPSEEK_API_KEY");
     }
   } else {
     expect(lock).toContain("GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}");

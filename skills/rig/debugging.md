@@ -27,4 +27,4 @@ Do not log credentials. For SDK credential handoff requirements, read
 | `engine:select` | Default engine selection |
 | `engine:copilot:*` | Session create, event, ask, response, close |
 | `engine:anthropic:*` / `engine:pi:*` | Engine create, ask, response, tool call, close |
-| `engine:codex:*` / `engine:gemini:*` | Engine create, ask, response, close |
+| `engine:codex:*` / `engine:deepseek:*` / `engine:gemini:*` | Engine create, ask, response, close |

@@ -17,6 +17,7 @@ export default defineConfig({
       { find: /^rig\/launch-tool$/, replacement: resolve(__dirname, "skills/rig/launch-tool.ts") },
       { find: /^rig\/engines\/anthropic$/, replacement: resolve(__dirname, "skills/rig/engines/anthropic.ts") },
       { find: /^rig\/engines\/codex$/, replacement: resolve(__dirname, "skills/rig/engines/codex.ts") },
+      { find: /^rig\/engines\/deepseek$/, replacement: resolve(__dirname, "skills/rig/engines/deepseek.ts") },
       { find: /^rig\/engines\/gemini$/, replacement: resolve(__dirname, "skills/rig/engines/gemini.ts") },
       { find: /^rig\/engines\/pi$/, replacement: resolve(__dirname, "skills/rig/engines/pi.ts") },
       { find: /^rig\/(.*)$/, replacement: resolve(__dirname, "src/$1") },

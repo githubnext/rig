@@ -105,18 +105,19 @@ The three-call count covers the Rig scenario, not the outer engine's turns.
 
 ### Other provider adapters
 
-Three additional daily/manual workflows share the same judge rubric, typed
+Four additional daily/manual workflows share the same judge rubric, typed
 outputs, majority vote, and strict post-step assertions:
 
 | Workflow | Outer engine / Rig adapter | Model / authentication |
 | --- | --- | --- |
 | [Codex](../../.github/workflows/rig-skill-integration-codex.md) | Codex CLI / `codexEngine` | `copilot/gpt-5.3-codex`; `copilot-requests: write` |
+| [DeepSeek Harness](../../.github/workflows/rig-skill-integration-deepseek.md) | DeepSeek Harness headless / `deepseekEngine` | `copilot/gpt-5.3-codex`; `copilot-requests: write` |
 | [Gemini](../../.github/workflows/rig-skill-integration-gemini.md) | Gemini CLI / `geminiEngine` | `gemini-2.5-flash`; repository secret `GEMINI_API_KEY` |
 | [Pi](../../.github/workflows/rig-skill-integration-pi.md) | Pi managed SDK driver / `piEngine` | `copilot/gpt-5.3-codex`; `copilot-requests: write` |
 
 The [shared procedure](../../.github/workflows/shared/rig-three-judges.md)
-provisions Node.js 24 and checkout dependencies. Gemini launches a checked-in
-fixture once through Bash with `{}` on stdin; file-mode launch still requires
+provisions Node.js 24 and checkout dependencies. Gemini and DeepSeek launch a
+checked-in fixture once through Bash with `{}` on stdin; file-mode launch still requires
 input even when the workflow has no arguments. Codex exposes a fixture-only
 `rig-fixture.run_rig` MCP tool. Pi registers a fixed-fixture `run_rig` extension
 through `engine.driver` instead of Bash; see
@@ -134,6 +135,23 @@ an OpenAI key. Its outer engine and judges pin `gpt-5.3-codex` because gh-aw's
 Pi preflight rejects `auto` when it is not advertised as a concrete proxy model.
 Gemini inherits the provisioned CLI, model, and
 `GEMINI_API_BASE_URL`. Do not print or copy upstream secrets into fixture source.
+
+DeepSeek uses a [repository-scoped engine definition](../../.github/workflows/shared/deepseek-harness.md)
+and [trusted launcher](../../.github/drivers/deepseek-harness.cjs). Both the outer
+CLI and Rig SDK runtime pin Harness 0.2.0-rc.2. The launcher discovers the
+configured Copilot endpoint through AWF `/reflect`, preserves its API path, and
+writes the `awf-proxy` route to `$DSH_HOME/cordis.patch.yml`; the obsolete
+`settings.yaml` path is not used. SDK judges inherit that home and use only the
+non-secret `awf-proxy` key. Provider retries are disabled. The
+fixture uses `RIG_JUDGE_MODEL` because native shell calls discard inherited
+`DSH_*` values and rebuild only managed facts, including `DSH_HOME`. The
+[judge patch](../../.github/fixtures/deepseek-judges.patch.yml) sets a read-only
+file policy and noninteractive denial of operations requiring approval.
+DeepSeek has no native MCP support in this integration; safe outputs use the
+generated CLI proxy. Its native Bash tool does not enforce gh-aw's command
+allowlist. The outer agent uses workspace-write confinement inside AWF with
+noninteractive approval policy, not unrestricted file access; the listed Bash
+commands express the procedure, not an additional sandbox boundary.
 
 Codex pins a model that supports the Responses API; Copilot rejects `auto`
 on that endpoint before the outer engine can invoke Rig.

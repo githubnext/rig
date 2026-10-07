@@ -16,6 +16,7 @@
     "./launch-tool": "./launch-tool.ts",
     "./engines/anthropic": "./engines/anthropic.ts",
     "./engines/codex": "./engines/codex.ts",
+    "./engines/deepseek": "./engines/deepseek.ts",
     "./engines/gemini": "./engines/gemini.ts",
     "./engines/pi": "./engines/pi.ts"
   }

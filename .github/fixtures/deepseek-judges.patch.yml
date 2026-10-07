@@ -1,0 +1,12 @@
+- id: sdk-jsonrpc-server
+  config:
+    maxTokensAsSuccess: false
+
+- id: sandbox-policy
+  config:
+    mode: read-only
+    workspaceRoot: !!js process.cwd()
+
+- id: approval
+  config:
+    policy: never
