@@ -15,7 +15,7 @@ engine:
   id: deepseek-harness
   version: "0.2.0-rc.2"
 tools:
-  bash: ["printf", "node"]
+  bash: ["*"]
   github:
     mode: gh-proxy
     toolsets: [repos]
@@ -50,8 +50,9 @@ SDK session; no Rig repair, retry, or fourth synthesis call is permitted.
 On failure or denial, report the exact error with `report_incomplete` and stop.
 The post-step validates the saved JSON independently.
 
-DeepSeek Harness does not enforce gh-aw's Bash allowlist. Its outer agent runs
+DeepSeek Harness does not enforce gh-aw's Bash allowlist, so `bash: ["*"]`
+explicitly declares its unrestricted native shell access. Its outer agent runs
 with unattended native tools inside AWF; judge subprocesses use a read-only
-policy and a scrubbed environment. Do not treat the listed commands as a
-security boundary. Use the generated `safeoutputs` CLI for `noop` or
+policy and a scrubbed environment. The fixed fixture pipeline is a procedure,
+not a command-level security boundary. Use the generated `safeoutputs` CLI for `noop` or
 `report_incomplete`; do not call nonexistent MCP tools.
