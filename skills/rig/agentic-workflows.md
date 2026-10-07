@@ -131,8 +131,8 @@ and preserves its selector, `CODEX_HOME`, `gpt-5.3-codex` model, and non-secret
 `awf-proxy` API-key placeholder through `shell_environment_policy.set`.
 Pi uses the generated `PI_CODING_AGENT_DIR/models.json` gateway provider with
 that same non-secret placeholder; it does not use native Copilot OAuth or
-an OpenAI key. Its outer engine and judges pin `gpt-5.3-codex` because gh-aw's
-Pi preflight rejects `auto` when it is not advertised as a concrete proxy model.
+an OpenAI key. Its outer engine and judges pin `gpt-5.3-codex` to keep the
+integration model deterministic rather than using gh-aw's `auto` routing.
 Gemini inherits the provisioned CLI, model, and
 `GEMINI_API_BASE_URL`. Do not print or copy upstream secrets into fixture source.
 
@@ -150,8 +150,10 @@ file policy and noninteractive denial of operations requiring approval.
 DeepSeek has no native MCP support in this integration; safe outputs use the
 generated CLI proxy. Its native Bash tool does not enforce gh-aw's command
 allowlist. The outer agent uses workspace-write confinement inside AWF with
-noninteractive approval policy, not unrestricted file access; the listed Bash
-commands express the procedure, not an additional sandbox boundary.
+noninteractive approval policy, not unrestricted file access. It declares
+`bash: ["*"]` explicitly because gh-aw 0.91.5 rejects unsupported command
+allowlists; the fixed fixture pipeline is a procedure, not an additional
+sandbox boundary.
 
 Codex pins a model that supports the Responses API; Copilot rejects `auto`
 on that endpoint before the outer engine can invoke Rig.

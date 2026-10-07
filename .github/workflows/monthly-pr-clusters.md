@@ -46,7 +46,7 @@ steps:
   - name: Install checkout dependencies
     run: npm ci
   - name: Collect merged PRs for the trailing calendar month
-    uses: actions/github-script@v9
+    uses: actions/github-script@v9.0.0
     with:
       script: |
         const { mkdir, writeFile } = require("node:fs/promises");
