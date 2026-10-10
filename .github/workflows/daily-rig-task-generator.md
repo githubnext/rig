@@ -1,10 +1,10 @@
 ---
 name: Daily Rig Task Generator
 description: >
-  Each day, generates 10 unique agentic tasks (60% reused from cache, 40% new,
-  mining samples for inspiration), expands each into a rig sample markdown file
-  via a subagent, typechecks each program, then creates a draft PR adding the
-  passing sample files to skills/rig/samples/.
+  Each day, selects up to 10 novel agentic tasks from an unpublished cached
+  backlog and randomly themed catalog gaps, expands them via a subagent, typechecks each program,
+  rejects duplicate lessons, then creates a draft PR adding only passing,
+  genuinely new samples and refreshing their catalog.
 on:
   schedule: daily
   workflow_dispatch:
@@ -36,6 +36,7 @@ safe-outputs:
     reviewers: [copilot]
     allowed-files:
       - "skills/rig/samples/*.md"
+      - "skills/rig/samples.md"
   create-issue:
     title-prefix: "[rig-tasks] "
     labels: [automation, ai-agent]
@@ -47,10 +48,10 @@ safe-outputs:
 
 You are an agentic harness evaluator. Each day you:
 
-1. Select 10 tasks — 60% (6) reused from a cached task pool, 40% (4) freshly generated.
+1. Select up to 10 tasks from an unpublished backlog and gaps in the sample catalog.
 2. Expand each task into a rig sample markdown file using the `rig-expander` subagent.
 3. Typecheck each generated program.
-4. Create a draft PR adding the passing sample files to `skills/rig/samples/`.
+4. Create a draft PR adding only passing, novel samples and refreshing `skills/rig/samples.md`.
 5. Create an analysis issue summarizing generation results and rig API improvement opportunities.
 
 ---
@@ -59,62 +60,107 @@ You are an agentic harness evaluator. Each day you:
 
 Read `/tmp/gh-aw/cache-memory/task-pool.json`.
 
-- If the file exists, parse it as `{ "pool": [{ "id": string, "description": string }] }`.
-- If it does not exist or cannot be parsed, start with an empty pool: `{ "pool": [] }`.
+- If the file exists, parse it as `{ "pool": [{ "id": string, "description": string, "status"?: "pending" | "published" | "duplicate" | "failed", "sample"?: string, "themeId"?: string }], "recentThemes"?: string[] }`.
+- If it does not exist, start with an empty pool: `{ "pool": [] }`.
+- If it cannot be parsed or validated, report the cache error and stop; do not silently discard deduplication history.
+- Entries with no status must be checked against the current catalog before they become pending. Published and duplicate entries are never eligible for reuse.
 
 ---
 
-### Step 2 — List existing rig samples for inspiration
+### Step 2 — Load the complete sample catalog
 
 ```bash
-ls skills/rig/samples/
+npm ci
+npm run sample:check
+node scripts/sample-catalog.ts --json > /tmp/gh-aw/agent/sample-catalog.json
 ```
 
-Read the filenames (without extensions) to understand what task categories already exist
-(e.g., `02-review-git-diff`, `09-classify-issue`, `47-prompt-intents`). Use these as
-inspiration — not as tasks to repeat verbatim — when generating new tasks.
+Read `skills/rig/samples.md` for pattern buckets, topic clusters, task families, and
+retired replacements. Use the JSON inventory's role comments and exercised APIs to
+understand what the programs actually do, including the TypeScript fixtures.
+Filenames alone are not evidence of novelty; some legacy titles are misleading.
 
-Determine the highest existing sample number from the filenames (e.g. `67` from
+For each proposed or cached task, locate its closest families and read the actual
+programs. Use `node scripts/sample-catalog.ts --json --family <slug>` or
+`--json --bucket <key>` to narrow the inventory. Compare against existing samples,
+retired lessons, and other candidates selected in this run.
+
+Determine the highest sample number across existing and retired filenames (e.g. `67` from
 `67-glob-file-summarizer.md`). New samples will be numbered starting from that value plus 1,
-incremented for each task (e.g. 68, 69, 70 …).
+incremented for each accepted task (e.g. 68, 69, 70 …). Never reuse a retired number.
 
 ---
 
-### Step 3 — Select 10 tasks
+### Step 3 — Select up to 10 novel tasks
 
-**Reused tasks (6 — 60%):**
+**Cached backlog (target up to 6):**
 
-If the pool has 6 or more entries, pick the 6 oldest entries not run today (if all have
-been run today, pick any 6). Record their `id` and `description`.
+Check the oldest pending entries against the complete catalog. If a task's lesson is
+already represented, mark it duplicate, record the closest sample, and skip it.
+Only select unpublished tasks with a concrete missing lesson. A task previously
+published does not become novel on a new date or under a new filename.
 
-If the pool has fewer than 6 entries, take all entries from the pool and generate enough
-new tasks to reach 10 total (see below).
+**New proposals (remaining capacity, at most 10 total selected):**
 
-**New tasks (4 — 40%):**
-
-Use the `task-generator` subagent to propose exactly `(10 - count_of_reused)` new task
-descriptions. Pass it:
-
-- The list of sample filenames from Step 2 (to mine for inspiration and avoid duplication).
-- The descriptions of existing pool entries (to avoid repeating them).
-
-Each new task must be a different agentic pattern that exercises a distinct aspect of rig
-(e.g., `p.bash(...)`, `p.read(...)`, `s.object` with nested fields, `s.enum`, subagents,
-custom tools, repair addons, multi-step chaining, etc.).
-
----
-
-### Step 4 — Install dependencies
+Seed fresh themes before asking the model for tasks. If the remaining capacity is
+`N > 0`, run:
 
 ```bash
-npm install 2>&1
+node scripts/sample-themes.ts --count <N> --exclude /tmp/gh-aw/cache-memory/task-pool.json > /tmp/gh-aw/agent/sample-themes.json
 ```
+
+Replace `<N>` with the remaining capacity (1–10). The script draws a fresh random
+seed, combines domains with artifact types and constraints, selects distinct
+domains where possible, and excludes recently used theme IDs. Record its `seed`
+and theme objects in the run report; `--seed <seed>` replays the selection.
+Do not let the model invent a random seed or choose the same familiar Git/npm
+themes every day.
+
+Have the task designer use these combinations as anchors for new themes, such as
+transit event timelines with partial observations or ecological measurements
+requiring unit conversion. Use synthetic, local representative data; do not
+require private data, credentials, live services, or new fixture files.
+Thematic variety is not a novelty exemption: a noun swap around an existing
+program is still a duplicate. A theme must motivate a meaningful data contract,
+failure case, transformation, or coordination lesson that the nearest samples lack.
+
+Use the `task-generator` subagent to propose at most `(10 - count_of_reused)` tasks.
+Pass it:
+
+- The catalog's families, buckets, role comments, and APIs from Step 2.
+- The descriptions and statuses of pool entries.
+- Already selected tasks and their novelty rationales.
+- The seeded theme objects, recent theme IDs, and the random seed.
+
+Each task needs a bucket, family, one-sentence lesson, closest sample paths, and a
+specific novelty rationale explaining what those samples do not demonstrate.
+New proposals must also identify their assigned `themeId`; reject unknown or
+repeated IDs. Use a theme at most once per run and allow the designer to elaborate
+a new sub-theme from its anchor.
+Prefer underrepresented patterns and genuine API gaps, not already crowded topics.
+Changing a title, prompt wording, field names, numeric thresholds, model, file paths,
+or adding a redundant tool/addon does not establish a new lesson.
+
+The 6/4 split is a preference, not a quota. Do not pad the run with repeats.
+Consider at most 20 candidates, select at most 10, and accept fewer if necessary.
+If none is novel, update the cache as in Step 6 (including recent theme IDs), emit
+`noop`, and stop without opening an issue or PR.
+
+---
+
+### Step 4 — Verify novelty before expansion
+
+Read each selected task's closest programs and verify the claimed gap yourself.
+Maintain a seen set of selected lessons so two proposals cannot cover the same gap.
+Reject a task without concrete novelty evidence; do not expand it just to meet a target.
+If it merely improves an existing example, report that suggestion instead of creating a
+second version. Keep existing samples unchanged in this sample-addition workflow.
 
 ---
 
 ### Step 5 — Expand and evaluate each task
 
-For each of the 10 selected tasks (reused and new), perform the following steps:
+For each selected task (unpublished backlog or new), perform the following steps:
 
 **5a. Generate a detailed prompt.**
 
@@ -125,12 +171,17 @@ Write a one-paragraph prompt that tells the `rig-expander` subagent:
 - What output schema it should produce.
 - Which rig primitives to exercise (`p.bash`, `p.read`, `s.object`, subagents, tools, etc.).
 - The sample number `<NN>` and a short kebab-case title slug for the filename.
+- The bucket, family, missing lesson, closest sample paths, and approved novelty rationale.
+- For a fresh task, the seeded theme's domain, artifact, constraint, and theme ID.
+- The exported root must need no external input; typed subagent inputs are allowed.
 
 **5b. Ask the `rig-expander` subagent to write the program.**
 
 Invoke the `rig-expander` subagent with the prompt from 5a. It will return a JSON object
 describing the generated sample, including whether it chose an `agent` or `workflow`
 root export and the plain TypeScript source.
+If it returns a rejection with the closest sample and reason, record that duplicate
+and skip the remaining expansion steps for that task.
 
 **5c. Write the program to a temp file for typechecking.**
 
@@ -139,13 +190,8 @@ Parse the subagent JSON and extract:
 - `kind` (`"agent"` or `"workflow"`)
 - `source` (plain TypeScript source code with no fence markers)
 
-Write `source` to:
-
-```bash
-cat > /tmp/gh-aw/agent/rig-task-<N>.ts << 'EOF'
-<source>
-EOF
-```
+Use the edit tool to write `source` unchanged to
+`/tmp/gh-aw/agent/rig-task-<N>.ts`.
 
 (Replace `<N>` with the task index 1–10.)
 
@@ -159,31 +205,56 @@ Record whether typecheck passed or failed, any error messages, and a one-line **
 describing what the generated code did well or what went wrong (e.g., unused import, wrong
 schema helper, awkward `p.*` usage).
 
-**5e. Write the sample file (only if typecheck passed).**
+**5e. Review the generated program for duplicate lessons.**
 
-If typecheck passed, write a markdown sample file to the repository:
+After typecheck, compare the actual source with its nearest existing programs and
+all programs accepted in this run. The expander's novelty claim is not sufficient.
+If the implementation only repeats an existing lesson, record status `duplicate`
+and the closest sample path. Do not write it even if typecheck passed.
 
-```bash
-cat > skills/rig/samples/<NN>-<slug>.md << 'EOF'
+**5f. Write the sample file (only if typecheck passed and novelty was verified).**
+
+If both gates passed, use the edit tool to write
+`skills/rig/samples/<NN>-<slug>.md` with this content:
+
+````markdown
 # <NN> - <Title>
 
 ```rig
 <source>
 ```
-EOF
-```
+````
 
 Where `<NN>` is the sample number assigned in Step 2 (zero-padded to two digits),
 `<slug>` is a 2–4 word kebab-case summary of the task, and `<Title>` is a title-case
 version of the slug. If typecheck failed, skip writing the file. In Step 7, include
 the generated `kind` so results show where workflow export was selected.
 
+**5g. Refresh and check the catalog.**
+
+```bash
+npm run sample:catalog
+npm run sample:check
+npm run sample -- --testNamePattern="skill markdown samples typecheck"
+```
+
+The catalog check rejects exact program copies within one format and reintroduced
+retired paths; it does not replace the semantic review in 5e. If any check fails,
+fix the new sample or remove it, regenerate the catalog, and rerun the checks.
+Never change unrelated samples or disable a duplicate guard to make a check pass.
+
 ---
 
 ### Step 6 — Update the cache
 
-Merge new tasks into the pool. For each new task, append
-`{ "id": "<short-uuid-8>", "description": "<description>" }` to `pool`.
+Merge tasks by ID, not by blindly appending reused entries. Record status for every
+evaluated task: `published` with the written sample path, `duplicate` with the
+closest existing sample path, or `failed` with the key finding. Only unevaluated,
+verified-novel tasks remain pending. Pending tasks must be revalidated against the
+current catalog on every run; the cache is a backlog, not a carousel of successful tasks.
+Store `themeId` on fresh tasks and append all proposed theme IDs to `recentThemes`,
+deduplicating and keeping the most recent 100. Preserve this history when trimming
+the task pool, so a shorter backlog does not reset theme diversity.
 
 Trim `pool` to the most recent 50 entries. Write the updated object back to
 `/tmp/gh-aw/cache-memory/task-pool.json`.
@@ -200,9 +271,13 @@ Emit a `create-issue` safe output with:
   ```markdown
   ## Summary
 
-  | Task | Description | Typecheck | Key finding |
-  |------|-------------|-----------|-------------|
-  | 1 (new/reused) | … | ✅ pass / ❌ fail | … |
+  Theme seed: `<seed>` (or "no fresh themes needed").
+  List the seeded domain / artifact / constraint combinations and mark which were
+  accepted, rejected as duplicates, or left unused.
+
+  | Task | Description | Typecheck | Novelty / closest sample | Key finding |
+  |------|-------------|-----------|--------------------------|-------------|
+  | 1 (new/backlog) | … | ✅ pass / ❌ fail | new lesson / duplicate of path | … |
   …
 
   ---
@@ -220,7 +295,7 @@ Emit a `create-issue` safe output with:
 
   ## Improvement opportunities
 
-  Based on patterns observed across all 10 tasks, identify concrete API improvements:
+  Based on patterns observed across the evaluated tasks, identify concrete API improvements:
 
   ### Missing or undiscoverable schema helpers (`s.*`)
   List cases where a missing `s.*` helper made code verbose, caused typecheck failures,
@@ -252,7 +327,8 @@ Emit a `create-issue` safe output with:
 
   ## Tasks run today
 
-  - (new/reused) <description>
+  - (new/backlog) <description> — bucket, family, lesson, closest samples, novelty evidence
+  - (rejected duplicate) <description> — closest sample and reason
   …
   ```
 
@@ -268,11 +344,12 @@ Emit a `create-pull-request` safe output with:
   ```markdown
   ## Summary
 
-  Added <N_written> new rig sample files to `skills/rig/samples/`.
+  Added <N_written> novel rig sample files to `skills/rig/samples/` and refreshed the catalog.
+  Theme seed: `<seed>`; list the themes used by the new samples.
 
-  | # | File | Description | Typecheck |
-  |---|------|-------------|-----------|
-  | 1 | 68-... | … | pass |
+  | # | File | Bucket / family | Missing lesson | Closest samples | Typecheck |
+  |---|------|-----------------|----------------|-----------------|-----------|
+  | 1 | 68-... | … | … | paths and concrete difference | pass |
   …
 
   ## Typecheck failures
@@ -283,37 +360,47 @@ Emit a `create-pull-request` safe output with:
   ## Tasks run
 
   - (new) <description>
-  - (reused) <description>
+  - (backlog) <description>
   …
   ```
 
 - **branch**: `rig-tasks/<YYYY-MM-DD>`
 
-If all 10 tasks failed typecheck and no sample files were written, emit `noop` instead.
+Create a PR only when at least one novel sample was written and the catalog checks
+passed. If none were accepted (including all-duplicate or all-failed runs), do not
+open an empty PR; emit `noop` instead.
 
 ---
 
 ## agent: `task-generator`
 ---
-description: Proposes new unique agentic task descriptions for rig programs, mining the sample list for inspiration and avoiding duplication.
+description: Proposes missing Rig lessons from the complete catalog, with nearest-sample comparisons and concrete novelty evidence.
 model: small
 ---
 You are a task designer for the rig TypeScript agent harness.
 
 You will receive:
-- A JSON array of existing sample filenames (for inspiration only — do NOT repeat them verbatim).
-- A JSON array of descriptions already in the task pool (avoid duplicating these).
-- A count `N` of how many new tasks to generate.
+- A JSON catalog with sample paths, role comments, pattern buckets, task families, and exercised APIs.
+- Task-pool descriptions and statuses, and already selected lessons.
+- Randomly seeded theme objects (domain, artifact, constraint, ID), the seed, and recent theme IDs.
+- A maximum count `N` of new tasks to propose.
 
-Generate exactly `N` distinct task descriptions. Each description must:
+Propose at most `N` distinct tasks. Read the nearest existing programs. Each proposal must:
 - Be a different agentic pattern (e.g., one uses `p.bash`, another uses `s.enum`, another
   chains two agents, another uses a custom `defineTool`, another exercises `s.record`, etc.).
 - Be 1–2 sentences describing what the rig program should accomplish and what rig
   primitives to use.
-- Be novel relative to the existing pool and sample list.
+- Demonstrate a missing lesson, not a cosmetic variation of an existing task.
+- Identify the nearest existing samples and the concrete behavior or API pattern they lack.
+- Be novel relative to existing programs, retired replacements, and already selected lessons.
+- Prefer gaps over crowded families. Return fewer tasks, or an empty array, when no gap is supported.
+- Use each assigned theme at most once, elaborating it into a concrete new scenario.
+  Do not default back to Git history, package audits, or TypeScript scanners when
+  the seed names another domain. Do not claim novelty from a domain rename alone.
 
-Return a JSON array of description strings, e.g.:
-["Classify a list of log lines by severity using s.enum and s.array, reading logs via p.bash.", "…"]
+Return a JSON array of objects with `description`, `bucket`, `family`, `lesson`,
+`themeId`, `closestSamples` (an array of existing paths), and `novelty` (the concrete missing
+behavior). Do not propose renumbered, renamed, reworded, or threshold-only variants.
 
 ## agent: `rig-expander`
 ---
@@ -329,21 +416,28 @@ cat skills/rig/SKILL.md
 ```
 
 You will receive a one-paragraph prompt describing an agentic task, the desired input/output
-schema, which rig primitives to use, and a sample number with kebab-case slug.
+schema, which rig primitives to use, a sample number with kebab-case slug, and an
+approved missing lesson with its closest existing sample paths.
 
 Your job: write a complete, idiomatic rig TypeScript program that implements the task,
 following the API patterns shown in the SKILL.md you just read.
+Read the closest samples and implement the stated missing lesson. Do not copy an
+existing program and reword its prompt. If the gap is unsupported, report that to
+the coordinator instead of inventing novelty.
 
 Rules:
 - Single `import { ... } from "rig"` using only symbols needed by the program.
 - Use `s.object(...)` and explicit `s.*` helpers for all schemas.
 - Use `p\`...\`` template tag with `${p.bash(...)}` or `${p.read(...)}` for context.
 - Add a `// Agent role: ...` comment above each agent declaration.
+- Add a `// Workflow role: ...` comment above each workflow declaration.
 - Set `model` explicitly to `"large"`, `"mini"`, or `"small"`.
 - Prefer `workflow(...)` as the root export when orchestration is deterministic
   (fan-out/fan-in, branching, reduction, bounded loops). Use a root `agent(...)`
   only when the coordination should remain model-driven.
 - `export default` exactly one root object (`agent` or `workflow`). Do NOT call it directly.
+- The root must be runnable without external input; put representative caller data
+  inside the example and keep any typed inputs on named subagents.
 - Do not use `console.log`.
 - Keep the program under 60 lines.
 
@@ -353,3 +447,5 @@ Return strictly valid JSON with this shape:
   "source": "<complete TypeScript source code>"
 }
 Do not wrap `source` in markdown fences, and do not add extra keys.
+If the approved lesson is already covered, return instead
+`{ "rejected": "<specific duplicate reason>", "closestSample": "<existing path>" }`.
