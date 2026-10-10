@@ -3,7 +3,6 @@ name: Rig Skill Integration - Gemini
 description: Test Rig's headless Gemini CLI adapter with three typed judges.
 intent: Detect regressions in typed Rig judgments through the Gemini CLI.
 on:
-  schedule: daily
   workflow_dispatch:
 permissions:
   contents: read
