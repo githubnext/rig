@@ -23,6 +23,9 @@ jobs:
       - name: Typecheck
         run: npm run typecheck
 
+      - name: Check sample catalog and duplicates
+        run: npm run sample:check
+
       - name: Lint
         run: npm run lint
 

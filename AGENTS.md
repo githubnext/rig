@@ -8,7 +8,8 @@ Rig is a minimal TypeScript agent harness. The core runtime (`skills/rig/rig.ts`
 
 ```
 skills/rig/rig.ts      — Core runtime (agent, p, copilotEngine, schemas)
-skills/rig/samples/    — 51 sample agents demonstrating patterns
+skills/rig/samples/    — Markdown sample programs; see skills/rig/samples.md for pattern buckets and task families
+src/samples/           — TypeScript examples and provider integration fixtures
 skills/rig/ — Focused documentation loaded on demand from SKILL.md
 src/engines/copilot.test.ts — Copilot engine unit tests (vitest)
 src/rig.test.ts        — Unit tests (vitest)
@@ -25,6 +26,8 @@ All imports use the `"rig"` path alias (resolved via tsconfig paths + vitest ali
 | Typecheck | `npm run typecheck` |
 | Unit tests | `npm test` |
 | Run samples (stub) | `npm run sample` |
+| Refresh sample catalog | `npm run sample:catalog` |
+| Check catalog and duplicate programs | `npm run sample:check` |
 | Run single sample (stub) | `RIG_SAMPLE=02 npm run sample` |
 | Run a sample for real | `echo "<input>" \| node skills/rig/rig.ts <program-file>` (`npm run sample:run`) |
 
@@ -68,6 +71,7 @@ All imports use the `"rig"` path alias (resolved via tsconfig paths + vitest ali
 
 ## Sample guide
 
+- `skills/rig/samples.md` — generated inventory with pattern buckets, topic clusters, and task families. Retired sample replacements are tracked separately in `skills/rig/sample-retirements.json`. Run `npm run sample:catalog` after adding/removing samples; `npm run sample:check` rejects stale inventory and exact duplicates within a format. Review the nearest family before adding a new lesson.
 - `20-issue-reproducer.ts` — chained diagnosis, fix planning, and review
 - `36-subagent-delegation.ts` — focused-agent delegation
 - `47-prompt-intents.ts` — prompt intent primitives

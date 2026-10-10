@@ -18,6 +18,8 @@
     "test:integration": "vitest run scripts/haiku.integration.test.ts",
     "test:integration:tool": "vitest run scripts/rig-launch-tool.integration.test.ts",
     "sample": "vitest run scripts/run-sample.test.ts",
+    "sample:catalog": "node scripts/sample-catalog.ts --write",
+    "sample:check": "node scripts/sample-catalog.ts --check",
     "sample:run": "node skills/rig/rig.ts",
     "lint": "node skills/rig/eslint/lint.js .",
     "typecheck": "tsc --noEmit"

@@ -136,6 +136,7 @@ Read only when the task needs the listed detail:
 - [Agent API and schemas](./agent-api.md) — spec fields, schema overloads, tools, and invocation options.
 - [Prompt intents](./prompt-intents.md) — complete helper semantics, dynamic inputs, writes, and failure behavior.
 - [Composition and addons](./composition.md) — delegation patterns, dynamic sets, repair, steering, and addon lifecycle.
+- [Sample catalog](./samples.md) — find the closest pattern and task family before creating a new example; read its linked programs to avoid duplicate lessons.
 - [Dynamic workflows](./dynamic-workflows.md) — bounded fan-out, failure semantics, limits, budget, events, and convergence loops.
 - [Claude workflow conversion](./claude-workflow-conversion.md) — mapping Claude Code dynamic-workflow scripts onto rig primitives, including model selection and the Anthropic engine.
 - [Running programs](./runtime.md) — launch essentials, stdin, typechecking, and SDK credential forwarding.
