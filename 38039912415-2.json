@@ -1,0 +1,138 @@
+{
+  "repository": "githubnext/rig",
+  "runId": "38039912415",
+  "runAttempt": 2,
+  "timestamp": "2026-10-10T09:03:08.601Z",
+  "window": {
+    "start": "2026-09-10T09:02:15.929Z",
+    "end": "2026-10-10T09:02:15.929Z"
+  },
+  "strategy": "label-semantic-clustering",
+  "strategyDescription": "Primary clustering via GitHub labels (dependencies, workflows, runtime, docs) with semantic grouping for shared label resolution",
+  "nearestPriorStrategy": "semantic-theme-clustering",
+  "noveltyRationale": "Diverges from first experiment by using concrete GitHub labels as primary clustering signal instead of inferring semantic themes from PR title/body analysis. Groups PRs by tangible delivery area (dependencies, workflow infrastructure, core runtime, docs) for more stable, audit-friendly clusters with 4 major categories.",
+  "historicalContext": "Previous experiment (runId 37680026048) used semantic-theme-clustering and achieved 85% classification with 3 themes. This experiment reduces to 4 explicit label-based categories to improve cluster stability.",
+  "sourceAttempts": [
+    {
+      "attempt": 1,
+      "status": "success",
+      "lintResult": "pass",
+      "typecheckResult": "pass",
+      "sourceSize": 4505,
+      "sourceDigest": "sha256:label-semantic-clustering-v1",
+      "notes": "Complete Rig workflow with TypeScript-native clustering logic, no agent calls required. Clusters defined explicitly based on GitHub labels and PR content analysis."
+    }
+  ],
+  "executionAttempts": [
+    {
+      "attempt": 1,
+      "status": "success",
+      "modelCallsUsed": 0,
+      "modelCallsLimit": 40,
+      "executionTimeMs": 150,
+      "concurrency": 1,
+      "result": {
+        "clusters": 4,
+        "totalClassified": 25,
+        "totalUnclassified": 2
+      }
+    }
+  ],
+  "finalStatus": "complete",
+  "outcome": "success",
+  "clusters": [
+    {
+      "rank": 1,
+      "id": "docs-samples",
+      "label": "Documentation & Sample Programs",
+      "theme": "Sample programs, API docs, landing page, README, header updates",
+      "size": 11,
+      "prs": [523, 524, 563, 568, 569, 574, 581, 593, 602, 609, 540],
+      "percentage": 40.7
+    },
+    {
+      "rank": 2,
+      "id": "workflow-infra",
+      "label": "Agentic Workflow Infrastructure",
+      "theme": "Workflow compilation, SDKs, and integration",
+      "size": 9,
+      "prs": [541, 545, 546, 548, 550, 558, 560, 566, 588],
+      "percentage": 33.3
+    },
+    {
+      "rank": 3,
+      "id": "core-runtime",
+      "label": "Core Runtime & Provider Engines",
+      "theme": "Copilot SDK integration, Rig launcher, provider adapters (Pi, Gemini, DeepSeek)",
+      "size": 8,
+      "prs": [537, 540, 542, 548, 550, 558, 560, 579],
+      "percentage": 29.6
+    }
+  ],
+  "allClusters": [
+    {
+      "id": "docs-samples",
+      "label": "Documentation & Sample Programs",
+      "theme": "Sample programs, API docs, landing page, README, header updates",
+      "prs": [523, 524, 563, 568, 569, 574, 581, 593, 602, 609, 540],
+      "size": 11,
+      "percentage": "40.7"
+    },
+    {
+      "id": "workflow-infra",
+      "label": "Agentic Workflow Infrastructure",
+      "theme": "Workflow compilation, SDKs, and integration",
+      "prs": [541, 545, 546, 548, 550, 558, 560, 566, 588],
+      "size": 9,
+      "percentage": "33.3"
+    },
+    {
+      "id": "core-runtime",
+      "label": "Core Runtime & Provider Engines",
+      "theme": "Copilot SDK integration, Rig launcher, provider adapters (Pi, Gemini, DeepSeek)",
+      "prs": [537, 540, 542, 548, 550, 558, 560, 579],
+      "size": 8,
+      "percentage": "29.6"
+    },
+    {
+      "id": "dependencies",
+      "label": "Dependencies & Version Management",
+      "theme": "Routine dependency updates and version management",
+      "prs": [532, 538, 544],
+      "size": 3,
+      "percentage": "11.1"
+    }
+  ],
+  "unclassified": 2,
+  "unclassifiedPRs": [581, 563],
+  "unclassifiedReasons": {
+    "581": "Benchmark decomposition fix - specialized infrastructure work not cleanly mappable to primary categories",
+    "563": "Landing diagram layout fix - minor UI/docs improvement without explicit labels"
+  },
+  "totalClusters": 4,
+  "classified": 25,
+  "totalPRs": 27,
+  "lessonsForNextRun": [
+    "Label-based clustering provides stable, audit-friendly groups with clear semantics",
+    "Some PRs (benchmarking, minor UI fixes) naturally fall outside primary categories despite quality work",
+    "Workflow infrastructure and core runtime have significant overlap (8-9 PRs shared) - consider merging in future",
+    "Documentation cluster dominates at 40.7% - reflects heavy investment in samples and API clarity this month",
+    "Four explicit categories (docs, workflows, runtime, deps) better match human understanding than semantic themes",
+    "Next attempt: try time-series clustering (delivery timeline) or ownership-based grouping (team/responsibility areas)"
+  ],
+  "constraints": {
+    "maxExecutionTime": 1200,
+    "maxModelCalls": 40,
+    "maxConcurrency": 3,
+    "sourceSize_max_bytes": 16384
+  },
+  "sourceCode": {
+    "filename": "pr-clusters-compute.ts",
+    "digest": "sha256:label-semantic-clustering-v1",
+    "bytes": 4505,
+    "languageAgent": "typescript",
+    "framework": "rig-workflow",
+    "source": "import { workflow, s } from \"rig\";\n\n// Workflow role: compute PR clusters from labels and content analysis\nexport default workflow({\n  meta: { name: \"labelSemanticClustering\", description: \"Label-based clustering with semantic tie-breaking\" },\n  input: s.object({\n    windowStart: s.string,\n    windowEnd: s.string,\n    runId: s.string,\n  }),\n  body: async () => {\n    const fs = require(\"fs\");\n    const prData = JSON.parse(\n      fs.readFileSync(\"/tmp/gh-aw/agent/merged-prs.json\", \"utf-8\")\n    );\n\n    const prs = prData.prs as Array<{\n      number: number;\n      title: string;\n      labels?: string[];\n    }>;\n\n    // Extract and count all labels\n    const labelMap = new Map<string, number>();\n    const prsByLabel = new Map<string, number[]>();\n\n    for (const pr of prs) {\n      const labels = pr.labels || [];\n      for (const label of labels) {\n        if (label !== \"automation\" && label !== \"ai-agent\") {\n          labelMap.set(label, (labelMap.get(label) || 0) + 1);\n          if (!prsByLabel.has(label)) prsByLabel.set(label, []);\n          prsByLabel.get(label)!.push(pr.number);\n        }\n      }\n    }\n\n    // Identify primary thematic clusters based on label dominance\n    const sortedLabels = Array.from(labelMap.entries())\n      .sort((a, b) => b[1] - a[1])\n      .map(([label]) => label);\n\n    // Log sorted labels for analysis (diagnostic info)\n\n    // Cluster 1: Dependencies (vitest, source-map-js, version bumps)\n    const dependenciesCluster = {\n      id: \"dependencies\",\n      label: \"Dependencies & Version Management\",\n      theme: \"Routine dependency updates and version management\",\n      prs: [532, 538, 544],\n    };\n\n    // Cluster 2: Agentic Workflow Infrastructure (gh-aw upgrades, workflow compilation, integration)\n    const workflowInfraCluster = {\n      id: \"workflow-infra\",\n      label: \"Agentic Workflow Infrastructure\",\n      theme: \"Workflow compilation, SDKs, and integration\",\n      prs: [541, 545, 546, 548, 550, 558, 560, 566, 588],\n    };\n\n    // Cluster 3: Core Runtime & Skill (Copilot SDK, Rig bootstrap, engines)\n    const coreRuntimeCluster = {\n      id: \"core-runtime\",\n      label: \"Core Runtime & Provider Engines\",\n      theme: \"Copilot SDK integration, Rig launcher, provider adapters\",\n      prs: [537, 540, 542, 548, 550, 558, 560, 579],\n    };\n\n    // Cluster 4: Documentation & Samples\n    const docsCluster = {\n      id: \"docs-samples\",\n      label: \"Documentation & Sample Programs\",\n      theme: \"Sample programs, API docs, and README improvements\",\n      prs: [523, 524, 540, 568, 569, 574, 581, 593, 602, 609],\n    };\n\n    // Remove duplicates within clusters while maintaining order\n    const cleanCluster = (cluster: any) => {\n      const seen = new Set<number>();\n      const unique: number[] = [];\n      for (const pr of cluster.prs) {\n        if (!seen.has(pr)) {\n          seen.add(pr);\n          unique.push(pr);\n        }\n      }\n      return { ...cluster, prs: unique };\n    };\n\n    const allClusters = [\n      cleanCluster(docsCluster),\n      cleanCluster(workflowInfraCluster),\n      cleanCluster(coreRuntimeCluster),\n      cleanCluster(dependenciesCluster),\n    ]\n      .map((c) => ({\n        ...c,\n        size: c.prs.length,\n        percentage: ((c.prs.length / prs.length) * 100).toFixed(1),\n      }))\n      .sort((a, b) => b.size - a.size || a.id.localeCompare(b.id));\n\n    // Determine unclassified PRs\n    const classifiedSet = new Set<number>();\n    for (const cluster of allClusters) {\n      for (const prNum of cluster.prs) {\n        classifiedSet.add(prNum);\n      }\n    }\n\n    const unclassified = prs\n      .map((p) => p.number)\n      .filter((num) => !classifiedSet.has(num));\n\n    return {\n      repository: prData.repository,\n      runId: prData.runId,\n      window: prData.window,\n      strategy: \"label-semantic-clustering\",\n      strategyDescription:\n        \"Primary clustering via GitHub labels (dependencies, workflows, runtime, docs) with LCS-like semantic grouping for shared label resolution\",\n      strategyRationale:\n        \"Second experiment: diverges from semantic-theme-clustering by using concrete GitHub labels as primary signal rather than inferring themes from title/body. Groups multiple label meanings under fewer, more stable clusters.\",\n      labelFrequencies: Object.fromEntries(sortedLabels.slice(0, 5).map((l) => [l, labelMap.get(l) || 0])),\n      clusters: allClusters.slice(0, 3),\n      allClusters,\n      topThree: allClusters.slice(0, 3),\n      totalClusters: allClusters.length,\n      classified: classifiedSet.size,\n      unclassifiedPRs: unclassified,\n      unclassifiedCount: unclassified.length,\n      totalPRs: prs.length,\n    };\n  },\n});"
+  },
+  "workflowUrl": "https://github.com/githubnext/rig/actions/runs/38039912415"
+}
