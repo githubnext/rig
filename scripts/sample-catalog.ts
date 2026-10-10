@@ -196,7 +196,7 @@ export function checkCatalog(samples: Sample[], retirements: Retirement[]): void
   }
 }
 
-export function renderCatalog(samples: Sample[], retirements: Retirement[]): string {
+export function renderCatalog(samples: Sample[]): string {
   const markdownCount = samples.filter((sample) => sample.format === "markdown").length;
   const lines = [
     "# Sample catalog",
@@ -250,12 +250,7 @@ export function renderCatalog(samples: Sample[], retirements: Retirement[]): str
     "Keep variants that demonstrate a materially different input contract, side effect, tool behavior, provider, or coordination strategy. Exact program copies within one format are rejected by `npm run sample:check`; semantic duplicates still require reviewing the nearest family members.",
     "Before adding a sample, read the closest programs and explain the missing lesson. Update an existing example instead of adding a cosmetic variant. Regenerate this catalog and run `npm run sample:check`.",
     "The daily generator uses `scripts/sample-themes.ts` to seed diverse domain / artifact / constraint combinations, remembers recent theme IDs, and reports its replayable random seed. A new theme is not permission to repeat an existing lesson.",
-    "", "## Retired duplicates", "",
-    "Numbers are not reused or renumbered. These replacements preserve the distinct lesson; the original files remain available in Git history.",
-    "", "| Removed | Retained |", "|---------|----------|");
-  for (const { removed, retained } of retirements) {
-    lines.push(`| ${basename(removed)} | [${basename(retained)}](${relative("skills/rig", retained)}) |`);
-  }
+  );
   return `${lines.join("\n")}\n`;
 }
 
@@ -287,7 +282,7 @@ function main(): void {
     console.log(JSON.stringify(selected, null, 2));
   } else {
     checkCatalog(samples, retirements);
-    const markdown = renderCatalog(samples, retirements);
+    const markdown = renderCatalog(samples);
     if (values.write) {
       writeFileSync(catalogPath, markdown);
       console.log(`Cataloged ${samples.length} samples in skills/rig/samples.md`);

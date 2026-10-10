@@ -71,7 +71,7 @@ All imports use the `"rig"` path alias (resolved via tsconfig paths + vitest ali
 
 ## Sample guide
 
-- `skills/rig/samples.md` — generated inventory with pattern buckets, topic clusters, task families, and retired sample replacements. Run `npm run sample:catalog` after adding/removing samples; `npm run sample:check` rejects stale inventory and exact duplicates within a format. Review the nearest family before adding a new lesson.
+- `skills/rig/samples.md` — generated inventory with pattern buckets, topic clusters, and task families. Retired sample replacements are tracked separately in `skills/rig/sample-retirements.json`. Run `npm run sample:catalog` after adding/removing samples; `npm run sample:check` rejects stale inventory and exact duplicates within a format. Review the nearest family before adding a new lesson.
 - `20-issue-reproducer.ts` — chained diagnosis, fix planning, and review
 - `36-subagent-delegation.ts` — focused-agent delegation
 - `47-prompt-intents.ts` — prompt intent primitives

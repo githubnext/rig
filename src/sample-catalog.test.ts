@@ -81,17 +81,16 @@ describe("sample catalog", () => {
     expect(first.fingerprint).not.toBe(mutable.fingerprint);
   });
 
-  it("indexes every program exactly once with valid replacement links", () => {
+  it("indexes every program exactly once without a retired duplicate section", () => {
     const root = resolve(import.meta.dirname, "..");
     const samples = readCatalog(root);
     const retirements = JSON.parse(readFileSync(resolve(root, "skills/rig/sample-retirements.json"), "utf8")) as Retirement[];
     checkCatalog(samples, retirements);
-    const catalog = renderCatalog(samples, retirements);
+    const catalog = renderCatalog(samples);
     expect(readFileSync(resolve(root, "skills/rig/samples.md"), "utf8")).toBe(catalog);
+    expect(catalog).not.toContain("## Retired duplicates");
     for (const sample of samples) {
-      expect(catalog.split(`[${sample.path.split("/").at(-1)}]`)).toHaveLength(
-        2 + retirements.filter((retirement) => retirement.retained === sample.path).length,
-      );
+      expect(catalog.split(`[${sample.path.split("/").at(-1)}]`)).toHaveLength(2);
     }
   });
 });

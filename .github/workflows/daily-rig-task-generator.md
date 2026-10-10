@@ -75,8 +75,9 @@ npm run sample:check
 node scripts/sample-catalog.ts --json > /tmp/gh-aw/agent/sample-catalog.json
 ```
 
-Read `skills/rig/samples.md` for pattern buckets, topic clusters, task families, and
-retired replacements. Use the JSON inventory's role comments and exercised APIs to
+Read `skills/rig/samples.md` for pattern buckets, topic clusters, and task families,
+and `skills/rig/sample-retirements.json` for retired replacements.
+Use the JSON inventory's role comments and exercised APIs to
 understand what the programs actually do, including the TypeScript fixtures.
 Filenames alone are not evidence of novelty; some legacy titles are misleading.
 
