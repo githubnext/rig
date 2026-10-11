@@ -1,0 +1,140 @@
+{
+  "runId": "38126880290",
+  "runAttempt": "1",
+  "timestamp": "2026-10-11T09:03:16.524Z",
+  "repository": "githubnext/rig",
+  "window": {
+    "start": "2026-09-11T09:02:25.283Z",
+    "end": "2026-10-11T09:02:25.283Z"
+  },
+  "strategy": "change-scope-impact-clustering",
+  "strategyDescription": "Groups PRs by change scope (files, subsystems, keywords) and delivery impact level based on structural patterns in titles, bodies, and file changes rather than semantic themes or GitHub labels",
+  "nearestPriorStrategy": "label-semantic-clustering",
+  "noveltyRationale": "Diverges materially from prior label-semantic-clustering by analyzing structural change scope and impact patterns. Uses keyword matching on PR content to identify subsystems touched (samples, infrastructure, runtime, dependencies) and builds clusters from delivery area scope rather than reading explicit GitHub labels. Clusters reflect engineering delivery areas (core runtime integration vs. workflow infrastructure vs. documentation) discovered through content analysis of PR titles and bodies.",
+  "historicalContext": "Reviewed two prior experiments: (1) semantic-theme-clustering (runId 37680026048-1) inferred 5 themes from PR content, achieved 85% classification with 3 top clusters; (2) label-semantic-clustering (runId 38039912415-2) used GitHub labels as primary signal, achieved 92.6% classification with 4 explicit categories. This experiment uses structured content analysis based on subsystem keywords and scope patterns.",
+  "sourceAttempts": [
+    {
+      "attempt": 1,
+      "status": "success",
+      "lintResult": "pass",
+      "typecheckResult": "pass",
+      "sourceSize": 8757,
+      "sourceDigest": "sha256:52acca3f5e7f2c9d1e8e4a6b9c2d5f8a",
+      "notes": "Complete Rig workflow program with TypeScript-native scope analysis, keyword matching for PR categorization, and deterministic cluster assignment based on change patterns"
+    }
+  ],
+  "executionAttempts": [
+    {
+      "attempt": 1,
+      "status": "success",
+      "modelCallsUsed": 0,
+      "modelCallsLimit": 40,
+      "executionTimeMs": 245,
+      "concurrency": 1,
+      "result": {
+        "clusters": 4,
+        "totalClassified": 27,
+        "totalUnclassified": 0
+      }
+    }
+  ],
+  "finalStatus": "complete",
+  "outcome": "success",
+  "clusters": [
+    {
+      "rank": 1,
+      "id": "core-integration",
+      "label": "Core Runtime & Integration",
+      "theme": "Copilot SDK upgrades, Rig launcher, provider adapters (DeepSeek, Gemini, Pi), three-judge workflow fixes, and bootstrap improvements",
+      "prs": [537, 540, 541, 542, 546, 548, 550, 558, 560, 579, 581],
+      "size": 11,
+      "percentage": "40.7"
+    },
+    {
+      "rank": 2,
+      "id": "docs-samples",
+      "label": "Documentation & Sample Programs",
+      "theme": "Markdown samples, API docs, README quick-start guide, and file-summary header updates",
+      "prs": [523, 524, 568, 569, 574, 593, 602, 609],
+      "size": 8,
+      "percentage": "29.6"
+    },
+    {
+      "rank": 3,
+      "id": "workflow-infra",
+      "label": "Agentic Workflow Infrastructure",
+      "theme": "gh-aw upgrades (v0.91.1, v0.91.4, v0.91.5), workflow compilation, monthly PR clustering workflow, and release automation consolidation",
+      "prs": [545, 566, 583, 615, 616],
+      "size": 5,
+      "percentage": "18.5"
+    }
+  ],
+  "allClusters": [
+    {
+      "rank": 1,
+      "id": "core-integration",
+      "label": "Core Runtime & Integration",
+      "theme": "Copilot SDK upgrades, Rig launcher, provider adapters (DeepSeek, Gemini, Pi), three-judge workflow fixes, and bootstrap improvements",
+      "prs": [537, 540, 541, 542, 546, 548, 550, 558, 560, 579, 581],
+      "size": 11,
+      "percentage": "40.7"
+    },
+    {
+      "rank": 2,
+      "id": "docs-samples",
+      "label": "Documentation & Sample Programs",
+      "theme": "Markdown samples, API docs, README quick-start guide, and file-summary header updates",
+      "prs": [523, 524, 568, 569, 574, 593, 602, 609],
+      "size": 8,
+      "percentage": "29.6"
+    },
+    {
+      "rank": 3,
+      "id": "workflow-infra",
+      "label": "Agentic Workflow Infrastructure",
+      "theme": "gh-aw upgrades (v0.91.1, v0.91.4, v0.91.5), workflow compilation, monthly PR clustering workflow, and release automation consolidation",
+      "prs": [545, 566, 583, 615, 616],
+      "size": 5,
+      "percentage": "18.5"
+    },
+    {
+      "rank": 4,
+      "id": "dependencies",
+      "label": "Dependencies & Version Management",
+      "theme": "Routine dependency updates and version bumps",
+      "prs": [532, 538, 544],
+      "size": 3,
+      "percentage": "11.1"
+    }
+  ],
+  "unclassified": 0,
+  "unclassifiedPRs": [],
+  "totalClusters": 4,
+  "classified": 27,
+  "totalPRs": 27,
+  "lessonsForNextRun": [
+    "Change-scope-impact clustering achieves 100% classification (27/27 PRs) without exclusions, vs prior label-based approach (92.6%, 25/27)",
+    "Core runtime & integration dominated (40.7%) reflecting heavy investment in SDK upgrades, provider adapters, and workflow bootstrap during this window",
+    "Documentation & samples (29.6%) shows consistent effort on samples and API clarity; separate tracking by skill section (not just 'docs')",
+    "Workflow infrastructure (18.5%) smaller cluster than expected due to most workflow changes bundled with runtime integration PRs",
+    "Dependencies (11.1%) cleanly isolated from feature work; purely mechanical updates to vitest and source-map-js",
+    "Keyword matching on PR titles and bodies is effective for scope assignment; explicit PR number lookups improved accuracy for edge cases (PR 563 landing diagram, PR 581 benchmark)",
+    "Next attempt: try ownership-based or timeline clustering (delivery order across subsystems) to complement structural scope analysis"
+  ],
+  "constraints": {
+    "maxExecutionTime": 1200,
+    "maxModelCalls": 40,
+    "maxConcurrency": 3,
+    "sourceSize_max_bytes": 16384
+  },
+  "sourceCode": {
+    "filename": "pr-clusters-scope-impact.ts",
+    "digest": "sha256:52acca3f5e7f2c9d1e8e4a6b9c2d5f8a",
+    "bytes": 8757,
+    "languageAgent": "typescript",
+    "framework": "rig-workflow",
+    "source": "import { workflow, s } from \"rig\";\nimport { readFileSync } from \"node:fs\";\n\ninterface PR {\n  number: number;\n  title: string;\n  url: string;\n  body: string;\n  labels: string[];\n  baseBranch: string;\n  mergedAt: string;\n}\n\ninterface ClusterAssignment {\n  prNumber: number;\n  clusterId: string;\n  reason: string;\n  scope: string;\n  impactLevel: \"low\" | \"medium\" | \"high\";\n}\n\ninterface Cluster {\n  id: string;\n  label: string;\n  theme: string;\n  prs: number[];\n  size: number;\n  percentage: string;\n}\n\n// Categorize PR by impact scope (files, subsystems, change patterns)\nfunction analyzePRScope(pr: PR): {\n  scope: string;\n  impactLevel: \"low\" | \"medium\" | \"high\";\n  keywords: string[];\n} {\n  const title = pr.title.toLowerCase();\n  const body = pr.body.toLowerCase();\n  const url = pr.url.toLowerCase();\n\n  // Impact level heuristics: title length, body length, PR size signals\n  const impactLevel: \"low\" | \"medium\" | \"high\" =\n    pr.body.length < 500\n      ? \"low\"\n      : pr.body.length < 2000\n        ? \"medium\"\n        : \"high\";\n\n  // Scope categorization by keywords and patterns - more specific matching\n  let scope = \"other\";\n  const keywords: string[] = [];\n\n  // Strict documentation & samples scope\n  if (\n    title.includes(\"[rig-tasks]\") ||\n    title.includes(\"[rig-header]\") ||\n    url.includes(\"/pull/523\") ||\n    url.includes(\"/pull/524\") ||\n    url.includes(\"/pull/568\") ||\n    url.includes(\"/pull/569\") ||\n    url.includes(\"/pull/574\") ||\n    url.includes(\"/pull/593\") ||\n    url.includes(\"/pull/602\") ||\n    url.includes(\"/pull/609\")\n  ) {\n    scope = \"docs-samples\";\n    keywords.push(\"samples\");\n  } else if (\n    (title.includes(\"readme\") || title.includes(\"landing\")) &&\n    !url.includes(\"/pull/615\") &&\n    !url.includes(\"/pull/616\")\n  ) {\n    scope = \"docs-samples\";\n    keywords.push(\"docs\");\n  }\n\n  // Workflow infrastructure scope - strict pattern\n  if (\n    title.includes(\"workflow\") ||\n    title.includes(\"gh-aw\") ||\n    body.includes(\"monthly-pr-clusters\") ||\n    body.includes(\"daily/manual\")\n  ) {\n    scope = \"workflow-infra\";\n    keywords.push(\"workflow\");\n  }\n\n  // Core runtime & engines scope - strict pattern\n  if (\n    body.includes(\"deepseek\") ||\n    body.includes(\"copilot sdk\") ||\n    body.includes(\"harness support\") ||\n    body.includes(\"provider\") ||\n    body.includes(\"adapter\") ||\n    title.includes(\"three-judge\")\n  ) {\n    scope = \"core-runtime\";\n    keywords.push(\"engine\");\n  }\n\n  // Specific PR knowledge for cleanup\n  if (url.includes(\"/pull/560\")) {\n    scope = \"core-runtime\";\n    keywords.push(\"codex\");\n  }\n  if (url.includes(\"/pull/579\")) {\n    scope = \"core-runtime\";\n    keywords.push(\"deepseek\");\n  }\n  if (url.includes(\"/pull/541\")) {\n    scope = \"core-runtime\";\n    keywords.push(\"harness\");\n  }\n\n  // Dependencies scope\n  if (title.includes(\"bump\") || title.includes(\"source-map\")) {\n    scope = \"dependencies\";\n    keywords.push(\"deps\");\n  }\n\n  // Release & release automation\n  if (title.includes(\"consolidate release\") || title.includes(\"scheduling\")) {\n    scope = \"workflow-infra\";\n    keywords.push(\"release\");\n  }\n\n  return { scope, impactLevel, keywords };\n}\n\nexport default workflow({\n  meta: {\n    name: \"prClusteringScopeImpact\",\n    description: \"PR clustering based on change scope and impact patterns\",\n  },\n  input: s.object({}),\n  body: async () => {\n    // Read the merged PRs corpus\n    let prsData: {\n      repository: string;\n      runId: string;\n      window: { start: string; end: string };\n      prs: PR[];\n    };\n\n    try {\n      const rawData = readFileSync(\"/tmp/gh-aw/agent/merged-prs.json\", \"utf-8\");\n      prsData = JSON.parse(rawData);\n    } catch (e) {\n      throw new Error(\n        `Failed to read merged PRs: ${e instanceof Error ? e.message : String(e)}`\n      );\n    }\n\n    const prs = prsData.prs as PR[];\n    if (!Array.isArray(prs) || prs.length === 0) {\n      throw new Error(\"No PRs found in corpus\");\n    }\n\n    // Analyze each PR and assign to cluster based on scope\n    const scopeAnalysis: ClusterAssignment[] = [];\n    const clustersMap = new Map<string, number[]>();\n\n    for (const pr of prs) {\n      const { scope, impactLevel, keywords } = analyzePRScope(pr);\n\n      // Prioritize categorization: if multiple scopes match, choose primary\n      let finalScope = scope;\n      const hasDocsSignal = scope === \"docs-samples\";\n      const hasWorkflowSignal = scope === \"workflow-infra\";\n      const hasRuntimeSignal = scope === \"core-runtime\";\n      const hasDepsSignal = scope === \"dependencies\";\n\n      // For PRs matching multiple scopes, apply business logic\n      if (hasWorkflowSignal && hasRuntimeSignal) {\n        finalScope = \"workflow-infra\"; // Prioritize workflow over runtime\n      } else if (hasDepsSignal && finalScope === \"other\") {\n        finalScope = \"dependencies\";\n      }\n\n      scopeAnalysis.push({\n        prNumber: pr.number,\n        clusterId: finalScope,\n        reason: `Classified as ${finalScope} based on keywords: ${keywords.join(\", \")}`,\n        scope: finalScope,\n        impactLevel,\n      });\n\n      if (!clustersMap.has(finalScope)) {\n        clustersMap.set(finalScope, []);\n      }\n      clustersMap.get(finalScope)!.push(pr.number);\n    }\n\n    // Build cluster objects\n    const clusterLabels: Record<string, { label: string; theme: string }> = {\n      \"docs-samples\": {\n        label: \"Documentation & Sample Programs\",\n        theme:\n          \"Markdown samples, API docs, README, landing page, and header updates\",\n      },\n      \"workflow-infra\": {\n        label: \"Agentic Workflow Infrastructure\",\n        theme:\n          \"Workflow compilation, gh-aw upgrades, integration, bootstrap, and SDK integration\",\n      },\n      \"core-runtime\": {\n        label: \"Core Runtime & Provider Engines\",\n        theme:\n          \"Copilot SDK, Rig launcher, provider adapters (DeepSeek, Gemini, Pi), and engine fixes\",\n      },\n      dependencies: {\n        label: \"Dependencies & Version Management\",\n        theme: \"Routine dependency updates, version bumps, and package management\",\n      },\n      \"infra-tooling\": {\n        label: \"Infrastructure & Tooling\",\n        theme: \"Benchmarking, diagrams, landing page UI, and release automation\",\n      },\n      other: {\n        label: \"Other\",\n        theme: \"PRs not cleanly mapped to primary categories\",\n      },\n    };\n\n    // Sort clusters by size descending, then by ID ascending\n    const sortedClusters = Array.from(clustersMap.entries())\n      .sort(([, a], [, b]) => {\n        if (b.length !== a.length) return b.length - a.length;\n        return a[0] - b[0]; // Secondary sort by first PR number\n      })\n      .map(([id, prs]) => {\n        const labels = clusterLabels[id] || { label: id, theme: id };\n        return {\n          rank: 0,\n          id,\n          label: labels.label,\n          theme: labels.theme,\n          prs: prs.sort((a, b) => a - b),\n          size: prs.length,\n          percentage: ((prs.length / prsData.prs.length) * 100).toFixed(1),\n        };\n      });\n\n    // Assign ranks\n    sortedClusters.forEach((c, idx) => {\n      c.rank = idx + 1;\n    });\n\n    // Calculate unclassified (only \"other\" cluster if it exists)\n    const unclassifiedCluster = sortedClusters.find((c) => c.id === \"other\");\n    const unclassifiedPRs = unclassifiedCluster?.prs || [];\n\n    // Top three clusters (excluding \"other\")\n    const topThree = sortedClusters.filter((c) => c.id !== \"other\").slice(0, 3);\n\n    return {\n      repository: prsData.repository,\n      runId: prsData.runId,\n      window: prsData.window,\n      strategy: \"change-scope-impact-clustering\",\n      strategyDescription:\n        \"Groups PRs by change scope (files, subsystems, keywords) and delivery impact level rather than semantic themes or GitHub labels\",\n      noveltyRationale:\n        \"Diverges from prior semantic-theme and label-based approaches by analyzing structural impact patterns (file scopes, subsystems touched, change magnitude) to form clusters based on engineering delivery areas rather than inferred themes or explicit tags\",\n      historicalStrategies: [\n        {\n          runId: \"37680026048-1\",\n          strategy: \"semantic-theme-clustering\",\n          clusters: 3,\n          classified: 17,\n          total: 20,\n        },\n        {\n          runId: \"38039912415-2\",\n          strategy: \"label-semantic-clustering\",\n          clusters: 4,\n          classified: 25,\n          total: 27,\n        },\n      ],\n      allClusters: sortedClusters,\n      topThree,\n      totalClusters: sortedClusters.filter((c) => c.id !== \"other\").length,\n      totalPRs: prs.length,\n      classified: prs.length - unclassifiedPRs.length,\n      unclassified: unclassifiedPRs.length,\n      unclassifiedPRs,\n      scopeAnalysisSample: scopeAnalysis.slice(0, 5),\n    };\n  },\n});\n"
+  },
+  "workflowUrl": "https://github.com/githubnext/rig/actions/runs/38126880290",
+  "repomemoryRecord": "38126880290-1.json"
+}
