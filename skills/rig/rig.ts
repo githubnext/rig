@@ -759,8 +759,8 @@ function jsonl(value: unknown): string {
   }
 }
 
-function rigEvent(type: string, data?: unknown): { type: string; data?: unknown } {
-  return { type: `rig.${type}`, data };
+function rigEvent(type: string, data?: unknown): { type: string; data?: unknown; created_at: number; timestamp: number } {
+  return { type: `rig.${type}`, data, created_at: Date.now(), timestamp: performance.now() };
 }
 
 function writeDebugLine(line: string): void {
