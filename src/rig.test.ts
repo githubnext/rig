@@ -113,6 +113,7 @@ describe("debug logging", () => {
     expect(JSON.parse(String(fsMocks.writeSync.mock.calls[0]?.[1]))).toEqual({
       type: "rig.agent:turn",
       data: { turn: 1 },
+      created_at: expect.any(Number),
       timestamp: expect.any(Number),
     });
   });
@@ -126,34 +127,43 @@ describe("debug logging", () => {
 
   it("appends a high-resolution performance timestamp as the last field of each record", () => {
     process.env["RIG_DEBUG"] = "*";
+    vi.spyOn(Date, "now")
+      .mockReturnValueOnce(1791896441033)
+      .mockReturnValueOnce(1791896441033)
+      .mockReturnValueOnce(1791896441034);
     vi.spyOn(performance, "now")
       .mockReturnValueOnce(123.456789)
       .mockReturnValueOnce(123.456789)
       .mockReturnValueOnce(123.456790);
     const log = debug("agent:test");
 
-    log({ ok: true, timestamp: "payload timestamp" });
+    log({ ok: true, created_at: "payload creation time", timestamp: "payload timestamp" });
     log();
     log({ ok: false });
 
     const events = fsMocks.writeSync.mock.calls.map(([, line]) => JSON.parse(String(line)));
     expect(events[0]).toEqual({
       type: "rig.agent:test",
-      data: { ok: true, timestamp: "payload timestamp" },
+      data: { ok: true, created_at: "payload creation time", timestamp: "payload timestamp" },
+      created_at: 1791896441033,
       timestamp: 123.456789,
     });
     expect(events[1]).toEqual({
       type: "rig.agent:test",
+      created_at: 1791896441033,
       timestamp: 123.456789,
     });
     expect(events[2].timestamp).toBe(123.456790);
+    expect(events[2].created_at).toBe(1791896441034);
     for (const event of events) {
+      expect(Object.keys(event).slice(-2)).toEqual(["created_at", "timestamp"]);
       expect(Object.keys(event).at(-1)).toBe("timestamp");
     }
   });
 
   it("timestamps serialization error records as their last field", () => {
     process.env["RIG_DEBUG"] = "*";
+    vi.spyOn(Date, "now").mockReturnValue(1791896441033);
     vi.spyOn(performance, "now").mockReturnValue(123.456789);
     const data: { self?: unknown } = {};
     data.self = data;
@@ -164,6 +174,7 @@ describe("debug logging", () => {
     expect(event).toEqual({
       type: "rig.logger.error",
       data: { error: expect.any(String) },
+      created_at: 1791896441033,
       timestamp: 123.456789,
     });
     expect(Object.keys(event).at(-1)).toBe("timestamp");
@@ -235,6 +246,7 @@ describe("debug logging", () => {
     expect(JSON.parse(String(fsMocks.writeSync.mock.calls[0]?.[1]))).toEqual({
       type: "rig.agent:tools",
       data: { agent: "tool-debug", tools: ["lookup"] },
+      created_at: expect.any(Number),
       timestamp: expect.any(Number),
     });
   });
@@ -481,6 +493,7 @@ describe("agent invocation", () => {
     expect(logs[0]).toEqual({
       type: "rig.engine:copilot:event",
       data: { type: "session.idle", data: { done: true } },
+      created_at: expect.any(Number),
       timestamp: expect.any(Number),
     });
     expect(logs[1]).toMatchObject({
