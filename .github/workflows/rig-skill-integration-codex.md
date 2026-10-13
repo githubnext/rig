@@ -22,7 +22,6 @@ engine:
     GH_AW_MODEL_AGENT_CODEX = "gpt-5.3-codex"
     CODEX_API_KEY = "awf-proxy"
 tools:
-  bash: false
   cli-proxy: false
 mcp-servers:
   rig-fixture:
@@ -51,7 +50,7 @@ pre-agent-steps:
         fi
         sleep 1
       done
-      echo "::error::Rig fixture MCP driver did not become ready"
+      echo "::error::Rig fixture MCP driver did not become ready after $attempt attempts"
       exit 1
 post-steps:
   - name: Upload Codex fixture evidence

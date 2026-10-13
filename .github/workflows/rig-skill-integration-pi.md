@@ -11,6 +11,7 @@ permissions:
 model: copilot/gpt-5.3-codex
 engine:
   id: pi
+  version: "1.2.0"
   driver: pi_agent_core_driver.cjs
   config: |
     {

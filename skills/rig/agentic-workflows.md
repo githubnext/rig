@@ -105,7 +105,7 @@ The three-call count covers the Rig scenario, not the outer engine's turns.
 
 ### Other provider adapters
 
-Four additional daily/manual workflows share the same judge rubric, typed
+Four additional workflows share the same judge rubric, typed
 outputs, majority vote, and strict post-step assertions:
 
 | Workflow | Outer engine / Rig adapter | Model / authentication |
@@ -114,6 +114,10 @@ outputs, majority vote, and strict post-step assertions:
 | [DeepSeek Harness](../../.github/workflows/rig-skill-integration-deepseek.md) | DeepSeek Harness headless / `deepseekEngine` | `copilot/gpt-5.3-codex`; `copilot-requests: write` |
 | [Gemini](../../.github/workflows/rig-skill-integration-gemini.md) | Gemini CLI / `geminiEngine` | `gemini-2.5-flash`; repository secret `GEMINI_API_KEY` |
 | [Pi](../../.github/workflows/rig-skill-integration-pi.md) | Pi managed SDK driver / `piEngine` | `copilot/gpt-5.3-codex`; `copilot-requests: write` |
+
+Codex, DeepSeek, and Pi run daily or on manual dispatch. Gemini is manual-only;
+gh-aw 0.91.9 deprecates its Gemini engine. The existing CLI integration remains
+available without migrating it to the experimental Agy engine.
 
 The [shared procedure](../../.github/workflows/shared/rig-three-judges.md)
 provisions Node.js 24 and checkout dependencies. Gemini and DeepSeek launch a
@@ -151,7 +155,7 @@ DeepSeek has no native MCP support in this integration; safe outputs use the
 generated CLI proxy. Its native Bash tool does not enforce gh-aw's command
 allowlist. The outer agent uses workspace-write confinement inside AWF with
 noninteractive approval policy, not unrestricted file access. It declares
-`bash: ["*"]` explicitly because gh-aw 0.91.5 rejects unsupported command
+`bash: ["*"]` explicitly because gh-aw rejects unsupported command
 allowlists; the fixed fixture pipeline is a procedure, not an additional
 sandbox boundary.
 
@@ -159,8 +163,10 @@ Codex pins a model that supports the Responses API; Copilot rejects `auto`
 on that endpoint before the outer engine can invoke Rig.
 Compilation and stub/local-gateway tests do not establish live compatibility.
 The Copilot compatibility adapter disables Codex's native shell tool. Its
-workflow therefore declares `bash: false` and exposes only the fixture-specific
+workflow omits gh-aw's unsupported Codex Bash restriction and exposes the fixture-specific
 `rig-fixture.run_rig` MCP tool through a trusted HTTP driver on the runner.
+The generated Codex configuration retains `"shell_tool": false`; omitting
+`bash: false` does not enable the native shell.
 The driver accepts no source, commands, paths, or credentials; it reads the
 installed skill, launches the checked-in fixture once with an allowlisted
 environment and the non-secret proxy key, validates stdout, and persists it

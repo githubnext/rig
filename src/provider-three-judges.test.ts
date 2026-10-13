@@ -216,7 +216,11 @@ it.each(["codex", "deepseek", "gemini", "pi"])("declares the %s workflow's provi
   expect(markdown).toContain(`id: ${engine === "deepseek" ? "deepseek-harness" : engine}`);
   expect(markdown).toContain(`RIG_JUDGE_ENGINE: ${engine}`);
   expect(markdown).toContain("shared/rig-three-judges.md");
-  expect(markdown).toContain("schedule: daily");
+  if (engine === "gemini") {
+    expect(markdown).not.toContain("schedule:");
+  } else {
+    expect(markdown).toContain("schedule: daily");
+  }
   expect(markdown).toContain("workflow_dispatch:");
   expect(markdown).toContain("strict: true");
   expect(markdown).toContain("skills:\n  - skills/rig");
@@ -265,7 +269,7 @@ it("preserves non-secret Codex fixture settings across shell filtering", () => {
 it("uses a declared fixture-only MCP driver instead of Codex's unsupported native shell", () => {
   const markdown = readFileSync(new URL("../.github/workflows/rig-skill-integration-codex.md", import.meta.url), "utf8");
   const lock = readFileSync(new URL("../.github/workflows/rig-skill-integration-codex.lock.yml", import.meta.url), "utf8");
-  expect(markdown).toContain("bash: false");
+  expect(markdown).not.toContain("bash:");
   expect(markdown).toContain("cli-proxy: false");
   expect(markdown).toContain("allowed: [run_rig]");
   expect(lock).toContain("node .github/drivers/codex-fixture-mcp.ts");

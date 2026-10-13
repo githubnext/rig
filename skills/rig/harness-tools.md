@@ -123,8 +123,8 @@ Pinned primary-source contracts used for this integration:
 
 | Source | Relevant contract |
 | --- | --- |
-| [Pi v1.0.0 SDK](https://github.com/earendil-works/pi/blob/v1.0.0/packages/coding-agent/docs/sdk.md#configuring-a-session) | Resource-loader extension discovery, SDK MCP/codemode setup, `bindExtensions()`, session disposal |
-| [Pi v1.0.0 extensions](https://github.com/earendil-works/pi/blob/v1.0.0/packages/coding-agent/docs/extensions.md#custom-tools) | `registerTool()`, schema validation, throwing on execution failure, cancellation, default direct exposure |
-| [Pi v1.0.0 settings](https://github.com/earendil-works/pi/blob/v1.0.0/packages/coding-agent/docs/settings.md#resources) | Explicit extension paths, absolute paths supported, agent-directory versus project resource resolution |
+| [Pi v1.2.0 SDK](https://github.com/earendil-works/pi/blob/v1.2.0/packages/coding-agent/docs/sdk.md#configuring-a-session) | Resource-loader extension discovery, SDK MCP/codemode setup, `bindExtensions()`, session disposal |
+| [Pi v1.2.0 extensions](https://github.com/earendil-works/pi/blob/v1.2.0/packages/coding-agent/docs/extensions.md#custom-tools) | `registerTool()`, schema validation, throwing on execution failure, cancellation, default direct exposure |
+| [Pi v1.2.0 settings](https://github.com/earendil-works/pi/blob/v1.2.0/packages/coding-agent/docs/settings.md#resources) | Explicit extension paths, absolute paths supported, agent-directory versus project resource resolution |
 | [gh-aw v0.91.2 driver](https://github.com/github/gh-aw/blob/v0.91.2/actions/setup/js/pi_agent_core_driver.cjs) | Managed resource loader and policy extensions, finalized JSONL events |
 | [gh-aw v0.91.2 runtime](https://github.com/github/gh-aw/blob/v0.91.2/actions/setup/js/pi_runtime.cjs) | Host/global SDK resolution, managed settings, skills and MCP configuration |
