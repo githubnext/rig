@@ -113,7 +113,7 @@ describe("debug logging", () => {
     expect(JSON.parse(String(fsMocks.writeSync.mock.calls[0]?.[1]))).toEqual({
       type: "rig.agent:turn",
       data: { turn: 1 },
-      timestamp: expect.any(String),
+      timestamp: expect.any(Number),
     });
   });
 
@@ -124,12 +124,12 @@ describe("debug logging", () => {
     expect(debug("agent:turn").enabled).toBe(false);
   });
 
-  it("appends a precise UTC timestamp as the last field of each record", () => {
+  it("appends a high-resolution performance timestamp as the last field of each record", () => {
     process.env["RIG_DEBUG"] = "*";
-    vi.spyOn(Date.prototype, "toISOString")
-      .mockReturnValueOnce("2026-10-13T13:00:41.033Z")
-      .mockReturnValueOnce("2026-10-13T13:00:41.033Z")
-      .mockReturnValueOnce("2026-10-13T13:00:41.034Z");
+    vi.spyOn(performance, "now")
+      .mockReturnValueOnce(123.456789)
+      .mockReturnValueOnce(123.456789)
+      .mockReturnValueOnce(123.456790);
     const log = debug("agent:test");
 
     log({ ok: true, timestamp: "payload timestamp" });
@@ -140,13 +140,13 @@ describe("debug logging", () => {
     expect(events[0]).toEqual({
       type: "rig.agent:test",
       data: { ok: true, timestamp: "payload timestamp" },
-      timestamp: "2026-10-13T13:00:41.033Z",
+      timestamp: 123.456789,
     });
     expect(events[1]).toEqual({
       type: "rig.agent:test",
-      timestamp: "2026-10-13T13:00:41.033Z",
+      timestamp: 123.456789,
     });
-    expect(events[2].timestamp).toBe("2026-10-13T13:00:41.034Z");
+    expect(events[2].timestamp).toBe(123.456790);
     for (const event of events) {
       expect(Object.keys(event).at(-1)).toBe("timestamp");
     }
@@ -154,6 +154,7 @@ describe("debug logging", () => {
 
   it("timestamps serialization error records as their last field", () => {
     process.env["RIG_DEBUG"] = "*";
+    vi.spyOn(performance, "now").mockReturnValue(123.456789);
     const data: { self?: unknown } = {};
     data.self = data;
 
@@ -163,7 +164,7 @@ describe("debug logging", () => {
     expect(event).toEqual({
       type: "rig.logger.error",
       data: { error: expect.any(String) },
-      timestamp: expect.stringMatching(/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}\.\d{3}Z$/),
+      timestamp: 123.456789,
     });
     expect(Object.keys(event).at(-1)).toBe("timestamp");
   });
@@ -234,7 +235,7 @@ describe("debug logging", () => {
     expect(JSON.parse(String(fsMocks.writeSync.mock.calls[0]?.[1]))).toEqual({
       type: "rig.agent:tools",
       data: { agent: "tool-debug", tools: ["lookup"] },
-      timestamp: expect.any(String),
+      timestamp: expect.any(Number),
     });
   });
 });
@@ -480,7 +481,7 @@ describe("agent invocation", () => {
     expect(logs[0]).toEqual({
       type: "rig.engine:copilot:event",
       data: { type: "session.idle", data: { done: true } },
-      timestamp: expect.any(String),
+      timestamp: expect.any(Number),
     });
     expect(logs[1]).toMatchObject({
       type: "rig.engine:copilot:ask",

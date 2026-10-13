@@ -10,8 +10,8 @@ RIG_DEBUG="engine,agent:turn,-engine:copilot:event" node skills/rig/rig.ts src/p
 ```
 
 Records are `rig.*` JSONL events on stderr, never the final stdout result.
-Each record ends with a `timestamp` field: a UTC ISO 8601 string with
-millisecond precision (for example, `2026-10-13T13:00:41.033Z`).
+Each record ends with a numeric `timestamp` from `performance.now()`: monotonic
+milliseconds since the process time origin, with sub-millisecond precision.
 Do not log credentials. For SDK credential handoff requirements, read
 [Agentic Workflows](./agentic-workflows.md).
 
