@@ -113,6 +113,7 @@ describe("debug logging", () => {
     expect(JSON.parse(String(fsMocks.writeSync.mock.calls[0]?.[1]))).toEqual({
       type: "rig.agent:turn",
       data: { turn: 1 },
+      timestamp: expect.any(String),
     });
   });
 
@@ -121,6 +122,50 @@ describe("debug logging", () => {
 
     expect(debug("engine:copilot:create").enabled).toBe(true);
     expect(debug("agent:turn").enabled).toBe(false);
+  });
+
+  it("appends a precise UTC timestamp as the last field of each record", () => {
+    process.env["RIG_DEBUG"] = "*";
+    vi.spyOn(Date.prototype, "toISOString")
+      .mockReturnValueOnce("2026-10-13T13:00:41.033Z")
+      .mockReturnValueOnce("2026-10-13T13:00:41.033Z")
+      .mockReturnValueOnce("2026-10-13T13:00:41.034Z");
+    const log = debug("agent:test");
+
+    log({ ok: true, timestamp: "payload timestamp" });
+    log();
+    log({ ok: false });
+
+    const events = fsMocks.writeSync.mock.calls.map(([, line]) => JSON.parse(String(line)));
+    expect(events[0]).toEqual({
+      type: "rig.agent:test",
+      data: { ok: true, timestamp: "payload timestamp" },
+      timestamp: "2026-10-13T13:00:41.033Z",
+    });
+    expect(events[1]).toEqual({
+      type: "rig.agent:test",
+      timestamp: "2026-10-13T13:00:41.033Z",
+    });
+    expect(events[2].timestamp).toBe("2026-10-13T13:00:41.034Z");
+    for (const event of events) {
+      expect(Object.keys(event).at(-1)).toBe("timestamp");
+    }
+  });
+
+  it("timestamps serialization error records as their last field", () => {
+    process.env["RIG_DEBUG"] = "*";
+    const data: { self?: unknown } = {};
+    data.self = data;
+
+    debug("agent:test")(data);
+
+    const event = JSON.parse(String(fsMocks.writeSync.mock.calls[0]?.[1]));
+    expect(event).toEqual({
+      type: "rig.logger.error",
+      data: { error: expect.any(String) },
+      timestamp: expect.stringMatching(/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}\.\d{3}Z$/),
+    });
+    expect(Object.keys(event).at(-1)).toBe("timestamp");
   });
 
   it("does not let logging failures affect execution", () => {
@@ -189,6 +234,7 @@ describe("debug logging", () => {
     expect(JSON.parse(String(fsMocks.writeSync.mock.calls[0]?.[1]))).toEqual({
       type: "rig.agent:tools",
       data: { agent: "tool-debug", tools: ["lookup"] },
+      timestamp: expect.any(String),
     });
   });
 });
@@ -434,6 +480,7 @@ describe("agent invocation", () => {
     expect(logs[0]).toEqual({
       type: "rig.engine:copilot:event",
       data: { type: "session.idle", data: { done: true } },
+      timestamp: expect.any(String),
     });
     expect(logs[1]).toMatchObject({
       type: "rig.engine:copilot:ask",
