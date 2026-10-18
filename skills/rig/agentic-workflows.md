@@ -162,11 +162,12 @@ sandbox boundary.
 Codex pins a model that supports the Responses API; Copilot rejects `auto`
 on that endpoint before the outer engine can invoke Rig.
 Compilation and stub/local-gateway tests do not establish live compatibility.
-The Copilot compatibility adapter disables Codex's native shell tool. Its
-workflow omits gh-aw's unsupported Codex Bash restriction and exposes the fixture-specific
-`rig-fixture.run_rig` MCP tool through a trusted HTTP driver on the runner.
-The generated Codex configuration retains `"shell_tool": false`; omitting
-`bash: false` does not enable the native shell.
+The Codex fixture explicitly disables the native shell with `tools.bash: false`
+and exposes the fixture-specific `rig-fixture.run_rig` MCP tool through a trusted
+HTTP driver on the runner.
+The generated Codex configuration retains `"shell_tool": false` and the CLI
+passes `-c features.shell_tool=false`. With gh-aw 0.92.5, omitting `bash: false`
+enables the native shell, so keep the explicit disable for this MCP-only fixture.
 The driver accepts no source, commands, paths, or credentials; it reads the
 installed skill, launches the checked-in fixture once with an allowlisted
 environment and the non-secret proxy key, validates stdout, and persists it
