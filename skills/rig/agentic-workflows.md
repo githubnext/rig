@@ -116,7 +116,7 @@ outputs, majority vote, and strict post-step assertions:
 | [Pi](../../.github/workflows/rig-skill-integration-pi.md) | Pi managed SDK driver / `piEngine` | `copilot/gpt-5.3-codex`; `copilot-requests: write` |
 
 Codex, DeepSeek, and Pi run daily or on manual dispatch. Gemini is manual-only;
-gh-aw 0.91.9 deprecates its Gemini engine. The existing CLI integration remains
+gh-aw 0.92.5 still deprecates its Gemini engine. The existing CLI integration remains
 available without migrating it to the experimental Agy engine.
 
 The [shared procedure](../../.github/workflows/shared/rig-three-judges.md)

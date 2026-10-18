@@ -158,7 +158,7 @@ Gemini CLI is an external prerequisite, pinned to stable 0.63.0 in its workflow.
 DeepSeek Harness is a developer preview: the SDK and its runtime are pinned to
 0.2.0-rc.2 rather than the older SDK `latest` tag or unreleased alpha sources.
 Anthropic calls the API directly, not Claude Code. Repository workflows pin
-Copilot CLI 1.0.98 and compile with gh-aw 0.91.9 (prerelease); the compiler
+Copilot CLI 1.0.98 and compile with gh-aw 0.92.5 (prerelease); the compiler
 separately installs its own Copilot SDK 1.0.16 for sidecar drivers.
 
 The approved npm feeds did not expose the newer GitHub releases for Codex
