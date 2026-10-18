@@ -18,7 +18,7 @@ async function fixture(installed = true) {
   await copyFile(new URL("../skills/rig/run.ts", import.meta.url), resolve(skill, "run.ts"));
   await writeFile(resolve(skill, "package.json"), JSON.stringify({
     type: "module",
-    dependencies: { "@github/copilot-sdk": "1.0.16", "@types/node": "25.9.1" },
+    dependencies: { "@github/copilot-sdk": "1.0.22", "@types/node": "25.9.1" },
   }));
   await writeFile(resolve(skill, "rig.ts"), `
 import "@github/copilot-sdk";

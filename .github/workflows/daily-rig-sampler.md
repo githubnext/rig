@@ -12,7 +12,7 @@ permissions:
   copilot-requests: write
 engine:
   id: copilot
-  version: "1.0.92"
+  version: "1.0.98"
   copilot-sdk: true
 strict: true
 timeout-minutes: 60

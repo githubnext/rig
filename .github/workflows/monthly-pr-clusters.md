@@ -18,7 +18,7 @@ permissions:
 model: small
 engine:
   id: copilot
-  version: "1.0.92"
+  version: "1.0.98"
   copilot-sdk: true
 skills:
   - skills/rig

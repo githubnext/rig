@@ -11,6 +11,7 @@ permissions:
 model: copilot/gpt-5.3-codex
 engine:
   id: codex
+  version: "0.162.1"
   mcp:
     tool-timeout: 4m
   config: |
