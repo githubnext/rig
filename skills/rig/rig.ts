@@ -1,109 +1,58 @@
 /**
- * @file skills/rig/rig.ts @last-analyzed 8d9e978 @edit-time 2026-10-06T17:10:40-07:00
- * @purpose Minimal TypeScript multi-agent harness: typed input/output schemas, prompt intents, sub-agent delegation, workflow orchestration, Copilot SDK runtime
- * @deps @github/copilot-sdk (CopilotClient,RuntimeConnection,approveAll); node:path,url,os,module,fs,fs/promises,child_process,util,async_hooks
+ * @file skills/rig/rig.ts @last-analyzed c00c90c @edit-time 2026-10-13T06:52:32-07:00
+ * @purpose Minimal TypeScript agent harness: typed schemas, prompt intents, addons, workflows, Copilot SDK runtime, launcher CLI
+ * @deps @github/copilot-sdk (CopilotClient,RuntimeConnection,approveAll); node:path,os,module,url,fs,fs/promises,child_process,util,async_hooks
  * T:Json type null|bool|num|str|Json[]|{[k]:Json}
- * T:Schema type StringSchema|NumberSchema|IntegerSchema|BooleanSchema|NullSchema|UnknownSchema|ArraySchema|ObjectSchema|RecordSchema|EnumSchema|OptionalSchema|NullableSchema
- * T:NullableSchema<Inner> type {nullable:true;inner:Inner;description?} accepts inner|null
- * T:InferSchema<T> type TS inference from schema descriptor to runtime type
- * T:AgentInputValue<T> type input accepting raw values or PromptIntent/PromptBuilder at any nesting level
- * T:Simplify<T> type flattens intersection types for display
- * T:ValidationResult type {ok:true}|{ok:false;error:string}
- * T:AgentSpec<I,O> type {name,description,input,output,prompt,addons?,maxTurns?,agents?} agent declaration; agents? enables sub-agent delegation
- * T:AgentFn<I,O> type callable agent with .use(addons) and .spec property
- * T:AgentFactory type (options:AgentOptions)=>Agent|Promise<Agent>
- * T:AgentOptions type {model,systemMessage?,tools?} passed to AgentFactory
- * T:AgentAskOptions type {signal?,outputSchema?} per-ask overrides on Agent.ask
- * T:Agent interface {ask(input,opts?):Promise<string>,close():Promise<void>}
- * T:AgentAddon type middleware (ctx,next)=>Promise<void>; ctx exposes spec,turn,prompt,output,completed,nextPrompt
- * T:AgentAddonContext type context passed to each addon in the chain
- * T:AgentDefinitionFactory type typeof agent (for passing agent constructor as value)
- * T:AgentError class error carrying kind,agent,turn,response,schema,schemaText fields
- * T:CallOptions type {signal?,timeout?,model?,maxTurns?} per-call overrides for AgentFn
- * T:SteeringOptions type {message?:string} options for steering addon
- * T:TimeoutOptions type {timeout:number} options for timeout addon
- * T:AgentRegistration type callback invoked once per unique Agent instance for oncePerAgent
- * T:Tool<TArgs> type ToolConfig+name; created by defineTool
- * T:ToolConfig<TArgs> type {description,parameters,handler}
- * T:ToolHandler<TArgs> type (args:TArgs)=>unknown|Promise<unknown> handler signature
- * T:ToolParameters type Schema|Record<string,unknown> for tool parameter schema
- * T:PromptIntent type declarative placeholder {kind:'bash'|'bashEach'|'read'|'readAll'|'write'|'writeOutput'|'writeInput'|'glob'|'env',…} resolved into prompt text
- * T:PromptBuilder class template-tag result; composes intents+strings into a prompt fragment
- * T:PromptHelpers type shape of exported p object
- * T:PromptVariable<T> type {__rig:'prompt.var';name:string;value:T} named prompt variable
+ * T:Schema type union String|Number|Integer|Boolean|Null|Unknown|Array|Object|Record|Enum|Optional|Nullable schemas
+ * T:InferSchema<T> type TS inference from schema to runtime type; T:Simplify<T> flattens intersections
+ * T:AgentInputValue<T> type input accepting raw values or PromptIntent/PromptBuilder at any depth
+ * T:ValidationResult type {ok:true}|{ok:false;error}; T:JsonSchemaObject plain JSON Schema
+ * T:AgentSpec<I,O> type {name,description,input,output,prompt,addons?,maxTurns?,agents?}; agents? enables sub-agent delegation
+ * T:AgentFn<I,O> type callable (input,CallOptions?)=>Promise<O> with .use(addons) and .spec; T:CallOptions {signal?,timeout?,model?,maxTurns?}
+ * T:AgentFactory/AgentOptions/AgentAskOptions/Agent type engine contract; Agent={ask(input,opts?),close()}
+ * T:AgentAddon/AgentAddonContext type middleware (ctx,next); ctx has spec,turn,prompt,output,completed,nextPrompt
+ * T:SteeringOptions/TimeoutOptions/AgentRegistration type addon option types; T:AgentDefinitionFactory=typeof agent
+ * T:AgentError class kind,agent,turn,response,schema,schemaText
+ * T:Tool/ToolConfig/ToolHandler/ToolParameters type defineTool types
+ * T:PromptIntent type declarative placeholder (bash,read,write,glob,env,...); T:PromptIntentOptions shared opts
+ * T:PromptBuilder class template-tag result; T:PromptHelpers shape of p; T:PromptVariable<T> named binding
  * T:ResponseAnalysisResult type {ok:true;output}|{ok:false;error:AgentError}
- * T:CopilotEngineOptions type CopilotClientOptions minus connection, plus server/token/headers fields
- * T:LaunchOptions type {cwd?,startServer?,typecheck?} options for launchRigProgram
- * T:LauncherIo type {stdin,stdout} override for launcher subprocess
- * T:JsonSchemaObject type {[key:string]:unknown} plain JSON Schema object
- * T:DebugLogger type lazy category-bound logger controlled by RIG_DEBUG
- * T:WorkflowSpec<I,O> type {meta,input,body(ctx)} workflow declaration
- * T:Workflow<I,O> type {meta,inputSchema?,body} compiled workflow object
- * T:WorkflowContext<I> type {input,call,pipeline,parallel,until,phase,log,budget,signal} ambient run context
- * T:WorkflowCall type fn(agent,input,opts?)+.text()+.json()+.workflow() for agent invocation inside workflow
- * T:WorkflowCallOptions type CallOptions+{label?,phase?} per-call workflow overrides
- * T:WorkflowMeta type {name,description,phases?,whenToUse?} workflow metadata
- * T:WorkflowPhase type {title,detail?} phase descriptor
- * T:WorkflowEvent union of run_start|phase_start|agent_start|agent_done|agent_failed|log|warning|run_done|run_failed events
- * T:WorkflowLimits type {concurrency?,maxAgents?,maxWallMs?,warnAgents?} run-time resource limits
- * T:WorkflowBudget type {total,spent(),remaining()} token-free agent-call budget meter
- * T:WorkflowNestedOptions type {signal?,phase?,label?} for nested workflow invocation inside context
- * T:RunWorkflowOptions<I> type {args?,limits?,onEvent?,signal?} options for runWorkflow
- * T:WorkflowLimitError class thrown when WorkflowLimits are exceeded
- * T:UntilOptions type {max,noProgressRounds?} loop control for until()
- * T:UntilStep<S> type (state,round)=>Promise<{state,done?,progressKey?}> step function
- * T:PipelineStage type (prev,item,next)=>Promise<next> pipeline step
- * T:PromptIntentOptions type {cwd?,env?,timeout?,purpose?,signal?} options shared by all p.* helpers
- * s.string/number/integer/boolean/null SchemaHelperFactory primitives; call as value or fn(desc)
- * s.int alias for s.integer; s.nonEmptyString string with minLength:1; s.url string with format:"uri"; s.path string with format:"path"; s.date string with format:"date" validated as YYYY-MM-DD
- * s.positiveInt integer with minimum:1; s.nonNegativeInt integer with minimum:0; s.percent number with minimum:0,maximum:100; NumberSchema/IntegerSchema support minimum/maximum constraints
- * s.array(items,desc?) ArraySchema; s.nonEmptyArray(items,desc?) ArraySchema with minItems:1
- * s.object(props,desc?) ObjectSchema; s.optional(inner) marks field optional; s.nullable(inner) accepts inner|null; use for fixed-key shapes
- * s.record(valSchema,desc?) RecordSchema keyed by string; s.nonEmptyObject(valSchema,desc?) RecordSchema with minProperties:1
- * s.enum(...values|values,desc) EnumSchema; s.literal(value,desc?) EnumSchema single-value; s.unknown unconstrained JSON
+ * T:CopilotEngineOptions type CopilotClientOptions minus connection plus server/token/headers; T:DebugLogger RIG_DEBUG logger
+ * T:LaunchOptions/LauncherIo type launchRigProgram options and io overrides
+ * T:WorkflowSpec/Workflow/WorkflowContext/WorkflowMeta/WorkflowPhase/WorkflowEvent/WorkflowLimits/WorkflowBudget type workflow model
+ * T:WorkflowCall/WorkflowCallOptions/WorkflowNestedOptions/RunWorkflowOptions/UntilOptions/UntilStep/PipelineStage type workflow helpers
+ * T:WorkflowLimitError class thrown when limits exceeded
+ * s.string/number/integer/boolean/null primitives; call as value or fn(desc); s.int alias; s.unknown unconstrained
+ * s.nonEmptyString/url/path/date string refinements; s.positiveInt/nonNegativeInt/percent numeric refinements
+ * s.array(items,desc?)/s.nonEmptyArray ArraySchema; s.object(props,desc?) ObjectSchema; s.record(val,desc?)/s.nonEmptyObject RecordSchema
+ * s.optional(inner) optional field; s.nullable(inner) inner|null; s.enum(...values|values,desc?) EnumSchema; s.literal(v,desc?)
  * p`...` PromptBuilder template tag; interpolates PromptIntent|string|PromptBuilder
- * p.bash(cmd,opts?) PromptIntent bash declaration; p.bashRaw`cmd` tagged-template variant (no TS escape)
- * p.read(path,opts?) PromptIntent file read; p.readOptional(path,fallback?,opts?) read with fallback
- * p.readAll(paths,opts?) multi-file read; p.readInput(field) reads path from input field; p.readAllInput(field) reads array of paths
- * p.write(path,content,opts?) file write; p.writeOutput(field,path) writes output field; p.writeInput(pathField,contentField) writes using input path
- * p.glob(pattern,opts?) glob declaration; p.bashEach(template,field,opts?) bash per element in input array
- * p.env(name,fallback?,opts?) env var read; p.json(value) JSON.stringify; p.inputField(field) "input.<field>" reference
- * p.var(name,value) PromptVariable binding; p.region(language,body) fenced code block
- * F:agent(spec) AgentFn<I,O>; spec={name,description,input,output,prompt,addons,maxTurns}
+ * p.bash(cmd,opts?)/p.bashRaw`cmd`/p.bashEach(tpl,field,opts?) bash declarations (not run in-process)
+ * p.read(path,opts?)/readOptional/readAll/readInput(field)/readAllInput(field) file read declarations
+ * p.write(path,content,opts?)/writeOutput(field,path)/writeInput(pathField,contentField) file write declarations
+ * p.glob(pattern,opts?)/p.env(name,fallback?,opts?)/p.json(v)/p.inputField(f)/p.var(name,v)/p.region(lang,body) misc helpers
+ * F:agent(spec) AgentFn<I,O> declaration
  * F:copilotEngine(opts?) AgentFactory wrapping CopilotClient+RuntimeConnection
- * F:configureAgent(factory) sets global AgentFactory used by agent() calls at module scope
- * F:launchRigProgram(path,opts?) runs .ts agent file as subprocess via tsx
- * F:runLauncherCli(opts?) entry-point CLI: parses argv, wires copilotEngine, runs agent
+ * F:configureAgent(factory) sets global AgentFactory
+ * F:launchRigProgram(path,opts?) runs .ts agent file as subprocess; F:runLauncherCli(opts?) CLI entry: argv,engine wiring,run
  * F:defineTool(name,config) Tool with handler+parameters schema
- * F:analyzeResponse(resp,schema,name,turn) ResponseAnalysisResult; tries direct parse, fenced ```json, balanced-brace extraction
+ * F:analyzeResponse(resp,schema,name,turn) ResponseAnalysisResult parse+validate
  * F:defaultRepairPrompt(spec,err) string re-prompt on parse/validation failure
- * F:toJsonSchema(schema) JsonSchemaObject converts Schema to plain JSON Schema
- * F:normalizeResponseSchema(schema) JsonSchemaObject recursively strips unsupported keywords from outputSchema before sending to model [NEW]
- * F:debug(category) creates a lazy category-filtered JSONL logger
- * F:steering(opts?) AgentAddon appends last-turn warning to prompt when model must correct output
- * F:timeout(opts) AgentAddon applies AbortSignal timeout to each turn
- * F:oncePerAgent(register) AgentAddon runs registration callback exactly once per unique Agent instance
- * F:workflow(spec) Workflow<I,O> compiles WorkflowSpec into a reusable Workflow
- * F:runWorkflow(workflow,opts?) runs a Workflow with limits, events, and abort signal
- * F:currentWorkflow() WorkflowContext|undefined returns ambient workflow run context via AsyncLocalStorage
- * F:phase(name) sets ambient workflow phase (no-op outside run)
- * F:log(message) emits structured log event on active workflow run (no-op outside run)
- * F:parallel(tasks) runs array of async tasks concurrently
- * F:pipeline(items,...stages) runs pipeline stages over items concurrently
- * F:until(options,step) loops step until done or max rounds
- * F:repair() AgentAddon re-prompts on JSON/schema failure up to maxTurns
- * addon:repair re-prompts on JSON/schema failure up to maxTurns (built-in via defaultRepairPrompt)
- * addon:steering appends warning on last turn so model knows it must correct output now
- * addon:timeout wraps each turn with AbortSignal from TimeoutOptions.timeout ms
- * addon:oncePerAgent runs AgentRegistration callback once per unique Agent (e.g. tool registration)
- * INV:shape-descriptors JS values promote to schemas ("" → string, 0 → number, [""] → string[])
+ * F:toJsonSchema(schema) JsonSchemaObject; F:normalizeResponseSchema(schema) strips unsupported keywords for model outputSchema
+ * F:debug(category) lazy JSONL logger
+ * F:workflow(spec)/runWorkflow(wf,opts?)/currentWorkflow()/phase(name)/log(msg) workflow API via AsyncLocalStorage
+ * F:parallel(tasks)/pipeline(items,...stages)/until(opts,step) workflow concurrency/loop helpers
+ * addon:repair() re-prompts on JSON/schema failure up to maxTurns (built-in)
+ * addon:steering(opts?) last-turn warning appended to prompt
+ * addon:timeout(opts) AbortSignal timeout per turn
+ * addon:oncePerAgent(register) callback once per unique Agent instance
  * INV:optional-key trailing _ on spec key means optional field
  * INV:prompt-intents p.* are declarative placeholders resolved into prompt text, never executed
  * INV:repair-contract addon intercepts AgentError, appends error to prompt, retries up to maxTurns
- * INV:json-extraction model response is parsed directly as JSON; fallback strategies: extract ```json fenced block, then extract first balanced {…}/[…] value
+ * INV:json-extraction response parsed directly; fallbacks: ```json fence, then first balanced {…}/[…]
  * INV:schema-symbol Schema objects carry private SCHEMA_SYMBOL; toJSON serializes via serializeSchema
- * INV:p-write-no-path p.write() contributes a write instruction to the prompt; it does NOT return the path; hard-code path in agent output
- * INV:workflow-context WorkflowContext is available via currentWorkflow() inside any agent called within runWorkflow
+ * INV:p-write-no-path p.write() adds write instruction only; does not return path
+ * INV:workflow-context currentWorkflow() available inside agents called within runWorkflow
  */
 import { basename, dirname, isAbsolute, resolve } from "node:path";
 import { availableParallelism } from "node:os";
