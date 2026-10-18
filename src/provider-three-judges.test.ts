@@ -266,15 +266,16 @@ it("preserves non-secret Codex fixture settings across shell filtering", () => {
   expect(lock).toContain("GH_AW_MODEL_AGENT_CODEX: gpt-5.3-codex");
 });
 
-it("uses a declared fixture-only MCP driver instead of Codex's unsupported native shell", () => {
+it("uses a declared fixture-only MCP driver instead of Codex's native shell", () => {
   const markdown = readFileSync(new URL("../.github/workflows/rig-skill-integration-codex.md", import.meta.url), "utf8");
   const lock = readFileSync(new URL("../.github/workflows/rig-skill-integration-codex.lock.yml", import.meta.url), "utf8");
-  expect(markdown).not.toContain("bash:");
+  expect(markdown).toContain("  bash: false\n");
   expect(markdown).toContain("cli-proxy: false");
   expect(markdown).toContain("allowed: [run_rig]");
   expect(lock).toContain("node .github/drivers/codex-fixture-mcp.ts");
   expect(lock).toContain("http://host.docker.internal:8766/mcp");
   expect(lock).toContain('"shell_tool":false');
+  expect(lock).toContain("-c features.shell_tool=false");
 });
 
 it("requires the pinned Copilot model in persisted Pi results", async () => {

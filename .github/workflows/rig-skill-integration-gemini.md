@@ -9,7 +9,7 @@ permissions:
 model: gemini-2.5-flash
 engine:
   id: gemini
-  version: "0.62.0"
+  version: "0.63.0"
 tools:
   bash: ["printf", "node"]
 skills:

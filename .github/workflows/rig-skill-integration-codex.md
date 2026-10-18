@@ -11,6 +11,7 @@ permissions:
 model: copilot/gpt-5.3-codex
 engine:
   id: codex
+  version: "0.162.1"
   mcp:
     tool-timeout: 4m
   config: |
@@ -22,6 +23,7 @@ engine:
     GH_AW_MODEL_AGENT_CODEX = "gpt-5.3-codex"
     CODEX_API_KEY = "awf-proxy"
 tools:
+  bash: false
   cli-proxy: false
 mcp-servers:
   rig-fixture:
@@ -79,7 +81,7 @@ Inherit the harness's Codex configuration; do not supply an OpenAI API key,
 replace the proxy endpoint, or change the configured model.
 The explicit shell environment settings preserve only the fixture selector,
 model, config path, and a non-secret proxy placeholder, not upstream credentials.
-The Copilot compatibility adapter disables Codex's native shell tool.
+The workflow explicitly disables Codex's native shell tool with `tools.bash: false`.
 Call the `rig-fixture` server's `run_rig` tool once with `{}` instead of Bash.
 The trusted driver reads the required installed skill files, runs only the
 checked-in fixture, and persists validated output for the post-step.
