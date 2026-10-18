@@ -2,7 +2,7 @@ import { readFileSync, readdirSync } from "node:fs";
 import { expect, it } from "vitest";
 
 const workflowsDirectory = new URL("../.github/workflows/", import.meta.url);
-const workflows = readdirSync(workflowsDirectory).filter(name => name.endsWith(".md"));
+const workflows = readdirSync(workflowsDirectory).filter((name: string) => name.endsWith(".md"));
 const lock = JSON.parse(readFileSync(new URL("../package-lock.json", import.meta.url), "utf8"));
 
 function workflowVersion(name: string): string {
