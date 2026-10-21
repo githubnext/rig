@@ -167,8 +167,11 @@ describe.each(["codex", "deepseek", "gemini"])("%s three-judge fixture", engine 
 });
 
 it("surfaces provider errors without retries", async () => {
-  mocks.run.mockRejectedValueOnce(new Error("Gateway unavailable"));
-  await expect(runWorkflow(createProviderFixture())).rejects.toThrow("Missing or invalid clarity judgment");
+  const cause = new Error("Gateway unavailable");
+  mocks.run.mockRejectedValueOnce(cause);
+  await expect(runWorkflow(createProviderFixture())).rejects.toMatchObject({
+    message: "Missing or invalid clarity judgment", cause,
+  });
   expect(mocks.run).toHaveBeenCalledOnce();
 });
 
@@ -269,13 +272,15 @@ it("preserves non-secret Codex fixture settings across shell filtering", () => {
 it("uses a declared fixture-only MCP driver instead of Codex's native shell", () => {
   const markdown = readFileSync(new URL("../.github/workflows/rig-skill-integration-codex.md", import.meta.url), "utf8");
   const lock = readFileSync(new URL("../.github/workflows/rig-skill-integration-codex.lock.yml", import.meta.url), "utf8");
-  expect(markdown).toContain("  bash: false\n");
+  expect(markdown).toContain('  bash: ["*"]\n');
+  expect(markdown).toContain("[features]\n    shell_tool = false");
   expect(markdown).toContain("cli-proxy: false");
   expect(markdown).toContain("allowed: [run_rig]");
   expect(lock).toContain("node .github/drivers/codex-fixture-mcp.ts");
   expect(lock).toContain("http://host.docker.internal:8766/mcp");
-  expect(lock).toContain('"shell_tool":false');
-  expect(lock).toContain("-c features.shell_tool=false");
+  const config = lock.match(/GH_AW_CODEX_CONFIG_JSON: '([^\n]+)'/)?.[1];
+  expect(config).toBeDefined();
+  expect(JSON.parse(config!).overrides.features.shell_tool).toBe(false);
 });
 
 it("requires the pinned Copilot model in persisted Pi results", async () => {

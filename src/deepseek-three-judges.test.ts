@@ -1,14 +1,17 @@
 import { createServer } from "node:http";
 import { createRequire } from "node:module";
+import { execFile } from "node:child_process";
 import { mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
 import { join } from "node:path";
 import { tmpdir } from "node:os";
+import { promisify } from "node:util";
 import { afterEach, expect, it, vi } from "vitest";
 import { runWorkflow } from "rig";
 import { createProviderFixture } from "../.github/fixtures/provider-fixture.ts";
 import { assertThreeJudges } from "../.github/fixtures/assert-three-judges.ts";
 
 const { runDeepSeekHarness } = createRequire(import.meta.url)("../.github/drivers/deepseek-harness.cjs");
+const execute = promisify(execFile);
 
 afterEach(() => {
   vi.unstubAllEnvs();
@@ -76,9 +79,37 @@ it("runs exactly three real Harness SDK requests through an inherited Copilot ga
     const patch = await readFile(join(directory, ".dsh/cordis.patch.yml"), "utf8");
     expect(patch).not.toContain("must-not-enter-config");
     expect(patch).toContain('"maxRetries": 0');
+    expect(JSON.parse(patch)).toContainEqual({ id: "session-title-llm", disabled: true });
+    expect(JSON.parse(patch)).toContainEqual({
+      id: "permission",
+      config: {
+        presets: { "awf-workspace-write": { sandbox: "workspace-write", approval: "never" } },
+        defaultPreset: "awf-workspace-write",
+      },
+    });
     expect(reflect.resolveProviderEndpointFromReflect).toHaveBeenCalledWith(expect.objectContaining({
       provider: "github",
     }));
+    const outer = await execute(process.execPath, [
+      "node_modules/@deepseek-ai/dsh/lib/bin.js", "--profile", "headless", "Return the judgment JSON.",
+    ], {
+      cwd: process.cwd(),
+      env: {
+        PATH: process.env["PATH"],
+        HOME: directory,
+        DSH_HOME: join(directory, ".dsh"),
+        DSH_PERMISSION_MODE: "workspace-write",
+        DSH_TELEMETRY_DISABLED: "1",
+        DSH_TOOLS_MODE: "native",
+        OPENAI_API_KEY: "awf-proxy",
+      },
+      timeout: 30_000,
+    });
+    expect(outer.stdout).toContain('"decision":"approve"');
+    expect(outer.stderr).not.toContain("configure defaultPreset explicitly");
+    expect(requests).toHaveLength(1);
+    requests.length = 0;
+    authorization.length = 0;
     vi.stubEnv("RIG_JUDGE_ENGINE", "deepseek");
     vi.stubEnv("DSH_MODEL", "copilot/gpt-5.3-codex");
     vi.stubEnv("RIG_JUDGE_MODEL", "copilot/gpt-5.3-codex");

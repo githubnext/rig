@@ -102,6 +102,8 @@ and deterministic majority voting. The post-step fails missing output, invalid
 judgments, or an unexpected verdict. The outer engine also uses `small` because
 its provider configuration determines the model used by SDK sessions.
 The three-call count covers the Rig scenario, not the outer engine's turns.
+Its pre-agent `npm ci` restores the checkout SDK after compiler setup, before
+the custom driver loads it.
 
 ### Other provider adapters
 
@@ -116,7 +118,7 @@ outputs, majority vote, and strict post-step assertions:
 | [Pi](../../.github/workflows/rig-skill-integration-pi.md) | Pi managed SDK driver / `piEngine` | `copilot/gpt-5.3-codex`; `copilot-requests: write` |
 
 Codex, DeepSeek, and Pi run daily or on manual dispatch. Gemini is manual-only;
-gh-aw 0.92.5 still deprecates its Gemini engine. The existing CLI integration remains
+gh-aw 0.92.6 still deprecates its Gemini engine. The existing CLI integration remains
 available without migrating it to the experimental Agy engine.
 
 The [shared procedure](../../.github/workflows/shared/rig-three-judges.md)
@@ -146,11 +148,14 @@ CLI and Rig SDK runtime pin Harness 0.2.0-rc.2. The launcher discovers the
 configured Copilot endpoint through AWF `/reflect`, preserves its API path, and
 writes the `awf-proxy` route to `$DSH_HOME/cordis.patch.yml`; the obsolete
 `settings.yaml` path is not used. SDK judges inherit that home and use only the
-non-secret `awf-proxy` key. Provider retries are disabled. The
+non-secret `awf-proxy` key. Provider retries and automatic session-title
+inference are disabled. The
 fixture uses `RIG_JUDGE_MODEL` because native shell calls discard inherited
 `DSH_*` values and rebuild only managed facts, including `DSH_HOME`. The
 [judge patch](../../.github/fixtures/deepseek-judges.patch.yml) sets a read-only
 file policy and noninteractive denial of operations requiring approval.
+Both layers define named permission presets matching their sandbox mode and
+`never` approval policy; overriding approval alone fails preset initialization.
 DeepSeek has no native MCP support in this integration; safe outputs use the
 generated CLI proxy. Its native Bash tool does not enforce gh-aw's command
 allowlist. The outer agent uses workspace-write confinement inside AWF with
@@ -162,12 +167,13 @@ sandbox boundary.
 Codex pins a model that supports the Responses API; Copilot rejects `auto`
 on that endpoint before the outer engine can invoke Rig.
 Compilation and stub/local-gateway tests do not establish live compatibility.
-The Codex fixture explicitly disables the native shell with `tools.bash: false`
+The Codex fixture disables the native shell with `features.shell_tool = false`
+in `engine.config`
 and exposes the fixture-specific `rig-fixture.run_rig` MCP tool through a trusted
 HTTP driver on the runner.
-The generated Codex configuration retains `"shell_tool": false` and the CLI
-passes `-c features.shell_tool=false`. With gh-aw 0.92.5, omitting `bash: false`
-enables the native shell, so keep the explicit disable for this MCP-only fixture.
+The generated Codex configuration retains that override. gh-aw 0.92.6 rejects
+`bash: false` for Codex, which does not enforce its Bash allowlist; declare
+`bash: ["*"]` and keep the native feature override for this MCP-only fixture.
 The driver accepts no source, commands, paths, or credentials; it reads the
 installed skill, launches the checked-in fixture once with an allowlisted
 environment and the non-secret proxy key, validates stdout, and persists it
@@ -184,3 +190,5 @@ the trusted extension avoids shell parsing without widening the allowlist.
 These smoke tests create no repository changes and disable AI threat analysis
 of safe outputs; the agent job remains read-only and the post-step validates
 the persisted result independently.
+Provider failures are retained as error causes rather than reduced to a generic
+missing judgment; no judge is retried.

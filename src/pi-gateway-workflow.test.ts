@@ -161,6 +161,9 @@ it.each(["success", "bad-json", "empty-reason", "provider-error"].flatMap((scena
       expect(JSON.parse(assertion.stdout)).toEqual(JSON.parse(stdout));
     } else {
       await expect(command).rejects.toThrow("Missing or invalid clarity judgment");
+      if (scenario === "provider-error") {
+        await expect(command).rejects.toThrow("Gateway authentication failed");
+      }
       expect(requests).toHaveLength(1);
       if (launch === "extension") {
         await expect(readFile(path)).rejects.toMatchObject({ code: "ENOENT" });

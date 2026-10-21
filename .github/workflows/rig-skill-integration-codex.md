@@ -15,6 +15,8 @@ engine:
   mcp:
     tool-timeout: 4m
   config: |
+    [features]
+    shell_tool = false
     [mcp_servers.rig-fixture]
     tool_timeout_sec = 240
     [shell_environment_policy.set]
@@ -23,7 +25,7 @@ engine:
     GH_AW_MODEL_AGENT_CODEX = "gpt-5.3-codex"
     CODEX_API_KEY = "awf-proxy"
 tools:
-  bash: false
+  bash: ["*"]
   cli-proxy: false
 mcp-servers:
   rig-fixture:
@@ -81,7 +83,9 @@ Inherit the harness's Codex configuration; do not supply an OpenAI API key,
 replace the proxy endpoint, or change the configured model.
 The explicit shell environment settings preserve only the fixture selector,
 model, config path, and a non-secret proxy placeholder, not upstream credentials.
-The workflow explicitly disables Codex's native shell tool with `tools.bash: false`.
+Codex does not enforce gh-aw Bash allowlists; `bash: ["*"]` avoids claiming one.
+The native shell is disabled explicitly with Codex's `features.shell_tool = false`
+configuration, not through gh-aw's Bash allowlist.
 Call the `rig-fixture` server's `run_rig` tool once with `{}` instead of Bash.
 The trusted driver reads the required installed skill files, runs only the
 checked-in fixture, and persists validated output for the post-step.
