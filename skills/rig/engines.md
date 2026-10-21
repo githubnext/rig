@@ -148,27 +148,30 @@ Rig does not add an approval bypass.
 
 ## Versions and official references
 
-Reviewed on 2026-10-18. Keep stable versions instead of blindly following npm
+Reviewed on 2026-10-21. Keep stable versions instead of blindly following npm
 `latest`, which can select alpha or nightly releases.
-The standalone skill pins Copilot SDK 1.0.22. Repository dependencies cover
-Anthropic SDK 0.129.0, Codex SDK 0.162.1, and Pi agent-core/AI 1.2.0.
+The standalone skill pins Copilot SDK 1.0.24. Repository dependencies cover
+Anthropic SDK 0.133.0, Codex SDK 0.162.1, and Pi agent-core/AI 1.2.0.
 The Codex integration explicitly pins CLI 0.162.1 to match its SDK runtime.
 The Pi integration workflow pins the coding-agent CLI to 1.2.0.
-Gemini CLI is an external prerequisite, pinned to stable 0.63.0 in its workflow.
+Gemini CLI is an external prerequisite, pinned to stable 0.64.0 in its workflow.
 DeepSeek Harness is a developer preview: the SDK and its runtime are pinned to
 0.2.0-rc.2 rather than the older SDK `latest` tag or unreleased alpha sources.
 Anthropic calls the API directly, not Claude Code. Repository workflows pin
-Copilot CLI 1.0.98 and compile with gh-aw 0.92.5 (prerelease); the compiler
-separately installs its own Copilot SDK 1.0.16 for sidecar drivers.
+Copilot CLI 1.0.101 and compile with gh-aw 0.92.6 (prerelease). The compiler
+separately installs Copilot SDK 1.0.16 for sidecar drivers; the checkout-based
+Copilot integration runs `npm ci` in a pre-agent step to restore its own SDK
+before loading the custom driver.
 
 The approved npm feeds did not expose the newer GitHub releases for Codex
-0.163.0, Gemini 0.64.0, Pi 1.3.0, or DeepSeek 0.2.1-rc.2 during this review.
+0.163.0, Pi 1.3.0, or DeepSeek 0.2.1-rc.2 during this review.
 Those upgrades remain pending package availability; Pi retains its existing
-1.2.0 pin rather than downgrading to the feeds' older release.
+1.2.0 pin rather than selecting an unavailable release. The Codex `latest` tag
+still selects an alpha; DeepSeek's `latest` tag selects an older RC.
 
 - [Copilot Node SDK](https://github.com/github/copilot-sdk/blob/main/nodejs/README.md) — transport, sessions, tool registration, response schemas.
 - [Anthropic tool runner](https://github.com/anthropics/anthropic-sdk-typescript/blob/main/src/lib/tools/BetaToolRunner.ts) and [JSON Schema helper](https://github.com/anthropics/anthropic-sdk-typescript/blob/main/src/helpers/beta/json-schema.ts) — beta tool loop; the stable Messages API has no loop.
 - [Codex SDK](https://github.com/openai/codex/blob/rust-v0.162.1/sdk/typescript/README.md) — stable CLI guidance and thread integration.
 - [DeepSeek Harness TypeScript SDK](https://github.com/deepseek-ai/deepseek-harness/blob/dsh-v0.2.0-rc.2/packages/sdk/client/README.md), [SDK protocol](https://github.com/deepseek-ai/deepseek-harness/blob/dsh-v0.2.0-rc.2/packages/sdk/protocol/README.md), and [safety notice](https://github.com/deepseek-ai/deepseek-harness/blob/dsh-v0.2.0-rc.2/SAFETY.md) — stateful sessions, launch options, cancellation limits, runtime safety.
-- [Gemini headless mode](https://github.com/google-gemini/gemini-cli/blob/v0.63.0/docs/cli/headless.md), [CLI flags](https://github.com/google-gemini/gemini-cli/blob/v0.63.0/packages/cli/src/config/config.ts), and [system prompts](https://github.com/google-gemini/gemini-cli/blob/v0.63.0/docs/cli/system-prompt.md) — JSON output, session resume, prompt overrides.
+- [Gemini headless mode](https://github.com/google-gemini/gemini-cli/blob/v0.64.0/docs/cli/headless.md), [CLI flags](https://github.com/google-gemini/gemini-cli/blob/v0.64.0/packages/cli/src/config/config.ts), and [system prompts](https://github.com/google-gemini/gemini-cli/blob/v0.64.0/docs/cli/system-prompt.md) — JSON output, session resume, prompt overrides.
 - [Pi agent core](https://github.com/earendil-works/pi/blob/v1.2.0/packages/agent/README.md) — models, prompting, cancellation.

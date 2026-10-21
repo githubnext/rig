@@ -45,7 +45,15 @@ async function runDeepSeekHarness({ reflect, argv, env, spawn = spawnSync }) {
   const dshHome = join(workspace, ".dsh");
   mkdirSync(dshHome, { recursive: true, mode: 0o700 });
   const patch = [
+    { id: "session-title-llm", disabled: true },
     { id: "approval", config: { policy: "never" } },
+    {
+      id: "permission",
+      config: {
+        presets: { "awf-workspace-write": { sandbox: "workspace-write", approval: "never" } },
+        defaultPreset: "awf-workspace-write",
+      },
+    },
     { id: "agent-default-model", config: { provider: "awf-proxy", model } },
     {
       id: "llm-pi-ai",

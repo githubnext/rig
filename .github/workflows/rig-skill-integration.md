@@ -11,7 +11,7 @@ permissions:
 model: small
 engine:
   id: copilot
-  version: "1.0.98"
+  version: "1.0.101"
   copilot-sdk: true
   driver: .github/drivers/copilot-sdk-driver.ts
 skills:
@@ -28,6 +28,9 @@ tools:
 safe-outputs:
   noop:
     report-as-issue: false
+pre-agent-steps:
+  - name: Restore checkout SDK dependencies after compiler setup
+    run: npm ci
 post-steps:
   - name: Assert the three-judge integration result
     run: |

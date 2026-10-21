@@ -25,11 +25,11 @@
     "typecheck": "tsc --noEmit"
   },
   "devDependencies": {
-    "@anthropic-ai/sdk": "^0.129.0",
+    "@anthropic-ai/sdk": "^0.133.0",
     "@deepseek-ai/dsh-sdk-client": "0.2.0-rc.2",
     "@earendil-works/pi-agent-core": "^1.2.0",
     "@earendil-works/pi-ai": "^1.2.0",
-    "@github/copilot-sdk": "^1.0.22",
+    "@github/copilot-sdk": "^1.0.24",
     "@openai/codex-sdk": "^0.162.1",
     "@types/node": "^25.9.1",
     "postcss": "8.5.28",

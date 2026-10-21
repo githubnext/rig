@@ -10,3 +10,11 @@
 - id: approval
   config:
     policy: never
+
+- id: permission
+  config:
+    presets:
+      awf-read-only:
+        sandbox: read-only
+        approval: never
+    defaultPreset: awf-read-only

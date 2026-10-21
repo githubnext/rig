@@ -82,6 +82,17 @@ describe("Rig skill agentic workflow", () => {
     expect(driver).not.toContain("launcherPath:");
     const shared = readFileSync(new URL("../.github/workflows/shared/rig.md", import.meta.url), "utf8");
     expect(shared).toContain('bash: ["printf", "node"]');
+    expect(markdown).toContain("Restore checkout SDK dependencies after compiler setup\n    run: npm ci");
+  });
+
+  it("restores the checkout SDK after compiler provisioning and before driver execution", () => {
+    const lock = readFileSync(new URL("../.github/workflows/rig-skill-integration.lock.yml", import.meta.url), "utf8");
+    const provisioning = lock.indexOf("npm install --ignore-scripts --no-save @github/copilot-sdk@");
+    const restore = lock.indexOf("name: Restore checkout SDK dependencies after compiler setup");
+    const execution = lock.indexOf("name: Execute GitHub Copilot CLI");
+    expect(provisioning).toBeGreaterThan(-1);
+    expect(restore).toBeGreaterThan(provisioning);
+    expect(execution).toBeGreaterThan(restore);
   });
 
   it.each([program, 'const value = "don\'t expand $HOME, $(exit 42), `exit 42`, %s, \\\\n";\n\n// literal | && ; < >'])(

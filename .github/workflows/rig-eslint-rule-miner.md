@@ -14,7 +14,7 @@ permissions:
   copilot-requests: write
 engine:
   id: copilot
-  version: "1.0.98"
+  version: "1.0.101"
 strict: true
 timeout-minutes: 45
 tools:

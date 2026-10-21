@@ -23,7 +23,7 @@ permissions:
   copilot-requests: write
 engine:
   id: copilot
-  version: "1.0.98"
+  version: "1.0.101"
 strict: true
 concurrency:
   job-discriminator: "${{ github.run_id }}"
