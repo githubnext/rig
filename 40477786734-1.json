@@ -1,0 +1,38 @@
+{
+  "repository": "githubnext/rig",
+  "runId": "40477786734",
+  "runAttempt": "1",
+  "window": {
+    "start": "2026-09-27T09:03:53.318Z",
+    "end": "2026-10-27T09:03:53.318Z"
+  },
+  "workflowUrl": "https://github.com/githubnext/rig/actions/runs/40477786734",
+  "strategy": "tfidf-average-linkage-clustering",
+  "strategyDescription": "Sublinear TF-IDF vectors over PR titles and bodies (URLs, HTML comments, and blockquotes stripped; terms in fewer than two or more than half of PRs dropped), then bottom-up average-linkage merging by cosine similarity until no pair reaches 0.12. No model calls; cluster labels are top-weighted terms.",
+  "nearestPriorStrategy": "change-scope-impact-clustering (38126880290-1)",
+  "noveltyRationale": "Prior runs used GitHub labels, keyword/scope rules, or hand-written cluster membership (two runs hard-coded PR numbers; one simulated execution). This design computes assignments from text statistics with no hand-written membership and no model calls, so the clustering method and evidence representation differ from the keyword-rule approach.",
+  "historyConsulted": ["37680026048-1", "38039912415-2", "38126880290-1"],
+  "sourceAttempts": [
+    {
+      "attempt": 1,
+      "sourceFile": "/tmp/gh-aw/agent/pr-clusters-tfidf-linkage.ts",
+      "sourceBytes": 7069,
+      "sourceDigest": "not-computed (shell access denied before hashing)",
+      "sourceEmbedded": false,
+      "lint": "pass",
+      "typecheck": "fail",
+      "execution": "not_run",
+      "error": "Cannot find package '@github/copilot-sdk' imported from skills/rig/rig.ts; dependency not provisioned in the skill directory and not installed per policy"
+    }
+  ],
+  "executionAttempts": [],
+  "finalStatus": "failed_dependency",
+  "outcome": "incomplete",
+  "clusters": null,
+  "unclassifiedPRs": null,
+  "lessonsForNextRun": [
+    "Confirm @github/copilot-sdk resolves from the skill directory before generating a program; the typecheck gate could not run.",
+    "Archive the verbatim source and its SHA-256 digest in the same run; shell denial prevented both here.",
+    "The TF-IDF average-linkage design (threshold 0.12, term filters) is unvalidated against this corpus."
+  ]
+}
