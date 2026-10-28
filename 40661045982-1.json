@@ -1,0 +1,27 @@
+{
+  "repository": "githubnext/rig",
+  "runId": "40661045982",
+  "runAttempt": "1",
+  "window": {
+    "start": "2026-09-28T09:02:32.429Z",
+    "end": "2026-10-28T09:02:32.429Z"
+  },
+  "workflowUrl": "https://github.com/githubnext/rig/actions/runs/40661045982",
+  "strategy": "none-selected",
+  "strategyDescription": "No strategy was implemented. The run stopped before a Rig program was written or executed.",
+  "nearestPriorStrategy": "not evaluated",
+  "noveltyRationale": "not evaluated: no program was generated",
+  "historyConsulted": ["37680026048-1", "38039912415-2", "38126880290-1", "40477786734-1"],
+  "sourceAttempts": [],
+  "executionAttempts": [],
+  "finalStatus": "blocked_tool_permission",
+  "outcome": "incomplete",
+  "clusters": null,
+  "unclassifiedPRs": null,
+  "failure": "Bash tool calls were rejected by workflow tool permissions (twice: reading rig runtime docs and history records, and reading the corpus and skill directory). Rig launch via printf | node run.ts could not run. The skill directory has no provisioned node_modules, so the SDK dependency could not be confirmed.",
+  "lessonsForNextRun": [
+    "Confirm the workflow allows bash for printf and node, plus read-only file inspection, before starting.",
+    "Confirm @github/copilot-sdk resolves from the installed skill directory before generating a program.",
+    "Corpus window for this run: 2026-09-28T09:02:32Z to 2026-10-28T09:02:32Z, 2 pages fetched, complete true."
+  ]
+}
