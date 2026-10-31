@@ -25,7 +25,7 @@ engine:
       binary-name: dsh
       include-node-setup: true
       post-install-scripts: true
-      cooldown: false
+      cooldown: true
       verify-command: dsh --version
       verify-step-name: Verify DeepSeek Harness installation
     execution:

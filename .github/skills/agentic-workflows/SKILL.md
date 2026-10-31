@@ -58,6 +58,7 @@ If GitHub API, `gh api`, or GitHub MCP downloads return HTTP 403 (including a to
 - `.github/aw/deployment-status.md`
 - `.github/aw/designer-mappings.md`
 - `.github/aw/designer.md`
+- `.github/aw/doctor.md`
 - `.github/aw/documentation-workflows.md`
 - `.github/aw/drive-memory.md`
 - `.github/aw/enclaves.md`
@@ -67,6 +68,7 @@ If GitHub API, `gh api`, or GitHub MCP downloads return HTTP 403 (including a to
 - `.github/aw/github-mcp-server-pagination.md`
 - `.github/aw/github-mcp-server-tools.md`
 - `.github/aw/github-mcp-server.md`
+- `.github/aw/harbor.md`
 - `.github/aw/instructions.md`
 - `.github/aw/intent.md`
 - `.github/aw/jobs.md`
@@ -136,6 +138,7 @@ After loading the matching workflow prompt or skill, follow it directly:
 - Choose workflow architecture and patterns: `.github/aw/patterns.md`
 - Design, deploy, inspect or recover a Git-backed work queue: `.github/aw/work-queue.md`
 - Optimize token usage and cost: `.github/aw/token-optimization.md`
+- Advanced cost controls without native settings (custom AIC allowances by server size or shared organization budget policies): read `docs/src/content/docs/reference/cost-management.md#configure-advanced-cost-controls-with-admission` ([published guidance](https://github.github.com/gh-aw/reference/cost-management/#configure-advanced-cost-controls-with-admission)). Explain the external authority requirement and cooperative limits; do not invent frontmatter fields or promise hard caps, reservations, or mid-run cancellation.
 - Design long-running multi-agent research workflows: `.github/aw/multi-agent-research.md`
 - Add skills or agent plugins requested by the user (`skills:` / `plugins:` frontmatter, never on-the-fly installs): `.github/aw/skills.md`
 

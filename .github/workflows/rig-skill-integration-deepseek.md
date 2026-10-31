@@ -27,6 +27,7 @@ imports:
 strict: true
 timeout-minutes: 15
 env:
+  NPM_CONFIG_MIN_RELEASE_AGE: "3"
   RIG_JUDGE_ENGINE: deepseek
   RIG_JUDGE_MODEL: copilot/gpt-5.3-codex
 ---
