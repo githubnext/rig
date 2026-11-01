@@ -91,6 +91,22 @@ Edit workflows with an agent or use `gh aw compile --watch` for feedback.
 Before committing, run `gh aw compile <workflow-id> --strict` and include the
 generated `.lock.yml`.
 
+### Engine dependency upgrades
+
+Select stable SDK and CLI releases published at least 72 hours ago. Keep Codex
+and Pi CLI pins aligned with their locked SDK versions, and keep the standalone
+skill's Copilot SDK pin aligned with the repository dependency. DeepSeek has no
+stable release yet, so retain its existing RC rather than selecting a newer preview.
+
+The repository and standalone skill set `min-release-age=3` (days) in `.npmrc`.
+Workflow-level `NPM_CONFIG_MIN_RELEASE_AGE: "3"` also covers global CLI installs,
+which ignore project `.npmrc`, and no-checkout workflows. Keep DeepSeek's
+declarative installation `cooldown: true`. This is dependency release age, not
+`on.cooldown`, which delays workflow execution.
+
+Review release notes, regenerate npm and workflow lockfiles, and keep the setup
+compiler version synchronized with the generated metadata.
+
 ## Testing the checkout's skill
 
 Declare `skills: [skills/rig]` to install the current checkout instead of a
@@ -118,7 +134,7 @@ outputs, majority vote, and strict post-step assertions:
 | [Pi](../../.github/workflows/rig-skill-integration-pi.md) | Pi managed SDK driver / `piEngine` | `copilot/gpt-5.3-codex`; `copilot-requests: write` |
 
 Codex, DeepSeek, and Pi run daily or on manual dispatch. Gemini is manual-only;
-gh-aw 0.92.6 still deprecates its Gemini engine. The existing CLI integration remains
+gh-aw 1.0.1 still deprecates its Gemini engine. The existing CLI integration remains
 available without migrating it to the experimental Agy engine.
 
 The [shared procedure](../../.github/workflows/shared/rig-three-judges.md)

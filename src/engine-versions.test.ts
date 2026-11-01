@@ -41,6 +41,28 @@ it.each(workflows)("keeps %s engine pins and compiled installations synchronized
   }
 });
 
+it.each(workflows)("enforces the three-day npm cooldown in %s and its compiled workflow", name => {
+  const source = readFileSync(new URL(name, workflowsDirectory), "utf8");
+  const compiled = readFileSync(new URL(name.replace(/\.md$/, ".lock.yml"), workflowsDirectory), "utf8");
+  for (const content of [source, compiled]) {
+    const env = content.match(/^env:\n((?:[ \t]+[^\n]*\n)+)/m)?.[1];
+    expect(env).toMatch(/^  NPM_CONFIG_MIN_RELEASE_AGE: ["']3["']$/m);
+    expect(content).not.toMatch(/^\s+NPM_CONFIG_MIN_RELEASE_AGE: ["']?0["']?$/m);
+  }
+});
+
+it.each(["../.npmrc", "../skills/rig/.npmrc"])("enforces the three-day cooldown in %s", path => {
+  const config = readFileSync(new URL(path, import.meta.url), "utf8");
+  expect(config).toMatch(/^min-release-age=3$/m);
+  expect(config).not.toContain("min-release-age-exclude");
+});
+
+it("keeps the declarative DeepSeek installation under the dependency cooldown", () => {
+  const source = readFileSync(new URL("shared/deepseek-harness.md", workflowsDirectory), "utf8");
+  expect(source).toContain("      cooldown: true");
+  expect(source).not.toContain("      cooldown: false");
+});
+
 it.each([
   ["codex", "@openai/codex-sdk"],
   ["codex", "@openai/codex"],
@@ -56,4 +78,16 @@ it("keeps the standalone Copilot SDK aligned with the repository SDK", () => {
   const skill = JSON.parse(readFileSync(new URL("../skills/rig/package.json", import.meta.url), "utf8"));
   expect(skill.dependencies["@github/copilot-sdk"])
     .toBe(lock.packages["node_modules/@github/copilot-sdk"].version);
+});
+
+it.each([
+  "@anthropic-ai/sdk",
+  "@deepseek-ai/dsh-sdk-client",
+  "@earendil-works/pi-agent-core",
+  "@earendil-works/pi-ai",
+  "@github/copilot-sdk",
+  "@openai/codex-sdk",
+])("pins %s to the tested lockfile version", packageName => {
+  const manifest = JSON.parse(readFileSync(new URL("../package.json", import.meta.url), "utf8"));
+  expect(manifest.devDependencies[packageName]).toBe(lock.packages[`node_modules/${packageName}`].version);
 });

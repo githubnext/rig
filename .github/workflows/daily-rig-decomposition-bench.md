@@ -19,9 +19,11 @@ permissions:
   copilot-requests: write
 engine:
   id: copilot
-  version: "1.0.101"
+  version: "1.0.105"
   copilot-sdk: true
 strict: true
+env:
+  NPM_CONFIG_MIN_RELEASE_AGE: "3"
 timeout-minutes: 55
 checkout: false
 skills:

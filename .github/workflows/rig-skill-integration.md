@@ -11,7 +11,7 @@ permissions:
 model: small
 engine:
   id: copilot
-  version: "1.0.101"
+  version: "1.0.105"
   copilot-sdk: true
   driver: .github/drivers/copilot-sdk-driver.ts
 skills:
@@ -21,6 +21,7 @@ imports:
 strict: true
 timeout-minutes: 10
 env:
+  NPM_CONFIG_MIN_RELEASE_AGE: "3"
   RIG_DEBUG: "agent:failure,workflow:event"
 tools:
   bash: ["printf", "node"]

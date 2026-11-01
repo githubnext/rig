@@ -14,8 +14,10 @@ permissions:
   copilot-requests: write
 engine:
   id: copilot
-  version: "1.0.101"
+  version: "1.0.105"
 strict: true
+env:
+  NPM_CONFIG_MIN_RELEASE_AGE: "3"
 timeout-minutes: 45
 tools:
   github:

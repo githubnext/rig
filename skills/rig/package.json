@@ -6,7 +6,7 @@
     "node": ">=24"
   },
   "dependencies": {
-    "@github/copilot-sdk": "1.0.24",
+    "@github/copilot-sdk": "1.0.28",
     "@types/node": "25.9.1"
   },
   "exports": {

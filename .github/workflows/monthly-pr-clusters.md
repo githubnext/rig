@@ -18,13 +18,15 @@ permissions:
 model: small
 engine:
   id: copilot
-  version: "1.0.101"
+  version: "1.0.105"
   copilot-sdk: true
 skills:
   - skills/rig
 imports:
   - shared/rig.md
 strict: true
+env:
+  NPM_CONFIG_MIN_RELEASE_AGE: "3"
 timeout-minutes: 40
 concurrency:
   group: monthly-pr-clusters

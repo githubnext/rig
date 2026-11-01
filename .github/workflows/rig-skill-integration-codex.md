@@ -11,7 +11,7 @@ permissions:
 model: copilot/gpt-5.3-codex
 engine:
   id: codex
-  version: "0.162.1"
+  version: "0.164.0"
   mcp:
     tool-timeout: 4m
   config: |
@@ -72,6 +72,7 @@ imports:
 strict: true
 timeout-minutes: 15
 env:
+  NPM_CONFIG_MIN_RELEASE_AGE: "3"
   RIG_JUDGE_ENGINE: codex
 ---
 

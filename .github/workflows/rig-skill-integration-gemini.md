@@ -9,7 +9,7 @@ permissions:
 model: gemini-2.5-flash
 engine:
   id: gemini
-  version: "0.64.0"
+  version: "0.65.0"
 tools:
   bash: ["printf", "node"]
 skills:
@@ -19,6 +19,7 @@ imports:
 strict: true
 timeout-minutes: 15
 env:
+  NPM_CONFIG_MIN_RELEASE_AGE: "3"
   RIG_JUDGE_ENGINE: gemini
 ---
 

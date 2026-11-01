@@ -11,7 +11,7 @@ permissions:
 model: copilot/gpt-5.3-codex
 engine:
   id: pi
-  version: "1.2.0"
+  version: "1.4.0"
   driver: pi_agent_core_driver.cjs
   config: |
     {
@@ -28,6 +28,7 @@ imports:
 strict: true
 timeout-minutes: 15
 env:
+  NPM_CONFIG_MIN_RELEASE_AGE: "3"
   RIG_JUDGE_ENGINE: pi
 ---
 

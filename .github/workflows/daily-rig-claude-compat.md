@@ -16,9 +16,11 @@ permissions:
 model: claude-sonnet-4.6
 engine:
   id: copilot
-  version: "1.0.101"
+  version: "1.0.105"
   max-continuations: 6
 strict: true
+env:
+  NPM_CONFIG_MIN_RELEASE_AGE: "3"
 timeout-minutes: 45
 tools:
   github:
