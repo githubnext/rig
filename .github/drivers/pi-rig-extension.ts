@@ -1,11 +1,10 @@
 import { execFile } from "node:child_process";
 import { rm, writeFile } from "node:fs/promises";
 import { join } from "node:path";
-import { Type } from "@earendil-works/pi-ai";
 import type { AgentTool } from "@earendil-works/pi-agent-core";
 import { assertThreeJudges } from "../fixtures/assert-three-judges.ts";
 
-const parameters = Type.Object({}, { additionalProperties: false });
+const parameters = { type: "object", properties: {}, additionalProperties: false } as const;
 type PiRigTool = AgentTool<typeof parameters, unknown>;
 type PiRigOptions = {
   cwd: string;
@@ -31,7 +30,9 @@ export function createPiRigTool(options: PiRigOptions): PiRigTool {
     async execute(_toolCallId, args, signal) {
       if (invoked) throw new Error("The integration fixture may only be launched once");
       invoked = true;
-      if (Object.keys(args).length) throw new TypeError("run_rig takes no arguments");
+      if (!args || typeof args !== "object" || Array.isArray(args) || Object.keys(args).length) {
+        throw new TypeError("run_rig takes no arguments");
+      }
       signal?.throwIfAborted();
       await rm(options.outputPath, { force: true });
       const stdout = await new Promise<string>((resolve, reject) => {

@@ -9,7 +9,7 @@ permissions:
 model: gemini-2.5-flash
 engine:
   id: gemini
-  version: "0.65.0"
+  version: "0.68.0"
 tools:
   bash: ["printf", "node"]
 skills:
@@ -20,6 +20,7 @@ strict: true
 timeout-minutes: 15
 env:
   NPM_CONFIG_MIN_RELEASE_AGE: "3"
+  NPM_CONFIG_REGISTRY: "https://packagefeedproxy.microsoft.io/npm/"
   RIG_JUDGE_ENGINE: gemini
 ---
 

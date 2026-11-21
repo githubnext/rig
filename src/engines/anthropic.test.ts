@@ -181,7 +181,7 @@ it("supports nested typed properties, arrays, enums, and nullable fields", async
       type: "array",
       items: { type: "object", properties: { ok: { type: "boolean" } }, additionalProperties: false },
     },
-    status: expect.objectContaining({ type: "string" }),
+    status: { enum: ["ok", "failed"] },
     reason: { anyOf: [{ type: "string" }, { type: "null" }] },
   });
 });

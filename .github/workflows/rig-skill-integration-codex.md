@@ -11,7 +11,7 @@ permissions:
 model: copilot/gpt-5.3-codex
 engine:
   id: codex
-  version: "0.164.0"
+  version: "0.169.0"
   mcp:
     tool-timeout: 4m
   config: |
@@ -73,6 +73,7 @@ strict: true
 timeout-minutes: 15
 env:
   NPM_CONFIG_MIN_RELEASE_AGE: "3"
+  NPM_CONFIG_REGISTRY: "https://packagefeedproxy.microsoft.io/npm/"
   RIG_JUDGE_ENGINE: codex
 ---
 
