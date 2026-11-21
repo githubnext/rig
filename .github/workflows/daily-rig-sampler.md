@@ -12,7 +12,7 @@ permissions:
   copilot-requests: write
 engine:
   id: copilot
-  version: "1.0.113"
+  version: "1.0.103"
   copilot-sdk: true
 strict: true
 env:
