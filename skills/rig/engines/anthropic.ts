@@ -41,6 +41,8 @@ export function anthropicEngine(options: AnthropicEngineOptions = {}): AgentFact
             max_tokens: maxTokens,
             messages: requestMessages,
             tools,
+            // Rig owns the transcript; don't create SDK-managed server-side threads.
+            thread: false,
             ...(maxIterations !== undefined && { max_iterations: maxIterations }),
             ...(systemMessage !== undefined && { system: systemMessage }),
             ...(outputFormat !== undefined && {

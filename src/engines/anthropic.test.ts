@@ -56,6 +56,7 @@ it("creates an Anthropic tool runner and preserves its conversation", async () =
     messages: [{ role: "user", content: "first" }],
     system: "Be concise.",
     tools: [],
+    thread: false,
   }, { signal: expect.any(AbortSignal) });
   const requestSignal = mocks.toolRunner.mock.calls[0]![1].signal as AbortSignal;
   expect(requestSignal.aborted).toBe(false);
@@ -123,6 +124,7 @@ it("uses Anthropic request defaults and returns all text blocks", async () => {
     max_tokens: 8192,
     messages: [{ role: "user", content: "hello" }],
     tools: [],
+    thread: false,
   }, { signal: expect.any(AbortSignal) });
 });
 
