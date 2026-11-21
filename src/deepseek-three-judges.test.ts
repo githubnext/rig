@@ -17,31 +17,39 @@ afterEach(() => {
   vi.unstubAllEnvs();
 });
 
-it("runs exactly three real Harness SDK requests through an inherited Copilot gateway route", async () => {
-  const requests: { model: string; messages: { content: unknown }[] }[] = [];
-  const authorization: (string | undefined)[] = [];
+it("uses native Responses for the outer Harness CLI and exactly three inherited SDK judge requests", async () => {
+  const model = "gpt-5.3-codex";
+  const requests: {
+    authorization: string | undefined;
+    body: { model: string; input: unknown; store: boolean };
+  }[] = [];
   const server = createServer(async (request, response) => {
     let body = "";
     for await (const chunk of request) body += chunk;
-    requests.push(JSON.parse(body));
-    authorization.push(request.headers.authorization);
+    if (request.method !== "POST" || request.url !== "/v1/responses") {
+      response.writeHead(400, { "Content-Type": "application/json" });
+      response.end(JSON.stringify({ error: { message: `${model} requires POST /v1/responses` } }));
+      return;
+    }
+    requests.push({ authorization: request.headers.authorization, body: JSON.parse(body) });
     response.writeHead(200, { "Content-Type": "text/event-stream" });
-    const envelope = {
-      id: "mock-completion",
-      object: "chat.completion.chunk",
-      created: 1,
-      model: "gpt-5.3-codex",
+    const text = '{"decision":"approve","reason":"Harmless and practical."}';
+    const item = {
+      id: "judge-message", type: "message", role: "assistant",
+      content: [{ type: "output_text", text, annotations: [] }],
     };
-    response.write(`data: ${JSON.stringify({
-      ...envelope,
-      choices: [{ index: 0, delta: { role: "assistant", content: '{"decision":"approve","reason":"Harmless and practical."}' }, finish_reason: null }],
-    })}\n\n`);
-    response.write(`data: ${JSON.stringify({
-      ...envelope,
-      choices: [{ index: 0, delta: {}, finish_reason: "stop" }],
-      usage: { prompt_tokens: 10, completion_tokens: 10, total_tokens: 20 },
-    })}\n\n`);
-    response.end("data: [DONE]\n\n");
+    for (const event of [
+      { type: "response.created", response: { id: "judge-response", model, status: "in_progress" } },
+      { type: "response.output_item.added", output_index: 0, item: { ...item, content: [] } },
+      { type: "response.content_part.added", output_index: 0, content_index: 0, part: { type: "output_text", text: "", annotations: [] } },
+      { type: "response.output_text.delta", output_index: 0, content_index: 0, delta: text },
+      { type: "response.output_item.done", output_index: 0, item },
+      { type: "response.completed", response: {
+        id: "judge-response", model, status: "completed", output: [item],
+        usage: { input_tokens: 10, output_tokens: 10, total_tokens: 20 },
+      } },
+    ]) response.write(`event: ${event.type}\ndata: ${JSON.stringify(event)}\n\n`);
+    response.end();
   });
   await new Promise<void>(resolve => server.listen(0, "127.0.0.1", resolve));
   const address = server.address();
@@ -108,8 +116,8 @@ it("runs exactly three real Harness SDK requests through an inherited Copilot ga
     expect(outer.stdout).toContain('"decision":"approve"');
     expect(outer.stderr).not.toContain("configure defaultPreset explicitly");
     expect(requests).toHaveLength(1);
+    expect(requests[0]).toMatchObject({ authorization: "Bearer awf-proxy", body: { model, store: false } });
     requests.length = 0;
-    authorization.length = 0;
     vi.stubEnv("RIG_JUDGE_ENGINE", "deepseek");
     vi.stubEnv("DSH_MODEL", "copilot/gpt-5.3-codex");
     vi.stubEnv("RIG_JUDGE_MODEL", "copilot/gpt-5.3-codex");
@@ -120,15 +128,15 @@ it("runs exactly three real Harness SDK requests through an inherited Copilot ga
     expect(shellEnv["RIG_JUDGE_MODEL"]).toBe("copilot/gpt-5.3-codex");
     vi.stubEnv("DSH_MODEL", "");
     vi.stubEnv("DSH_HOME", join(directory, ".dsh"));
+    vi.stubEnv("HOME", directory);
     vi.stubEnv("GITHUB_WORKSPACE", process.cwd());
     const result = await runWorkflow(createProviderFixture());
 
     assertThreeJudges(result, "deepseek");
     expect(requests).toHaveLength(3);
-    expect(authorization).toEqual(["Bearer awf-proxy", "Bearer awf-proxy", "Bearer awf-proxy"]);
     for (const [index, request] of requests.entries()) {
-      expect(request.model).toBe("gpt-5.3-codex");
-      expect(JSON.stringify(request.messages)).toContain(["clarity", "safety", "feasibility"][index]);
+      expect(request).toMatchObject({ authorization: "Bearer awf-proxy", body: { model, store: false } });
+      expect(JSON.stringify(request.body.input)).toContain(["clarity", "safety", "feasibility"][index]);
     }
   } finally {
     await rm(directory, { recursive: true });
