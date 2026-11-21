@@ -23,5 +23,6 @@ jobs:
 
       - name: Run integration tests
         env:
+          RIG_REQUIRE_COPILOT_INTEGRATION: "1"
           COPILOT_GITHUB_TOKEN: ${{ secrets.COPILOT_GITHUB_TOKEN }}
         run: npm run test:integration

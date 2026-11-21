@@ -3,9 +3,17 @@ import { dirname, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import { describe, expect, it } from "vitest";
 
-const token = process.env["COPILOT_GITHUB_TOKEN"];
-const sdkUri = process.env["COPILOT_SDK_URI"];
-const itWithToken = token || sdkUri ? it : it.skip;
+const hasToken = Boolean(process.env["COPILOT_GITHUB_TOKEN"]?.trim());
+const hasSdkUri = Boolean(process.env["COPILOT_SDK_URI"]?.trim());
+const hasTransport = hasToken || hasSdkUri;
+const missingTransport = "Set COPILOT_GITHUB_TOKEN or COPILOT_SDK_URI to run the live Copilot integration tests.";
+if (!hasTransport) {
+  if (process.env["RIG_REQUIRE_COPILOT_INTEGRATION"] === "1") {
+    throw new Error(`Live Copilot integration is required but unavailable. ${missingTransport}`);
+  }
+  console.warn(`Skipping live Copilot integration tests. ${missingTransport}`);
+}
+const liveTest = hasTransport ? it : it.skip;
 const repoRoot = resolve(dirname(fileURLToPath(import.meta.url)), "..");
 const haikuSamplePath = resolve(repoRoot, "src/samples/01-single-agent-haiku.ts");
 const sonnetSamplePath = resolve(repoRoot, "src/samples/56-single-agent-sonnet.ts");
@@ -18,25 +26,20 @@ async function runIntegrationSample(samplePath: string, input: string): Promise<
     // Use --server (stdio transport) when running with a personal token.
     // In agentic workflow context, COPILOT_SDK_URI is provided by the engine
     // and the URI-based connection is used without --server.
-    const args = sdkUri ? [launcherPath, samplePath] : [launcherPath, samplePath, "--server"];
+    const args = hasSdkUri ? [launcherPath, samplePath] : [launcherPath, samplePath, "--server"];
     const child = spawn(process.execPath, args, {
       cwd: repoRoot,
-      env: { ...process.env, ...(token ? { COPILOT_GITHUB_TOKEN: token } : {}) },
+      stdio: ["pipe", "pipe", "ignore"],
     });
 
     let stdout = "";
-    let stderr = "";
     const timer = setTimeout(() => {
       child.kill("SIGTERM");
-      reject(new Error("Timed out waiting for haiku integration run."));
+      reject(new Error("Timed out waiting for the Copilot integration sample."));
     }, INTEGRATION_TIMEOUT_MS);
 
     child.stdout.on("data", (chunk) => {
       stdout += chunk.toString();
-    });
-
-    child.stderr.on("data", (chunk) => {
-      stderr += chunk.toString();
     });
 
     child.on("error", (error) => {
@@ -44,10 +47,10 @@ async function runIntegrationSample(samplePath: string, input: string): Promise<
       reject(error);
     });
 
-    child.on("close", (code) => {
+    child.on("close", (code, signal) => {
       clearTimeout(timer);
       if (code !== 0) {
-        reject(new Error(`Haiku integration run failed with exit code ${code}.\n${stderr}`));
+        reject(new Error(`Copilot integration sample failed (${signal ?? `exit code ${code}`}).`));
         return;
       }
       resolve(stdout);
@@ -58,7 +61,7 @@ async function runIntegrationSample(samplePath: string, input: string): Promise<
 }
 
 describe("rig runtime integration", () => {
-  itWithToken(
+  liveTest(
     "runs a single-agent haiku sample with the real runtime",
     async () => {
       const stdout = await runIntegrationSample(haikuSamplePath, "autumn rain on city windows");
@@ -73,7 +76,7 @@ describe("rig runtime integration", () => {
     INTEGRATION_TIMEOUT_MS,
   );
 
-  itWithToken(
+  liveTest(
     "runs a single-agent sonnet sample with the real runtime",
     async () => {
       const stdout = await runIntegrationSample(sonnetSamplePath, "midnight train through fog");
@@ -88,7 +91,7 @@ describe("rig runtime integration", () => {
     INTEGRATION_TIMEOUT_MS,
   );
 
-  itWithToken(
+  liveTest(
     "runs a complex sonnet sample with tools, addons, intents, and subagent wiring",
     async () => {
       const stdout = await runIntegrationSample(

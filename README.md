@@ -49,6 +49,10 @@ node skills/rig/run.ts review.ts --typecheck
 
 `gh skill install` copies the skill but **does not install SDK dependencies**. For an installed skill, find its directory with `gh skill list` and substitute it for `skills/rig` in the commands above. Without `--server`, Rig selects an engine from your environment or uses the default Copilot endpoint; see [running programs](skills/rig/runtime.md) for launch options.
 
+## Live Copilot integration tests
+
+Run `npm run test:integration` with `COPILOT_GITHUB_TOKEN` for the local CLI transport, or with `COPILOT_SDK_URI` for a running SDK endpoint (also supply `COPILOT_CONNECTION_TOKEN` if the endpoint requires it). Without either transport, the suite reports a skip. Set `RIG_REQUIRE_COPILOT_INTEGRATION=1` to fail instead, as the Rig Integration Tests workflow does.
+
 ## In agentic workflows
 
 Pin the [Rig skill](skills/rig/SKILL.md) and [shared launcher template](.github/workflows/shared/rig.md) to full commit SHAs. The template provides Node.js 24 and a narrow `printf`/`node` allowlist; the consuming workflow must enable the Copilot SDK, grant `copilot-requests: write`, and provision dependencies. See the [workflow setup guide](skills/rig/agentic-workflows.md) for the exact configuration and credential handoff.
