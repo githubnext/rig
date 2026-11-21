@@ -16,7 +16,7 @@ permissions:
   copilot-requests: write
 engine:
   id: copilot
-  version: "1.0.113"
+  version: "1.0.103"
 strict: true
 env:
   NPM_CONFIG_MIN_RELEASE_AGE: "3"
