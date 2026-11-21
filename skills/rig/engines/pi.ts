@@ -1,6 +1,5 @@
 import { Agent as PiAgent } from "@earendil-works/pi-agent-core";
 import type { AgentTool as PiAgentTool } from "@earendil-works/pi-agent-core";
-import { Type } from "@earendil-works/pi-ai";
 import type { Models } from "@earendil-works/pi-ai";
 import { builtinModels } from "@earendil-works/pi-ai/providers/all";
 import { debug } from "../rig.ts";
@@ -81,7 +80,7 @@ function toPiTool(tool: Tool<any>): PiAgentTool {
     name: tool.name,
     label: tool.name,
     description: tool.description ?? "",
-    parameters: Type.Unsafe(objectToolSchema(tool)),
+    parameters: objectToolSchema(tool),
     async execute(_toolCallId, params) {
       if (!tool.handler) {
         throw new Error(`${tool.name} tool has no handler`);

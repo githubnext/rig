@@ -19,11 +19,12 @@ permissions:
   copilot-requests: write
 engine:
   id: copilot
-  version: "1.0.105"
+  version: "1.0.113"
   copilot-sdk: true
 strict: true
 env:
   NPM_CONFIG_MIN_RELEASE_AGE: "3"
+  NPM_CONFIG_REGISTRY: "https://packagefeedproxy.microsoft.io/npm/"
 timeout-minutes: 55
 checkout: false
 skills:

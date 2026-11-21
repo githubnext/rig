@@ -104,6 +104,10 @@ which ignore project `.npmrc`, and no-checkout workflows. Keep DeepSeek's
 declarative installation `cooldown: true`. This is dependency release age, not
 `on.cooldown`, which delays workflow execution.
 
+Use the Microsoft-approved npm proxy in both project `.npmrc` files and in
+workflows that provision SDKs or install runtimes globally. Check candidate
+releases and verify installs against the 1ES public feed before updating pins.
+
 Review release notes, regenerate npm and workflow lockfiles, and keep the setup
 compiler version synchronized with the generated metadata.
 
