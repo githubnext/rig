@@ -134,12 +134,13 @@ outputs, majority vote, and strict post-step assertions:
 | --- | --- | --- |
 | [Codex](../../.github/workflows/rig-skill-integration-codex.md) | Codex CLI / `codexEngine` | `copilot/gpt-5.3-codex`; `copilot-requests: write` |
 | [DeepSeek Harness](../../.github/workflows/rig-skill-integration-deepseek.md) | DeepSeek Harness headless / `deepseekEngine` | `copilot/gpt-5.3-codex`; `copilot-requests: write` |
-| [Gemini](../../.github/workflows/rig-skill-integration-gemini.md) | Gemini CLI / `geminiEngine` | `gemini-2.5-flash`; repository secret `GEMINI_API_KEY` |
+| [Gemini](../../.github/workflows/rig-skill-integration-gemini.md) | Gemini CLI / `geminiEngine` | `gemini-2.5-flash`; Actions secret `GEMINI_API_KEY` |
 | [Pi](../../.github/workflows/rig-skill-integration-pi.md) | Pi managed SDK driver / `piEngine` | `copilot/gpt-5.3-codex`; `copilot-requests: write` |
 
-Codex, DeepSeek, and Pi run daily or on manual dispatch. Gemini is manual-only;
-gh-aw 1.0.1 still deprecates its Gemini engine. The existing CLI integration remains
-available without migrating it to the experimental Agy engine.
+Codex, DeepSeek, and Pi run daily or on manual dispatch. Gemini is manual-only.
+Before running Gemini, add a [Gemini API key](https://ai.google.dev/gemini-api/docs/api-key)
+as `GEMINI_API_KEY` in **Settings > Secrets and variables > Actions**. A shared
+organization Actions secret also works; `GOOGLE_API_KEY` does not pass activation.
 
 The [shared procedure](../../.github/workflows/shared/rig-three-judges.md)
 provisions Node.js 24 and checkout dependencies. Gemini and DeepSeek launch a
@@ -159,8 +160,8 @@ Pi uses the generated `PI_CODING_AGENT_DIR/models.json` gateway provider with
 that same non-secret placeholder; it does not use native Copilot OAuth or
 an OpenAI key. Its outer engine and judges pin `gpt-5.3-codex` to keep the
 integration model deterministic rather than using gh-aw's `auto` routing.
-Gemini inherits the provisioned CLI, model, and
-`GEMINI_API_BASE_URL`. Do not print or copy upstream secrets into fixture source.
+Gemini inherits the CLI, model, and `GEMINI_API_BASE_URL`. AWF routes requests
+to `generativelanguage.googleapis.com` without exposing the key to the agent.
 
 DeepSeek uses a [repository-scoped engine definition](../../.github/workflows/shared/deepseek-harness.md)
 and [trusted launcher](../../.github/drivers/deepseek-harness.cjs). Both the outer
