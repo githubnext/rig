@@ -35,7 +35,7 @@
     "postcss": "8.5.28",
     "source-map-js": "file:packages/source-map-compat",
     "typescript": "^5.8.0",
-    "vitest": "^4.1.11",
+    "vitest": "^4.1.12",
     "zx": "^8.8.5"
   },
   "overrides": {
