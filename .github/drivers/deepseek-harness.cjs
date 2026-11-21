@@ -62,7 +62,7 @@ async function runDeepSeekHarness({ reflect, argv, env, spawn = spawnSync }) {
           "awf-proxy": {
             displayName: "GitHub Agentic Workflows",
             apiKeyEnv: "OPENAI_API_KEY",
-            api: "openai-completions",
+            api: "openai-responses",
             baseURL,
             retryPolicy: { mode: "normal", maxRetries: 0 },
             models: [{ id: model, name: model }],

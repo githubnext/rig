@@ -166,9 +166,10 @@ DeepSeek uses a [repository-scoped engine definition](../../.github/workflows/sh
 and [trusted launcher](../../.github/drivers/deepseek-harness.cjs). Both the outer
 CLI and Rig SDK runtime pin Harness 0.2.0-rc.2. The launcher discovers the
 configured Copilot endpoint through AWF `/reflect`, preserves its API path, and
-writes the `awf-proxy` route to `$DSH_HOME/cordis.patch.yml`; the obsolete
-`settings.yaml` path is not used. SDK judges inherit that home and use only the
-non-secret `awf-proxy` key. Provider retries and automatic session-title
+writes the `awf-proxy` route to `$DSH_HOME/cordis.patch.yml`. The CLI and SDK
+judges both use native Responses for `gpt-5.3-codex`, so AWF does not need to
+translate Chat Completions requests carrying `store`. SDK judges inherit the
+route and use only the non-secret `awf-proxy` key. Provider retries and automatic session-title
 inference are disabled. The
 fixture uses `RIG_JUDGE_MODEL` because native shell calls discard inherited
 `DSH_*` values and rebuild only managed facts, including `DSH_HOME`. The
