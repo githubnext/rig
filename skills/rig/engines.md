@@ -99,6 +99,8 @@ constraints into descriptions. Rig still validates the original schema.
 Records, unconstrained fields, untyped enums, and non-object roots remain
 prompt-driven rather than silently narrowed. Native output requires a supporting
 model; provider errors propagate without retrying with weakened enforcement.
+Rig sends the full transcript without creating server-side message threads.
+`npm test` exercises the direct SDK with a stub HTTP transport and no credentials.
 
 Gemini prepends Rig `systemMessage` to the first user prompt, not the provider
 system instruction. `env: { GEMINI_SYSTEM_MD: "/absolute/path/to/system.md" }`
@@ -151,7 +153,7 @@ Rig does not add an approval bypass.
 Reviewed on 2026-10-21. Keep stable versions instead of blindly following npm
 `latest`, which can select alpha or nightly releases.
 The standalone skill pins Copilot SDK 1.0.24. Repository dependencies cover
-Anthropic SDK 0.133.0, Codex SDK 0.162.1, and Pi agent-core/AI 1.2.0.
+Anthropic SDK 1.8.0, Codex SDK 0.162.1, and Pi agent-core/AI 1.2.0.
 The Codex integration explicitly pins CLI 0.162.1 to match its SDK runtime.
 The Pi integration workflow pins the coding-agent CLI to 1.2.0.
 Gemini CLI is an external prerequisite, pinned to stable 0.64.0 in its workflow.
