@@ -156,7 +156,7 @@ The standalone skill pins Copilot SDK 1.0.24. Repository dependencies cover
 Anthropic SDK 1.8.0, Codex SDK 0.162.1, and Pi agent-core/AI 1.2.0.
 The Codex integration explicitly pins CLI 0.162.1 to match its SDK runtime.
 The Pi integration workflow pins the coding-agent CLI to 1.2.0.
-Gemini CLI is an external prerequisite, pinned to stable 0.64.0 in its workflow.
+Gemini CLI is an external prerequisite, pinned to 0.68.0 in its workflow.
 DeepSeek Harness is a developer preview: the SDK and its runtime are pinned to
 0.2.0-rc.2 rather than the older SDK `latest` tag or unreleased alpha sources.
 Anthropic calls the API directly, not Claude Code. Repository workflows pin
@@ -175,5 +175,5 @@ still selects an alpha; DeepSeek's `latest` tag selects an older RC.
 - [Anthropic tool runner](https://github.com/anthropics/anthropic-sdk-typescript/blob/main/src/lib/tools/BetaToolRunner.ts) and [JSON Schema helper](https://github.com/anthropics/anthropic-sdk-typescript/blob/main/src/helpers/beta/json-schema.ts) — beta tool loop; the stable Messages API has no loop.
 - [Codex SDK](https://github.com/openai/codex/blob/rust-v0.162.1/sdk/typescript/README.md) — stable CLI guidance and thread integration.
 - [DeepSeek Harness TypeScript SDK](https://github.com/deepseek-ai/deepseek-harness/blob/dsh-v0.2.0-rc.2/packages/sdk/client/README.md), [SDK protocol](https://github.com/deepseek-ai/deepseek-harness/blob/dsh-v0.2.0-rc.2/packages/sdk/protocol/README.md), and [safety notice](https://github.com/deepseek-ai/deepseek-harness/blob/dsh-v0.2.0-rc.2/SAFETY.md) — stateful sessions, launch options, cancellation limits, runtime safety.
-- [Gemini headless mode](https://github.com/google-gemini/gemini-cli/blob/v0.64.0/docs/cli/headless.md), [CLI flags](https://github.com/google-gemini/gemini-cli/blob/v0.64.0/packages/cli/src/config/config.ts), and [system prompts](https://github.com/google-gemini/gemini-cli/blob/v0.64.0/docs/cli/system-prompt.md) — JSON output, session resume, prompt overrides.
+- [Gemini headless mode](https://github.com/google-gemini/gemini-cli/blob/v0.68.0/docs/cli/headless.md), [CLI flags](https://github.com/google-gemini/gemini-cli/blob/v0.68.0/packages/cli/src/config/config.ts), and [system prompts](https://github.com/google-gemini/gemini-cli/blob/v0.68.0/docs/cli/system-prompt.md) — JSON output, session resume, prompt overrides.
 - [Pi agent core](https://github.com/earendil-works/pi/blob/v1.2.0/packages/agent/README.md) — models, prompting, cancellation.
