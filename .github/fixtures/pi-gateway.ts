@@ -45,6 +45,8 @@ export function piGateway(value: unknown) {
       api,
       baseUrl,
       reasoning: definition["reasoning"] === true,
+      // Copilot's Responses endpoint rejects Pi's default "none" for this model.
+      ...(api === "openai-responses" && model === "gpt-5.3-codex" ? { thinkingLevelMap: { off: "low" } } : {}),
       input: ["text"],
       cost: { input: 0, output: 0, cacheRead: 0, cacheWrite: 0 },
       contextWindow: positiveInteger("contextWindow", 128_000),

@@ -31,7 +31,7 @@ afterEach(async () => {
 function gateway(baseUrl = "http://api-proxy:10002", api = "openai-completions", model = "gpt-5.3-codex") {
   return {
     providers: {
-      "aw-gateway": { baseUrl, api, apiKey: "awf-proxy", models: [{ id: model }] },
+      "aw-gateway": { baseUrl, api, apiKey: "awf-proxy", models: [{ id: model, reasoning: true }] },
     },
   };
 }
@@ -80,11 +80,17 @@ it.each(["success", "bad-json", "empty-reason", "provider-error"].flatMap((scena
     server = createServer(async (request, response) => {
       const chunks: Buffer[] = [];
       for await (const chunk of request) chunks.push(Buffer.from(chunk));
+      const body = JSON.parse(Buffer.concat(chunks).toString());
       requests.push({
         path: request.url ?? "",
         authorization: request.headers.authorization,
-        body: JSON.parse(Buffer.concat(chunks).toString()),
+        body,
       });
+      if (api === "openai-responses" && body.reasoning?.effort === "none") {
+        response.writeHead(400, { "content-type": "application/json" });
+        response.end(JSON.stringify({ error: { message: 'gpt-5.3-codex does not support reasoning.effort "none"' } }));
+        return;
+      }
       if (scenario === "provider-error") {
         response.writeHead(401, { "content-type": "application/json" });
         response.end(JSON.stringify({ error: { message: "Gateway authentication failed" } }));
@@ -146,6 +152,11 @@ it.each(["success", "bad-json", "empty-reason", "provider-error"].flatMap((scena
       expect(requests).toHaveLength(3);
       for (const [index, request] of requests.entries()) {
         expect(request.body["model"]).toBe("gpt-5.3-codex");
+        if (api === "openai-responses") {
+          expect(request.body["reasoning"]).toEqual({ effort: "low" });
+        } else {
+          expect(request.body).not.toHaveProperty("reasoning_effort");
+        }
         expect(JSON.stringify(request.body[api === "openai-responses" ? "input" : "messages"])).toContain(["clarity", "safety", "feasibility"][index]);
         expect(request.authorization).toBe("Bearer awf-proxy");
         expect(request.path).toBe(api === "openai-responses" ? "/responses" : "/chat/completions");

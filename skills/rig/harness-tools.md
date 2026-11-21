@@ -105,6 +105,10 @@ shell, and forwards only `PATH`, `RIG_JUDGE_ENGINE=pi`, and the managed
 `PI_CODING_AGENT_DIR`. The judges read the generated gateway model configuration;
 upstream credentials remain in AWF.
 
+For the judges' `gpt-5.3-codex` model on the Responses API, the fixture maps
+Pi's default `off` thinking level to `low` because the gateway rejects `none`.
+This does not change the outer Pi session or Chat Completions requests.
+
 One invocation is enforced before asynchronous work, including failed attempts.
 The tool supports cancellation, a 180-second timeout, and a 1 MiB limit per
 output stream. It removes stale results, validates all three typed judgments,
