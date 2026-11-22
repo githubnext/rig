@@ -75,7 +75,7 @@ alone do not provide executable tools.
 
 ## Adapter configuration
 
-- `copilotEngine(options)` accepts Copilot client options plus `server` and `connection`. HTTP is the default; launcher `--server` selects stdio. Rig forwards output schemas as `responseSchema`. String system messages append to SDK instructions; SDK `append`, `replace`, and `customize` configurations are also accepted.
+- `copilotEngine(options)` accepts SDK client options (`runtime`, etc.) plus `server` and `workingDirectory`. It attaches over TCP by default; `--server` spawns a stdio runtime. String system messages append; SDK `append`, `replace`, and `customize` configs also work.
 - `piEngine({ provider, models? })` uses `@earendil-works/pi-agent-core` and requires a provider for model lookup.
 - `anthropicEngine(options)` uses `@anthropic-ai/sdk`, reads `ANTHROPIC_API_KEY`, and accepts `maxTokens` and `maxIterations`. System messages may be strings or Anthropic text-block arrays. Compatible object outputs use `output_config.format` through the SDK JSON Schema helper; other shapes remain prompt-driven.
 - `codexEngine(options)` uses `@openai/codex-sdk`, accepts thread options under `thread`, preserves its thread across repair turns, maps Rig system messages to developer instructions, and forwards structured output schemas. Like Copilot, it closes fixed-property objects with `additionalProperties: false`, including nested objects, without changing record schemas. It rejects Rig tools because its SDK does not expose custom tool registration.
@@ -171,7 +171,7 @@ Those upgrades remain pending package availability; Pi retains its existing
 1.2.0 pin rather than selecting an unavailable release. The Codex `latest` tag
 still selects an alpha; DeepSeek's `latest` tag selects an older RC.
 
-- [Copilot Node SDK](https://github.com/github/copilot-sdk/blob/main/nodejs/README.md) — transport, sessions, tool registration, response schemas.
+- [Copilot Node SDK](https://www.npmjs.com/package/@microsoft/copilot-sdk) — transport, sessions, tools, response schemas.
 - [Anthropic tool runner](https://github.com/anthropics/anthropic-sdk-typescript/blob/main/src/lib/tools/BetaToolRunner.ts) and [JSON Schema helper](https://github.com/anthropics/anthropic-sdk-typescript/blob/main/src/helpers/beta/json-schema.ts) — beta tool loop; the stable Messages API has no loop.
 - [Codex SDK](https://github.com/openai/codex/blob/rust-v0.162.1/sdk/typescript/README.md) — stable CLI guidance and thread integration.
 - [DeepSeek Harness TypeScript SDK](https://github.com/deepseek-ai/deepseek-harness/blob/dsh-v0.2.0-rc.2/packages/sdk/client/README.md), [SDK protocol](https://github.com/deepseek-ai/deepseek-harness/blob/dsh-v0.2.0-rc.2/packages/sdk/protocol/README.md), and [safety notice](https://github.com/deepseek-ai/deepseek-harness/blob/dsh-v0.2.0-rc.2/SAFETY.md) — stateful sessions, launch options, cancellation limits, runtime safety.

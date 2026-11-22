@@ -11,15 +11,15 @@ const mocks = vi.hoisted(() => ({
   disconnect: vi.fn(async () => {}),
   stop: vi.fn(async () => []),
   createSession: vi.fn(),
-  forUri: vi.fn((uri: string, options?: { connectionToken: string }) => ({ uri, ...options })),
+  forTcp: vi.fn((host: string, port: number, options?: { connectionToken: string }) => ({ host, port, ...options })),
 }));
 
-vi.mock("@github/copilot-sdk", () => ({
+vi.mock("@microsoft/copilot-sdk", () => ({
   approveAll: mocks.approveAll,
   CopilotClient: function () {
     return { createSession: mocks.createSession, stop: mocks.stop };
   },
-  RuntimeConnection: { forUri: mocks.forUri },
+  RuntimeConnection: { forTcp: mocks.forTcp },
 }));
 
 import { runLauncherCli } from "rig";
@@ -85,14 +85,21 @@ describe("Rig skill agentic workflow", () => {
     expect(markdown).toContain("Restore checkout SDK dependencies after compiler setup\n    run: npm ci");
   });
 
-  it("restores the checkout SDK after compiler provisioning and before driver execution", () => {
-    const lock = readFileSync(new URL("../.github/workflows/rig-skill-integration.lock.yml", import.meta.url), "utf8");
+  it.each([
+    "rig-skill-integration",
+    "daily-rig-file-summarizer",
+    "daily-rig-sampler",
+    "monthly-pr-clusters",
+  ])("provisions SDK v2 before the custom driver runs in %s", workflow => {
+    const lock = readFileSync(new URL(`../.github/workflows/${workflow}.lock.yml`, import.meta.url), "utf8");
     const provisioning = lock.indexOf("npm install --ignore-scripts --no-save @github/copilot-sdk@");
     const restore = lock.indexOf("name: Restore checkout SDK dependencies after compiler setup");
     const execution = lock.indexOf("name: Execute GitHub Copilot CLI");
     expect(provisioning).toBeGreaterThan(-1);
     expect(restore).toBeGreaterThan(provisioning);
     expect(execution).toBeGreaterThan(restore);
+    expect(lock.slice(execution)).toContain(".github/drivers/copilot-sdk-driver.ts");
+    expect(/^  RIG_WORKFLOW_FIXTURE: "1"$/m.test(lock)).toBe(workflow === "rig-skill-integration");
   });
 
   it.each([program, 'const value = "don\'t expand $HOME, $(exit 42), `exit 42`, %s, \\\\n";\n\n// literal | && ; < >'])(
@@ -130,7 +137,7 @@ describe("Rig skill agentic workflow", () => {
     const runtime = readFileSync(new URL("../skills/rig/runtime.md", import.meta.url), "utf8");
     expect(skill).toContain("`COPILOT_SDK_URI` and `COPILOT_CONNECTION_TOKEN`");
     expect(skill).toContain("do not drop the token");
-    expect(runtime).toContain("RuntimeConnection.forUri(uri, { connectionToken })");
+    expect(runtime).toContain("passes the token to the SDK's TCP transport");
     expect(runtime).toContain("Do not replace the environment with a map that omits the connection token");
   });
 
@@ -148,7 +155,7 @@ describe("Rig skill agentic workflow", () => {
     expect(mocks.sendAndWait).toHaveBeenCalledTimes(3);
     expect(mocks.disconnect).toHaveBeenCalledTimes(3);
     expect(mocks.stop).toHaveBeenCalledTimes(3);
-    expect(mocks.forUri).toHaveBeenCalledWith("http://127.0.0.1:3002", { connectionToken: "test-connection-token" });
+    expect(mocks.forTcp).toHaveBeenCalledWith("127.0.0.1", 3002, { connectionToken: "test-connection-token" });
     for (const [config] of mocks.createSession.mock.calls) {
       expect(config.model).toBe("small");
     }
@@ -177,7 +184,10 @@ describe("Rig skill agentic workflow", () => {
     await runScenario();
     expect(mocks.createSession).toHaveBeenCalledTimes(3);
     for (const [config] of mocks.createSession.mock.calls) {
-      expect(config).toMatchObject(providerConfig);
+      expect(config).toMatchObject({
+        model: `copilot/${providerConfig.model}`,
+        inference: { providers: providerConfig.providers, models: providerConfig.models },
+      });
     }
     expect(markdown).toContain("\nmodel: small\n");
     expect(markdown).toContain("\nskills:\n  - skills/rig\n");

@@ -18,8 +18,9 @@ permissions:
 model: small
 engine:
   id: copilot
-  version: "1.0.103"
+  version: "1.0.113"
   copilot-sdk: true
+  driver: .github/drivers/copilot-sdk-driver.ts
 skills:
   - skills/rig
 imports:
@@ -45,9 +46,10 @@ tools:
       max-file-size: 131072
       max-file-count: 1000
       max-patch-size: 262144
-steps:
-  - name: Install checkout dependencies
+pre-agent-steps:
+  - name: Restore checkout SDK dependencies after compiler setup
     run: npm ci
+steps:
   - name: Collect merged PRs for the trailing calendar month
     uses: actions/github-script@v9.0.0
     with:

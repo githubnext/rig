@@ -1,7 +1,7 @@
 /**
  * @file skills/rig/rig.ts @last-analyzed 9be671a @edit-time 2026-10-22T17:27:33-07:00
  * @purpose Minimal TypeScript agent harness: typed schemas, prompt intents, addons, workflows, Copilot SDK runtime, launcher CLI
- * @deps @github/copilot-sdk (CopilotClient,RuntimeConnection,approveAll); node:path,os,module,url,fs,fs/promises,child_process,util,async_hooks
+ * @deps @microsoft/copilot-sdk (CopilotClient,RuntimeConnection,approveAll); node:path,os,module,url,fs,fs/promises,child_process,util,async_hooks
  * T:Json type null|bool|num|str|Json[]|{[k]:Json}
  * T:Schema type union String|Number|Integer|Boolean|Null|Unknown|Array|Object|Record|Enum|Optional|Nullable schemas
  * T:InferSchema<T> type TS inference from schema to runtime type; T:Simplify<T> flattens intersections
@@ -64,8 +64,8 @@ import { access, mkdir, mkdtemp, readFile, rm, writeFile } from "node:fs/promise
 import { execFile } from "node:child_process";
 import { promisify } from "node:util";
 import { AsyncLocalStorage } from "node:async_hooks";
-import { CopilotClient, RuntimeConnection, approveAll } from "@github/copilot-sdk";
-import type { CopilotClientOptions, NamedProviderConfig, ProviderModelConfig, SystemMessageConfig } from "@github/copilot-sdk";
+import { CopilotClient, RuntimeConnection, approveAll } from "@microsoft/copilot-sdk";
+import type { CopilotClientOptions, NamedProviderConfig, ProviderModelConfig, SystemMessageConfig } from "@microsoft/copilot-sdk";
 
 export type Json = null | boolean | number | string | Json[] | { [key: string]: Json };
 export type ValidationResult = { ok: true } | { ok: false; error: string };
@@ -424,9 +424,9 @@ function serializeSchema(schema: Schema): JsonSchemaObject {
 const defaultStringSchema = s.string;
 const defaultName = "agent";
 
-export type CopilotEngineOptions = Omit<CopilotClientOptions, "connection"> & {
-  connection?: CopilotClientOptions["connection"];
+export type CopilotEngineOptions = Omit<CopilotClientOptions, "mode"> & {
   server?: boolean;
+  workingDirectory?: string;
 };
 
 export type AgentOptions = {
@@ -451,15 +451,31 @@ function resolveDefaultCopilotUri(): string {
   return process.env["COPILOT_SDK_URI"] ?? "localhost:7777";
 }
 
-const launcherCopilotConnection = new AsyncLocalStorage<NonNullable<CopilotClientOptions["connection"]>>();
+const launcherCopilotConnection = new AsyncLocalStorage<RuntimeConnection>();
 
-function resolveDefaultCopilotConnection(): NonNullable<CopilotClientOptions["connection"]> {
+export function copilotTcpConnection(uri: string, connectionToken?: string): RuntimeConnection {
+  let endpoint: URL;
+  try {
+    endpoint = new URL(uri.includes("://") ? uri : `tcp://${uri}`);
+  } catch {
+    throw new Error("Invalid Copilot SDK endpoint; expected a host and port");
+  }
+  const port = Number(endpoint.port || (endpoint.protocol === "http:" ? 80 : 0));
+  if (!["tcp:", "http:"].includes(endpoint.protocol) || !endpoint.hostname || !port || port > 65535
+    || endpoint.username || endpoint.password || endpoint.search || endpoint.hash
+    || (endpoint.pathname && endpoint.pathname !== "/")) {
+    throw new Error("Invalid Copilot SDK endpoint; expected a plaintext TCP host and port");
+  }
+  const host = endpoint.hostname.replace(/^\[|\]$/g, "");
+  return connectionToken
+    ? RuntimeConnection.forTcp(host, port, { connectionToken })
+    : RuntimeConnection.forTcp(host, port);
+}
+
+function resolveDefaultCopilotConnection(): RuntimeConnection {
   const suppliedConnection = launcherCopilotConnection.getStore();
   if (suppliedConnection) return suppliedConnection;
-  const connectionToken = process.env["COPILOT_CONNECTION_TOKEN"];
-  return connectionToken
-    ? RuntimeConnection.forUri(resolveDefaultCopilotUri(), { connectionToken })
-    : RuntimeConnection.forUri(resolveDefaultCopilotUri());
+  return copilotTcpConnection(resolveDefaultCopilotUri(), process.env["COPILOT_CONNECTION_TOKEN"]);
 }
 
 type CopilotMultiProvider = {
@@ -467,6 +483,14 @@ type CopilotMultiProvider = {
   providers: NamedProviderConfig[];
   models: ProviderModelConfig[];
 };
+
+export function resolveCopilotModel(model: string, models: readonly ProviderModelConfig[]): string {
+  if (models.some(entry => `${entry.provider}/${entry.id}` === model)) return model;
+  const matches = models.filter(entry => entry.id === model);
+  if (matches.length > 1) throw new Error(`Ambiguous Copilot model "${model}"; use a provider-qualified model ID`);
+  const match = matches[0];
+  return match ? `${match.provider}/${match.id}` : model;
+}
 
 function resolveCopilotMultiProvider(): CopilotMultiProvider | undefined {
   const raw = process.env["GH_AW_COPILOT_SDK_MULTI_PROVIDER_JSON"];
@@ -596,22 +620,27 @@ function defaultAgentFactory(options: DefaultEngineOptions = {}): AgentFactory {
 }
 
 export function copilotEngine(options: CopilotEngineOptions = {}): AgentFactory {
-  const { server, connection, ...clientOptions } = options;
+  const { server, runtime, workingDirectory, ...clientOptions } = options;
   const multiProvider = resolveCopilotMultiProvider();
   return async (agentOptions) => {
+    const model = multiProvider ? resolveCopilotModel(multiProvider.model, multiProvider.models) : agentOptions.model;
     const systemMessage = copilotSystemMessage(agentOptions.systemMessage);
-    debugCopilotCreate({ model: agentOptions.model, transport: connection ? "custom" : server ? "stdio" : "uri" });
+    debugCopilotCreate({ model, transport: runtime ? "custom" : server ? "stdio" : "tcp" });
     const client = new CopilotClient({
       ...clientOptions,
-      connection: connection ?? (server ? RuntimeConnection.forStdio() : resolveDefaultCopilotConnection()),
+      mode: "coding-agent",
+      runtime: runtime ?? (server
+        ? RuntimeConnection.forSpawnedStdio(workingDirectory === undefined ? undefined : { workingDirectory })
+        : resolveDefaultCopilotConnection()),
     });
     const session = await client.createSession({
-      model: multiProvider?.model ?? agentOptions.model,
-      streaming: false,
-      onPermissionRequest: approveAll,
-      ...(multiProvider ? { providers: multiProvider.providers, models: multiProvider.models } : {}),
+      model,
+      events: { streaming: false },
+      permissions: { onRequest: approveAll },
+      ...(workingDirectory !== undefined && { workingDirectory }),
+      ...(multiProvider ? { inference: { providers: multiProvider.providers, models: multiProvider.models } } : {}),
       ...(systemMessage !== undefined && { systemMessage }),
-      ...(agentOptions.tools !== undefined && { tools: agentOptions.tools }),
+      ...(agentOptions.tools !== undefined && { tools: { definitions: agentOptions.tools } }),
     }).catch(async (error: unknown) => {
       try {
         await stopCopilotClient(client);
@@ -2022,7 +2051,7 @@ export async function runLauncherCli(
   }
 }
 
-async function readLauncherConnection(fd: number): Promise<NonNullable<CopilotClientOptions["connection"]>> {
+async function readLauncherConnection(fd: number): Promise<RuntimeConnection> {
   const stream = createReadStream("", { fd, autoClose: true });
   const chunks: Buffer[] = [];
   let bytes = 0;
@@ -2046,7 +2075,7 @@ async function readLauncherConnection(fd: number): Promise<NonNullable<CopilotCl
     || !("connectionToken" in payload) || typeof payload.connectionToken !== "string" || !payload.connectionToken.trim()) {
     throw new Error("SDK connection descriptor requires nonempty uri and connectionToken strings");
   }
-  return RuntimeConnection.forUri(payload.uri, { connectionToken: payload.connectionToken });
+  return copilotTcpConnection(payload.uri, payload.connectionToken);
 }
 
 /**

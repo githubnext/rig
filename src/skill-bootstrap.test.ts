@@ -18,10 +18,10 @@ async function fixture(installed = true) {
   await copyFile(new URL("../skills/rig/run.ts", import.meta.url), resolve(skill, "run.ts"));
   await writeFile(resolve(skill, "package.json"), JSON.stringify({
     type: "module",
-    dependencies: { "@github/copilot-sdk": "1.0.22", "@types/node": "25.9.1" },
+    dependencies: { "@microsoft/copilot-sdk": "2.0.0", "@types/node": "25.9.1" },
   }));
   await writeFile(resolve(skill, "rig.ts"), `
-import "@github/copilot-sdk";
+import "@microsoft/copilot-sdk";
 export async function runLauncherCli() {
   let stdin = "";
   for await (const chunk of process.stdin) stdin += chunk;
@@ -29,7 +29,7 @@ export async function runLauncherCli() {
 }
 `);
   if (installed) {
-    const sdk = resolve(skill, "node_modules/@github/copilot-sdk");
+    const sdk = resolve(skill, "node_modules/@microsoft/copilot-sdk");
     const types = resolve(skill, "node_modules/@types/node");
     await mkdir(sdk, { recursive: true });
     await mkdir(types, { recursive: true });
@@ -80,12 +80,12 @@ it("reports missing SDK dependencies without trying to install them", async () =
   const result = await run(await fixture(false));
   expect(result.code).toBe(1);
   expect(result.stdout).toBe("");
-  expect(result.stderr).toContain("Cannot find package '@github/copilot-sdk'");
+  expect(result.stderr).toContain("Cannot find package '@microsoft/copilot-sdk'");
 });
 
 it("does not treat a malformed dependency package as a missing dependency", async () => {
   const f = await fixture(true);
-  await writeFile(resolve(f.skill, "node_modules/@github/copilot-sdk/package.json"), "{");
+  await writeFile(resolve(f.skill, "node_modules/@microsoft/copilot-sdk/package.json"), "{");
   const result = await run(f);
   expect(result.code).toBe(1);
   expect(result.stdout).toBe("");
@@ -96,7 +96,7 @@ async function typecheckFixture() {
   const f = await fixture();
   await copyFile(new URL("../skills/rig/rig.ts", import.meta.url), resolve(f.skill, "rig.ts"));
   await copyFile(new URL("../skills/rig/tsconfig.json", import.meta.url), resolve(f.skill, "tsconfig.json"));
-  await writeFile(resolve(f.skill, "node_modules/@github/copilot-sdk/index.js"), `
+  await writeFile(resolve(f.skill, "node_modules/@microsoft/copilot-sdk/index.js"), `
 export class CopilotClient {}
 export const RuntimeConnection = {};
 export const approveAll = () => true;

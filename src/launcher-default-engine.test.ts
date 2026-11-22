@@ -7,8 +7,7 @@ const mocks = vi.hoisted(() => {
   const createSession = vi.fn();
   const stopClient = vi.fn(async () => []);
   const copilotClientCtor = vi.fn();
-  const defaultForUri = () => ({ kind: "uri", url: "localhost:0" });
-  const forUri = vi.fn(defaultForUri);
+  const forTcp = vi.fn((host: string, port: number) => ({ kind: "tcp", host, port }));
   const CopilotClient = function (this: unknown, options: unknown) {
     copilotClientCtor(options);
     return { createSession, stop: stopClient };
@@ -51,8 +50,7 @@ const mocks = vi.hoisted(() => {
     createSession,
     stopClient,
     copilotClientCtor,
-    defaultForUri,
-    forUri,
+    forTcp,
     CopilotClient,
     anthropicConstructor,
     anthropicToolRunner,
@@ -70,10 +68,10 @@ const mocks = vi.hoisted(() => {
   };
 });
 
-vi.mock("@github/copilot-sdk", () => ({
+vi.mock("@microsoft/copilot-sdk", () => ({
   approveAll: mocks.approveAll,
   CopilotClient: mocks.CopilotClient,
-  RuntimeConnection: { forUri: mocks.forUri, forStdio: vi.fn() },
+  RuntimeConnection: { forTcp: mocks.forTcp, forSpawnedStdio: vi.fn() },
 }));
 vi.mock("@anthropic-ai/sdk", () => ({ default: mocks.Anthropic }));
 vi.mock("@anthropic-ai/sdk/helpers/beta/json-schema", () => ({ betaTool: mocks.betaTool }));
@@ -84,6 +82,7 @@ import { agent, launchRigProgram, s } from "rig";
 
 beforeEach(() => {
   mocks.copilotClientCtor.mockClear();
+  mocks.forTcp.mockClear();
   mocks.createSession.mockReset();
   mocks.anthropicConstructor.mockClear();
   mocks.anthropicToolRunner.mockClear();
@@ -119,14 +118,13 @@ it("uses the launcher cwd when mounting the default copilot engine", async () =>
   });
   const result = await call({});
   expect(result).toBe("default-mounted");
-  expect(mocks.copilotClientCtor).toHaveBeenCalledWith(expect.objectContaining({ workingDirectory: cwd }));
+  expect(mocks.createSession).toHaveBeenCalledWith(expect.objectContaining({ workingDirectory: cwd }));
 });
 
 it("uses COPILOT_SDK_URI when mounting the default copilot engine", async () => {
   const sendAndWait = vi.fn().mockResolvedValue(JSON.stringify("env-mounted"));
   mocks.createSession.mockResolvedValue({ sendAndWait });
   process.env["COPILOT_SDK_URI"] = "http://127.0.0.1:4141";
-  mocks.forUri.mockImplementation(((url: string) => ({ kind: "uri", url })) as any);
 
   const fixturePath = resolve(dirname(fileURLToPath(import.meta.url)), "./launcher.fixture.ts");
 
@@ -139,15 +137,14 @@ it("uses COPILOT_SDK_URI when mounting the default copilot engine", async () => 
     });
     const result = await call({});
     expect(result).toBe("env-mounted");
-    expect(mocks.forUri).toHaveBeenCalledWith("http://127.0.0.1:4141");
+    expect(mocks.forTcp).toHaveBeenCalledWith("127.0.0.1", 4141);
     expect(mocks.copilotClientCtor).toHaveBeenCalledWith(
       expect.objectContaining({
-        connection: { kind: "uri", url: "http://127.0.0.1:4141" },
+        runtime: { kind: "tcp", host: "127.0.0.1", port: 4141 },
       }),
     );
   } finally {
     delete process.env["COPILOT_SDK_URI"];
-    mocks.forUri.mockImplementation(mocks.defaultForUri);
   }
 });
 
@@ -157,7 +154,6 @@ it.each(["anthropic", "deepseek"])("prefers COPILOT_SDK_URI over RIG_ENGINE=%s",
   process.env["COPILOT_SDK_URI"] = "http://127.0.0.1:4242";
   process.env["RIG_ENGINE"] = engine;
   process.env["ANTHROPIC_API_KEY"] = "test-key";
-  mocks.forUri.mockImplementation(((url: string) => ({ kind: "uri", url })) as any);
 
   const fixturePath = resolve(dirname(fileURLToPath(import.meta.url)), "./launcher.fixture.ts");
 
@@ -170,12 +166,12 @@ it.each(["anthropic", "deepseek"])("prefers COPILOT_SDK_URI over RIG_ENGINE=%s",
     });
     const result = await call({});
     expect(result).toBe("copilot-preferred");
-    expect(mocks.forUri).toHaveBeenCalledWith("http://127.0.0.1:4242");
+    expect(mocks.forTcp).toHaveBeenCalledWith("127.0.0.1", 4242);
     expect(mocks.copilotClientCtor).toHaveBeenCalled();
     expect(mocks.anthropicConstructor).not.toHaveBeenCalled();
     expect(mocks.deepseekConstructor).not.toHaveBeenCalled();
   } finally {
-    mocks.forUri.mockImplementation(mocks.defaultForUri);
+    delete process.env["COPILOT_SDK_URI"];
   }
 });
 

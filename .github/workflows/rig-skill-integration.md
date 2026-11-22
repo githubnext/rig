@@ -11,7 +11,7 @@ permissions:
 model: small
 engine:
   id: copilot
-  version: "1.0.103"
+  version: "1.0.113"
   copilot-sdk: true
   driver: .github/drivers/copilot-sdk-driver.ts
 skills:
@@ -24,6 +24,7 @@ env:
   NPM_CONFIG_MIN_RELEASE_AGE: "3"
   NPM_CONFIG_REGISTRY: "https://packagefeedproxy.microsoft.io/npm/"
   RIG_DEBUG: "agent:failure,workflow:event"
+  RIG_WORKFLOW_FIXTURE: "1"
 tools:
   bash: ["printf", "node"]
   edit: false

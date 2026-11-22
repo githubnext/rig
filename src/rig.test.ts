@@ -25,8 +25,8 @@ const mocks = vi.hoisted(() => {
     disconnect: disconnectSession,
     abort: vi.fn(async () => {}),
   }));
-  const forUri = vi.fn(() => ({ kind: "uri", url: "localhost:7777" }));
-  const forStdio = vi.fn(() => ({ kind: "stdio" }));
+  const forTcp = vi.fn((host: string, port: number) => ({ kind: "tcp", host, port }));
+  const forSpawnedStdio = vi.fn(() => ({ kind: "spawned-stdio" }));
   const copilotClientCtor = vi.fn();
   const CopilotClient = function (this: unknown, options: unknown) {
     copilotClientCtor(options);
@@ -43,8 +43,8 @@ const mocks = vi.hoisted(() => {
     createSession,
     disconnectSession,
     stopClient,
-    forUri,
-    forStdio,
+    forTcp,
+    forSpawnedStdio,
     copilotClientCtor,
     CopilotClient,
     sendAndWaitRequests,
@@ -57,10 +57,10 @@ vi.mock("node:fs", async (importOriginal) => ({
   ...await importOriginal<typeof import("node:fs")>(),
   writeSync: fsMocks.writeSync,
 }));
-vi.mock("@github/copilot-sdk", () => ({
+vi.mock("@microsoft/copilot-sdk", () => ({
   approveAll: mocks.approveAll,
   CopilotClient: mocks.CopilotClient,
-  RuntimeConnection: { forUri: mocks.forUri, forStdio: mocks.forStdio },
+  RuntimeConnection: { forTcp: mocks.forTcp, forSpawnedStdio: mocks.forSpawnedStdio },
 }));
 
 import { AgentError, PromptBuilder, agent, analyzeResponse, configureAgent, copilotEngine, debug, defineTool, oncePerAgent, p, repair, s, steering, timeout, toJsonSchema } from "rig";
@@ -69,8 +69,8 @@ import type { Tool } from "rig";
 beforeEach(() => {
   mocks.createSession.mockClear();
   mocks.approveAll.mockClear();
-  mocks.forUri.mockClear();
-  mocks.forStdio.mockClear();
+  mocks.forTcp.mockClear();
+  mocks.forSpawnedStdio.mockClear();
   mocks.copilotClientCtor.mockClear();
   mocks.disconnectSession.mockClear();
   mocks.stopClient.mockClear();
@@ -466,8 +466,8 @@ describe("agent invocation", () => {
     expect(mocks.copilotClientCtor).toHaveBeenCalledTimes(2);
     expect(mocks.createSession).toHaveBeenCalledTimes(2);
     expect(mocks.createSession.mock.calls).toEqual([
-      [{ model: "small", streaming: false, onPermissionRequest: mocks.approveAll }],
-      [{ model: "o3-mini", streaming: false, onPermissionRequest: mocks.approveAll }],
+      [{ model: "small", events: { streaming: false }, permissions: { onRequest: mocks.approveAll } }],
+      [{ model: "o3-mini", events: { streaming: false }, permissions: { onRequest: mocks.approveAll } }],
     ]);
     expect(mocks.disconnectSession).toHaveBeenCalledTimes(2);
     expect(mocks.stopClient).toHaveBeenCalledTimes(2);
@@ -727,7 +727,7 @@ describe("agent invocation", () => {
     const call = agent({ name: "model-test", model: "small" });
     await call("x", { model: "o3-mini" });
 
-    expect(mocks.createSession).toHaveBeenCalledWith({ model: "o3-mini", streaming: false, onPermissionRequest: mocks.approveAll });
+    expect(mocks.createSession).toHaveBeenCalledWith({ model: "o3-mini", events: { streaming: false }, permissions: { onRequest: mocks.approveAll } });
   });
 
   it("passes systemMessage to the session when specified", async () => {
@@ -739,8 +739,8 @@ describe("agent invocation", () => {
 
     expect(mocks.createSession).toHaveBeenCalledWith({
       model: "small",
-      streaming: false,
-      onPermissionRequest: mocks.approveAll,
+      events: { streaming: false },
+      permissions: { onRequest: mocks.approveAll },
       systemMessage,
     });
   });
@@ -751,7 +751,7 @@ describe("agent invocation", () => {
     const call = agent({ name: "no-sys-msg-test" });
     await call("x");
 
-    expect(mocks.createSession).toHaveBeenCalledWith({ model: "small", streaming: false, onPermissionRequest: mocks.approveAll });
+    expect(mocks.createSession).toHaveBeenCalledWith({ model: "small", events: { streaming: false }, permissions: { onRequest: mocks.approveAll } });
   });
 
   it("defines tools with rig schemas using the Copilot SDK helper shape", () => {
@@ -800,15 +800,15 @@ describe("agent invocation", () => {
 
     expect(mocks.createSession).toHaveBeenCalledWith({
       model: "small",
-      onPermissionRequest: mocks.approveAll,
-      streaming: false,
-      tools: [expect.objectContaining({
+      permissions: { onRequest: mocks.approveAll },
+      events: { streaming: false },
+      tools: { definitions: [expect.objectContaining({
         name: "lookup_issue",
         description: "Look up an issue by id.",
         parameters: toJsonSchema(s.object({ issue: s.string })),
         handler: expect.any(Function),
         skipPermission: true,
-      })],
+      })] },
     });
   });
 

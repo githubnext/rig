@@ -95,7 +95,7 @@ As you read, build a complete inventory of:
 4. **Agent addons** — any `AgentAddon` factories exported or described in the file.
 5. **Key internal patterns** — repair loop, schema validation path, launcher CLI,
    copilot engine wiring — enough to orient an agent reading only the header.
-6. **Dependencies** — external imports (`@github/copilot-sdk`, Node built-ins).
+6. **Dependencies** — external imports (`@microsoft/copilot-sdk`, Node built-ins).
 
 ### Step 4 — Build the new header
 
@@ -106,7 +106,7 @@ Compose a single `/** ... */` block to prepend to the file (before the first `im
 - No prose sentences. Use compact structured notation throughout.
 - Line 1: `* @file skills/rig/rig.ts @last-analyzed <sha7> @edit-time <ISO>`
 - Line 2: `* @purpose <10-20 word description of what this module is and does>`
-- Line 3: `* @deps @github/copilot-sdk; node:path,fs/promises,child_process,util,url`
+- Line 3: `* @deps @microsoft/copilot-sdk; node:path,fs/promises,child_process,util,url`
 - Schema types block — one line per type, format `* T:<Name> <kind> <role>`:
   ```
   * T:Json type null|bool|num|str|Json[]|{[k]:Json}

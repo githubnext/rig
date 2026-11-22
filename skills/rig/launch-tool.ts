@@ -1,6 +1,6 @@
 import { spawn } from "node:child_process";
 import { fileURLToPath } from "node:url";
-import type { Tool } from "@github/copilot-sdk";
+import type { Tool } from "@microsoft/copilot-sdk";
 
 export type RigLaunchToolOptions = {
   uri: string;
