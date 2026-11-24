@@ -26,4 +26,11 @@ describe("Daily Rig Decomposition Benchmark workflow", () => {
     expect(markdown).toContain("mark it as a fallback in the report");
     expect(markdown).toContain("The fallback is a task description, not a substitute for either solution or grading.");
   });
+
+  it("writes the benchmark in bounded edits before typechecking and running it once", () => {
+    expect(markdown).toContain("Write the program incrementally in several small file edits");
+    expect(markdown).toContain("entire program in a single response");
+    expect(markdown).toContain("The assembled file must still meet all of the requirements below.");
+    expect(markdown).toContain("Run the program **exactly once**");
+  });
 });
