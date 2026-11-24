@@ -13,4 +13,18 @@ describe("Rig Integration Tests workflow", () => {
     expect(workflow).toContain('RIG_REQUIRE_COPILOT_INTEGRATION: "1"');
     expect(workflow).toContain("run: npm run test:integration");
   });
+
+  it.each([
+    "56-single-agent-sonnet.ts",
+    "57-complex-integration-sonnet.ts",
+  ])("uses a supported Sonnet model in %s", (sample) => {
+    const source = readFileSync(new URL(`./samples/${sample}`, import.meta.url), "utf8");
+    expect(source).toContain('model: "claude-sonnet-4.6"');
+    expect(source).not.toContain('model: "claude-sonnet-4.5"');
+  });
+
+  it("keeps launcher diagnostics visible in live integration logs", () => {
+    const source = readFileSync(new URL("../scripts/haiku.integration.test.ts", import.meta.url), "utf8");
+    expect(source).toContain('stdio: ["pipe", "pipe", "inherit"]');
+  });
 });
