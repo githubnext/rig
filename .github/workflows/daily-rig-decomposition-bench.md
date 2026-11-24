@@ -30,6 +30,9 @@ timeout-minutes: 55
 checkout: false
 skills:
   - githubnext/rig/skills/rig@0cf43bec9424276137fc101983033039d4e0e592
+steps:
+  - name: Install benchmark dependencies
+    run: npm install --prefix /tmp/gh-aw/.github/skills/rig --no-save --ignore-scripts --registry=https://registry.npmjs.org/ typescript@5.9.3
 tools:
   bash: ["*"]
 network:
@@ -48,8 +51,9 @@ Each run of this workflow is itself a test of the rig skill: **you** write the b
 program from the specification below, then run it, then report what happened.
 
 This workflow runs **without checking out the repository**. The `rig` skill is installed
-directly from GitHub via the frontmatter `skills:` field only — nothing beyond that
-install is prepared: the skill itself ships its own `package.json` (`"name": "rig"`, with
+directly from GitHub via the frontmatter `skills:` field. The setup step installs its
+dependencies and TypeScript before the agent firewall starts. The skill ships its own
+`package.json` (`"name": "rig"`, with
 `exports` pointing at its own `rig.ts`/`globals.ts`) and `tsconfig.json`, so generated
 programs importing `from "rig"` resolve correctly both at typecheck time and at runtime as
 long as the rig CLI subprocess is run with its working directory set to the installed
@@ -69,6 +73,9 @@ CLI, run from the skill directory so Node's package self-reference resolves the 
 ```bash
 cd .github/skills/rig && cat /tmp/gh-aw/agent/bench.ts | node rig.ts --typecheck
 ```
+
+If typechecking fails, do not execute the benchmark. Report the exact typecheck error
+and that no comparison was produced.
 
 ### Hard requirements
 
@@ -100,7 +107,13 @@ timeout. Treat them as non-negotiable:
    from run to run. It returns a title, a domain, a description, and 3-6 concrete,
    checkable success criteria. Import and add `repair()` to this task-picker agent with
    `maxTurns: 2`, so a malformed structured response gets one corrective retry instead of
-   terminating the benchmark with a null result.
+   terminating the benchmark with a null result. If it still returns `null`, use this
+   explicit fallback task and mark it as a fallback in the report: design a one-day
+   tabletop incident-response exercise for a fictional small online store hit by a
+   ransomware attack. The solution must provide (1) a timeline of at least five injects,
+   (2) roles and decisions for engineering, communications, and leadership, (3) a
+   recovery and customer-communication plan, and (4) measurable evaluation criteria.
+   The fallback is a task description, not a substitute for either solution or grading.
 
 2. **Solve it in one call.** A `medium` agent limited to a single turn solves the whole
    task by itself, addressing every success criterion, with no delegation and no tools.
