@@ -250,6 +250,34 @@ describe("samples", () => {
 });
 
 describe("skill markdown samples", () => {
+  if (markdownTargets.includes("85-dockerfile-security-audit.md")) {
+    it("runs the Dockerfile audit without input and describes missing files", async () => {
+      const code = extractRigCode(readFileSync(resolve(markdownDir, "85-dockerfile-security-audit.md"), "utf8"));
+      let prompt = "";
+      mocks.setSendAndWaitImpl(async (request) => {
+        prompt = request.prompt;
+        return { findings: [], dockerfileFound: false, passes: false };
+      });
+      const output: string[] = [];
+      const stdout = new Writable({
+        write(chunk, _encoding, callback) {
+          output.push(chunk.toString());
+          callback();
+        },
+      });
+
+      await runLauncherCli([], {}, { stdin: Readable.from([code]), stdout });
+
+      expect(JSON.parse(output.join(""))).toEqual({ findings: [], dockerfileFound: false, passes: false });
+      expect(prompt).toContain('Read file and return its contents as text: "Dockerfile"');
+      expect(prompt).toContain('If the file does not exist, return "# Dockerfile not found"');
+      expect(prompt).toContain("set dockerfileFound and passes to false");
+      expect(prompt).toContain("set dockerfileFound to true");
+      expect(prompt).toContain("use checkSecurityPattern on each instruction line");
+      expect(prompt).toContain("set passes to true only if there are no findings");
+    });
+  }
+
   for (const file of markdownTargets) {
     it(file, async () => {
       const code = extractRigCode(readFileSync(resolve(markdownDir, file), "utf8"));
