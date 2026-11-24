@@ -1,3 +1,4 @@
+import { readFileSync } from "node:fs";
 import { execFile } from "node:child_process";
 import { mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
 import { createServer } from "node:http";
@@ -12,8 +13,13 @@ import { piGateway } from "../.github/fixtures/pi-gateway.ts";
 import { createPiRigTool } from "../.github/drivers/pi-rig-extension.ts";
 
 const execute = promisify(execFile);
+const workflow = readFileSync(new URL("../.github/workflows/rig-skill-integration-pi.md", import.meta.url), "utf8");
 let server: Server | undefined;
 let directory: string | undefined;
+
+it("pins the Pi workflow to a stable Copilot model", () => {
+  expect(workflow).toMatch(/^model: copilot\/gpt-5\.3-codex$/m);
+});
 
 afterEach(async () => {
   if (server) {
