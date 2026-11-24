@@ -1,5 +1,5 @@
 /**
- * @file skills/rig/rig.ts @last-analyzed 9be671a @edit-time 2026-10-22T17:27:33-07:00
+ * @file skills/rig/rig.ts @last-analyzed 5dd34d4 @edit-time 2026-11-23T16:19:25-08:00
  * @purpose Minimal TypeScript agent harness: typed schemas, prompt intents, addons, workflows, Copilot SDK runtime, launcher CLI
  * @deps @microsoft/copilot-sdk (CopilotClient,RuntimeConnection,approveAll); node:path,os,module,url,fs,fs/promises,child_process,util,async_hooks
  * T:Json type null|bool|num|str|Json[]|{[k]:Json}
@@ -26,7 +26,7 @@
  * s.nonEmptyString/url/path/date string refinements; s.positiveInt/nonNegativeInt/percent numeric refinements
  * s.array(items,desc?)/s.nonEmptyArray ArraySchema; s.object(props,desc?) ObjectSchema; s.record(val,desc?)/s.nonEmptyObject RecordSchema
  * s.optional(inner) optional field; s.nullable(inner) inner|null; s.enum(...values|values,desc?) EnumSchema; s.literal(v,desc?)
- * s.toJsonSchema(schema) JsonSchemaObject alias of F:toJsonSchema [NEW]
+ * s.toJsonSchema(schema) JsonSchemaObject alias of F:toJsonSchema
  * p`...` PromptBuilder template tag; interpolates PromptIntent|string|PromptBuilder
  * p.bash(cmd,opts?)/p.bashRaw`cmd`/p.bashEach(tpl,field,opts?) bash declarations (not run in-process)
  * p.read(path,opts?)/readOptional/readAll/readInput(field)/readAllInput(field) file read declarations
@@ -34,6 +34,8 @@
  * p.glob(pattern,opts?)/p.env(name,fallback?,opts?)/p.json(v)/p.inputField(f)/p.var(name,v)/p.region(lang,body) misc helpers
  * F:agent(spec) AgentFn<I,O> declaration
  * F:copilotEngine(opts?) AgentFactory wrapping CopilotClient+RuntimeConnection
+ * F:copilotTcpConnection(uri,token?) RuntimeConnection TCP endpoint from uri [NEW]
+ * F:resolveCopilotModel(model,models) provider-qualified model ID resolution; errors on ambiguous id [NEW]
  * F:configureAgent(factory) sets global AgentFactory
  * F:launchRigProgram(path,opts?) runs .ts agent file as subprocess; F:runLauncherCli(opts?) CLI entry: argv,engine wiring,run
  * F:defineTool(name,config) Tool with handler+parameters schema
