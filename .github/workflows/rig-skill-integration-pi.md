@@ -34,8 +34,9 @@ env:
 
 # Rig Pi three-judge integration
 
-Use the Pi agent-core adapter, not the Copilot SDK. The fixture reads the
-harness-provisioned Pi gateway model configuration; never substitute a native OpenAI or Anthropic
+Use the Pi agent-core adapter, not the Copilot SDK. Let the workflow's model
+router select the outer agent model. The fixture reads the harness-provisioned
+Pi gateway model configuration; never substitute a native OpenAI or Anthropic
 provider, inspect credentials, or choose a different model.
 
 The managed SDK driver registers the trusted `run_rig` extension tool. Call it

@@ -1,3 +1,4 @@
+import { readFileSync } from "node:fs";
 import { execFile } from "node:child_process";
 import { mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
 import { createServer } from "node:http";
@@ -12,8 +13,14 @@ import { piGateway } from "../.github/fixtures/pi-gateway.ts";
 import { createPiRigTool } from "../.github/drivers/pi-rig-extension.ts";
 
 const execute = promisify(execFile);
+const workflow = readFileSync(new URL("../.github/workflows/rig-skill-integration-pi.md", import.meta.url), "utf8");
 let server: Server | undefined;
 let directory: string | undefined;
+
+it("leaves outer agent model selection to the workflow router", () => {
+  expect(workflow).not.toMatch(/^model:/m);
+  expect(workflow).toContain("Let the workflow's model\nrouter select the outer agent model.");
+});
 
 afterEach(async () => {
   if (server) {
