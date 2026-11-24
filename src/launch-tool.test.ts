@@ -96,6 +96,8 @@ process.stdout.write(connectionToken);
 
 it("can return successful stdout and stderr together", async () => {
   const tool = await fixture(`
+import { readFileSync } from "node:fs";
+readFileSync(3);
 process.stdin.resume();
 process.stdin.on("end", () => {
   process.stdout.write("program output");
