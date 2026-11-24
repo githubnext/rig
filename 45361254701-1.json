@@ -1,0 +1,40 @@
+{
+  "repository": "githubnext/rig",
+  "runId": "45361254701",
+  "runAttempt": "1",
+  "workflowUrl": "https://github.com/githubnext/rig/actions/runs/45361254701",
+  "window": {
+    "start": "2026-10-24T09:02:25.360Z",
+    "end": "2026-11-24T09:02:25.360Z"
+  },
+  "strategy": "closed-vocabulary-facet-extraction-area-partition",
+  "strategyDescription": "One model call per PR extracts closed-vocabulary facets (area, kind) from the title, a URL-stripped 500-char body excerpt and labels. TypeScript then partitions deterministically by area, sends singleton and 'other' areas to unclassified, asks one agent per surviving area for a label and summary, and validates coverage, uniqueness and ranking.",
+  "nearestPriorStrategy": "semantic-theme-clustering (37680026048-1)",
+  "noveltyRationale": "The nearest prior also used model judgments, but it discovered open-ended themes and assigned PRs greedily (simulated, never executed). This design fixes a closed vocabulary up front, makes the model produce per-PR structured facets only, and derives cluster membership by deterministic grouping in TypeScript. The other priors used labels, keyword rules, hand-written membership or TF-IDF with no model calls.",
+  "historyConsulted": ["37680026048-1", "38039912415-2", "38126880290-1", "40477786734-1", "40661045982-1", "45005503491-1"],
+  "sourceAttempts": [
+    {
+      "attempt": 1,
+      "sourceFile": "/tmp/gh-aw/agent/pr-clusters.ts",
+      "sourceBytes": 4706,
+      "sourceDigest": "not-computed (bash denied by workflow tool permissions)",
+      "sourceEmbedded": false,
+      "sourceNote": "The file already existed in /tmp/gh-aw/agent/ when this agent session started (written by an earlier harness attempt of this run). The verbatim copy could not be embedded or hashed here. Its design: agents 'facets' (per-PR area/kind enums) and 'describe' (label and summary per area), plus a workflow that groups by area, drops singleton and 'other' areas to unclassified, and validates the partition.",
+      "lint": "not_run",
+      "typecheck": "not_run",
+      "execution": "not_run",
+      "error": "Every bash call was rejected: 'Tool invocation is not allowed by workflow tool permissions'. No run_rig harness tool was exposed."
+    }
+  ],
+  "executionAttempts": [],
+  "unverifiedArtifacts": "/tmp/gh-aw/agent/pr-clusters-stdout.txt held a result from an earlier harness attempt (21 PRs, 5 clusters). It was not produced or validated by this session, so it is not treated as a result.",
+  "finalStatus": "blocked_tool_permission",
+  "outcome": "incomplete",
+  "clusters": null,
+  "unclassifiedPRs": null,
+  "lessonsForNextRun": [
+    "Bash was denied for lint, typecheck and run in this run, as in the two previous blocked runs (40661045982-1, 45005503491-1); the workflow needs to grant printf and node and read-only inspection, or expose run_rig.",
+    "Leftover files in /tmp/gh-aw/agent from earlier harness attempts cannot substitute for a validated run.",
+    "The closed-vocabulary facet strategy is untested: watch whether singleton-area dropping leaves too many PRs unclassified."
+  ]
+}
