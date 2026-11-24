@@ -78,8 +78,11 @@ describe("Rig skill agentic workflow", () => {
     expect(markdown).not.toContain("| node .github/skills/rig/run.ts >");
     const driver = readFileSync(new URL("../.github/drivers/copilot-sdk-driver.ts", import.meta.url), "utf8");
     expect(driver).toContain('from "../../skills/rig/launch-tool.ts"');
-    expect(driver).toContain("createRigLaunchTool({ uri, connectionToken, cwd })");
-    expect(driver).toContain("definitions: fixture ? [...sessionTools.definitions,");
+    expect(driver).toContain("createRigLaunchTool({");
+    expect(driver).toContain("timeoutMs: 8 * 60 * 1000");
+    expect(driver).toContain("definitions: fixture || sourceTool ? [...sessionTools.definitions,");
+    expect(driver).toContain("Rig source launch limit exceeded (2)");
+    expect(driver).toContain("Rig source attempt limit exceeded (2)");
     expect(driver).not.toContain("sessionTools.tools");
     expect(driver).not.toContain("launcherPath:");
     const shared = readFileSync(new URL("../.github/workflows/shared/rig.md", import.meta.url), "utf8");
@@ -102,6 +105,7 @@ describe("Rig skill agentic workflow", () => {
     expect(execution).toBeGreaterThan(restore);
     expect(lock.slice(execution)).toContain(".github/drivers/copilot-sdk-driver.ts");
     expect(/^  RIG_WORKFLOW_FIXTURE: "1"$/m.test(lock)).toBe(workflow === "rig-skill-integration");
+    expect(/^  RIG_WORKFLOW_SOURCE_TOOL: "1"$/m.test(lock)).toBe(workflow === "monthly-pr-clusters");
   });
 
   it.each([program, 'const value = "don\'t expand $HOME, $(exit 42), `exit 42`, %s, \\\\n";\n\n// literal | && ; < >'])(

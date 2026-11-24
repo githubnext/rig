@@ -58,6 +58,10 @@ describe("Monthly PR clusters workflow", () => {
     expect(markdown).toContain("  - skills/rig");
     expect(markdown).toContain("  - shared/rig.md");
     expect(markdown).toContain("run: npm ci");
+    expect(markdown).toContain('RIG_WORKFLOW_SOURCE_TOOL: "1"');
+    expect(prompt).toContain("harness-owned `run_rig` tool");
+    expect(prompt).toContain("at most two source versions and\ntwo executions");
+    expect(prompt).not.toContain("literal printf pipeline");
   });
 
   it("preserves experiments in dedicated repo-memory and publishes only through safe outputs", () => {
