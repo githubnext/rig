@@ -51,7 +51,7 @@ node skills/rig/run.ts review.ts --typecheck
 
 ## Live Copilot integration tests
 
-Run `npm run test:integration` with `COPILOT_GITHUB_TOKEN` for the local CLI transport, or with `COPILOT_SDK_URI` for a running SDK endpoint (also supply `COPILOT_CONNECTION_TOKEN` if the endpoint requires it). Without either transport, the suite reports a skip. Set `RIG_REQUIRE_COPILOT_INTEGRATION=1` to fail instead, as the Rig Integration Tests workflow does.
+Run `npm run test:integration` with `COPILOT_GITHUB_TOKEN` for the local CLI transport, or with `COPILOT_SDK_URI` for a running SDK endpoint (also supply `COPILOT_CONNECTION_TOKEN` if the endpoint requires it). Without either transport, the suite reports a skip. Set `RIG_REQUIRE_COPILOT_INTEGRATION=1` to fail instead, as the Rig Integration Tests workflow does. That workflow uses the `COPILOT_GITHUB_TOKEN` secret when configured, otherwise its automatic `github.token` with `copilot-requests: write` permission.
 
 ## In agentic workflows
 
