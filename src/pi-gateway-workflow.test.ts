@@ -17,8 +17,9 @@ const workflow = readFileSync(new URL("../.github/workflows/rig-skill-integratio
 let server: Server | undefined;
 let directory: string | undefined;
 
-it("pins the Pi workflow to a stable Copilot model", () => {
-  expect(workflow).toMatch(/^model: copilot\/gpt-5\.3-codex$/m);
+it("leaves outer agent model selection to the workflow router", () => {
+  expect(workflow).not.toMatch(/^model:/m);
+  expect(workflow).toContain("Let the workflow's model\nrouter select the outer agent model.");
 });
 
 afterEach(async () => {
