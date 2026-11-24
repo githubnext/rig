@@ -11,7 +11,7 @@ shows the fully idiomatic `workflow({ body })` form. Prefer the `body`
 destructuring style for new programs; use `"rig/globals"` only when porting an
 existing flat script one step at a time.
 
-See [claude-workflow-conversion.md](../references/claude-workflow-conversion.md)
+See [claude-workflow-conversion.md](../claude-workflow-conversion.md)
 for the full primitive mapping.
 
 **Claude dynamic workflow** (original flat script):
