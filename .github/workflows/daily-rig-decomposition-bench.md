@@ -70,6 +70,11 @@ implements the specification below. Then typecheck it by piping it to the instal
 CLI, run from the skill directory so Node's package self-reference resolves the bare
 `"rig"` import, and fix any reported errors before running it:
 
+Write the program incrementally in several small file edits, completing one section at a
+time (agent definitions, orchestration, then result handling). Do not plan or generate the
+entire program in a single response; keep each edit bounded and proceed directly to the
+next section. The assembled file must still meet all of the requirements below.
+
 ```bash
 cd .github/skills/rig && cat /tmp/gh-aw/agent/bench.ts | node rig.ts --typecheck
 ```
