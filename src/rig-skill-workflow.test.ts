@@ -79,6 +79,8 @@ describe("Rig skill agentic workflow", () => {
     const driver = readFileSync(new URL("../.github/drivers/copilot-sdk-driver.ts", import.meta.url), "utf8");
     expect(driver).toContain('from "../../skills/rig/launch-tool.ts"');
     expect(driver).toContain("createRigLaunchTool({ uri, connectionToken, cwd })");
+    expect(driver).toContain("definitions: fixture ? [...sessionTools.definitions,");
+    expect(driver).not.toContain("sessionTools.tools");
     expect(driver).not.toContain("launcherPath:");
     const shared = readFileSync(new URL("../.github/workflows/shared/rig.md", import.meta.url), "utf8");
     expect(shared).toContain('bash: ["printf", "node"]');
