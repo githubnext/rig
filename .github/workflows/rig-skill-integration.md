@@ -8,10 +8,10 @@ on:
 permissions:
   contents: read
   copilot-requests: write
-model: small
 engine:
   id: copilot
-  version: "1.0.103"
+  version: "1.0.113"
+  checksums-sha256: 854036b59b745d4f4b44a169327ffc0eab007f39e74b3dc3670f4d609a6c1072
   copilot-sdk: true
   driver: .github/drivers/copilot-sdk-driver.ts
 skills:
@@ -24,6 +24,7 @@ env:
   NPM_CONFIG_MIN_RELEASE_AGE: "3"
   NPM_CONFIG_REGISTRY: "https://packagefeedproxy.microsoft.io/npm/"
   RIG_DEBUG: "agent:failure,workflow:event"
+  RIG_WORKFLOW_FIXTURE: "1"
 tools:
   bash: ["printf", "node"]
   edit: false
@@ -80,8 +81,6 @@ The one-invocation limit includes denials.
 The scenario makes exactly three Rig model calls: clarity, safety, and feasibility
 judgments of the same harmless dummy request. TypeScript owns orchestration and
 majority voting; there is no fourth synthesis call, repair, or retry.
-The workflow engine also uses `small` so its SDK provider configuration does not
-override the judges with a larger model.
 
 ```rig
 import { agent, configureAgent, copilotEngine, s, workflow } from "rig";

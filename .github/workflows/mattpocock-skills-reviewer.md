@@ -13,7 +13,6 @@ permissions:
   contents: read
   pull-requests: read
   copilot-requests: write
-model: claude-sonnet-4.6
 engine:
   id: copilot
   version: "1.0.103"
@@ -247,7 +246,6 @@ Now begin your review! 🧠
 {{#runtime-import shared/noop-reminder.md}}
 ## agent: `pr-triage`
 ---
-model: claude-haiku-4.5
 description: Classifies PR change type, recommends Matt Pocock skills, and ranks high-impact files.
 ---
 You are a deterministic PR triage assistant for the Matt Pocock skills reviewer workflow.

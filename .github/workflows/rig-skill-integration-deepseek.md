@@ -14,6 +14,7 @@ model: copilot/gpt-5.3-codex
 engine:
   id: deepseek-harness
   version: "0.2.0-rc.2"
+  cooldown: 3
 tools:
   bash: ["*"]
   github:

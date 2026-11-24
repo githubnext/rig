@@ -22,12 +22,18 @@ it.each(workflows)("keeps %s engine pins and compiled installations synchronized
   expect(ghAwVersion).toBeDefined();
   expect(metadata.compiler_version).toBe(ghAwVersion);
   for (const container of manifest.containers) {
-    expect(container.digest).toMatch(/^sha256:[a-f0-9]{64}$/);
-    expect(container.pinned_image).toBe(`${container.image}@${container.digest}`);
+    if (container.digest === undefined) {
+      expect(container.image).toMatch(/@sha256:[a-f0-9]{64}$/);
+    } else {
+      expect(container.digest).toMatch(/^sha256:[a-f0-9]{64}$/);
+      expect(container.pinned_image).toBe(`${container.image}@${container.digest}`);
+    }
   }
   expect(metadata.engine_versions[metadata.agent_id]).toBe(version);
   if (metadata.agent_id === "copilot") {
-    expect(version).toBe(workflowVersion("rig-skill-integration.md"));
+    const source = readFileSync(new URL(name, workflowsDirectory), "utf8");
+    const sdk = source.includes("copilot-sdk: true");
+    expect(version).toBe(workflowVersion(sdk ? "rig-skill-integration.md" : "daily-rig-header.md"));
     expect(compiled).toContain(`install_copilot_cli.sh" ${version}`);
   } else {
     const packages: Record<string, string> = {
@@ -58,9 +64,8 @@ it.each(["../.npmrc", "../skills/rig/.npmrc"])("enforces the three-day cooldown 
 });
 
 it("keeps the declarative DeepSeek installation under the dependency cooldown", () => {
-  const source = readFileSync(new URL("shared/deepseek-harness.md", workflowsDirectory), "utf8");
-  expect(source).toContain("      cooldown: true");
-  expect(source).not.toContain("      cooldown: false");
+  const source = readFileSync(new URL("rig-skill-integration-deepseek.md", workflowsDirectory), "utf8");
+  expect(source).toMatch(/^  cooldown: 3$/m);
 });
 
 it.each([
@@ -76,8 +81,8 @@ it.each([
 
 it("keeps the standalone Copilot SDK aligned with the repository SDK", () => {
   const skill = JSON.parse(readFileSync(new URL("../skills/rig/package.json", import.meta.url), "utf8"));
-  expect(skill.dependencies["@github/copilot-sdk"])
-    .toBe(lock.packages["node_modules/@github/copilot-sdk"].version);
+  expect(skill.dependencies["@microsoft/copilot-sdk"])
+    .toBe(lock.packages["node_modules/@microsoft/copilot-sdk"].version);
 });
 
 it.each([
@@ -85,7 +90,7 @@ it.each([
   "@deepseek-ai/dsh-sdk-client",
   "@earendil-works/pi-agent-core",
   "@earendil-works/pi-ai",
-  "@github/copilot-sdk",
+  "@microsoft/copilot-sdk",
   "@openai/codex-sdk",
 ])("pins %s to the tested lockfile version", packageName => {
   const manifest = JSON.parse(readFileSync(new URL("../package.json", import.meta.url), "utf8"));

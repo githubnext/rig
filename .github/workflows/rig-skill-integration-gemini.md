@@ -6,7 +6,6 @@ on:
   workflow_dispatch:
 permissions:
   contents: read
-model: gemini-2.5-flash
 engine:
   id: gemini
   version: "0.68.0"

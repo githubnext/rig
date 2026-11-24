@@ -18,8 +18,8 @@ const mocks = vi.hoisted(() => {
     },
     disconnect: disconnectSession,
   }));
-  const forUri = vi.fn(() => ({ kind: "uri", url: "localhost:7777" }));
-  const forStdio = vi.fn(() => ({ kind: "stdio" }));
+  const forTcp = vi.fn((host: string, port: number) => ({ kind: "tcp", host, port }));
+  const forSpawnedStdio = vi.fn(() => ({ kind: "spawned-stdio" }));
   const copilotClientCtor = vi.fn();
   const CopilotClient = function (this: unknown, options: unknown) {
     copilotClientCtor(options);
@@ -28,13 +28,13 @@ const mocks = vi.hoisted(() => {
   const setSendAndWaitImpl = (impl: () => unknown | Promise<unknown>) => {
     sendAndWaitImpl = impl;
   };
-  return { approveAll, createSession, disconnectSession, stopClient, forUri, forStdio, copilotClientCtor, CopilotClient, setSendAndWaitImpl };
+  return { approveAll, createSession, disconnectSession, stopClient, forTcp, forSpawnedStdio, copilotClientCtor, CopilotClient, setSendAndWaitImpl };
 });
 
-vi.mock("@github/copilot-sdk", () => ({
+vi.mock("@microsoft/copilot-sdk", () => ({
   approveAll: mocks.approveAll,
   CopilotClient: mocks.CopilotClient,
-  RuntimeConnection: { forUri: mocks.forUri, forStdio: mocks.forStdio },
+  RuntimeConnection: { forTcp: mocks.forTcp, forSpawnedStdio: mocks.forSpawnedStdio },
 }));
 
 import { agent, s } from "rig";
@@ -42,8 +42,8 @@ import { launchRigProgram, runLauncherCli } from "rig";
 
 beforeEach(() => {
   mocks.createSession.mockClear();
-  mocks.forUri.mockClear();
-  mocks.forStdio.mockClear();
+  mocks.forTcp.mockClear();
+  mocks.forSpawnedStdio.mockClear();
   mocks.copilotClientCtor.mockClear();
   mocks.disconnectSession.mockClear();
   mocks.stopClient.mockClear();
@@ -72,10 +72,10 @@ it("reads a harness connection descriptor even when the program configures copil
     await runCliAndCaptureStdout([`--connection-fd=${fd}`], [
       'import { copilotEngine, configureAgent } from "rig"; configureAgent(copilotEngine()); export default "test";',
     ]);
-    expect(mocks.forUri).toHaveBeenCalledWith("http://localhost:4242", { connectionToken: "pipe-test-token" });
-    mocks.forUri.mockClear();
+    expect(mocks.forTcp).toHaveBeenCalledWith("localhost", 4242, { connectionToken: "pipe-test-token" });
+    mocks.forTcp.mockClear();
     await runCliAndCaptureStdout([], ['export default "test";']);
-    expect(mocks.forUri).not.toHaveBeenCalledWith("http://localhost:4242", expect.anything());
+    expect(mocks.forTcp).not.toHaveBeenCalledWith("localhost", 4242, expect.anything());
   } finally {
     await rm(dir, { recursive: true, force: true });
   }
@@ -307,7 +307,7 @@ it("accepts --server flag without rejecting", async () => {
   await runLauncherCli([fixturePath, "--server"], {}, { stdin, stdout });
 
   expect(output.join("")).toBe("done");
-  expect(mocks.forStdio).toHaveBeenCalled();
+  expect(mocks.forSpawnedStdio).toHaveBeenCalled();
 });
 
 it("typechecks a program file without executing it", async () => {

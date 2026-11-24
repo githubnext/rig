@@ -41,7 +41,7 @@ beforeEach(() => {
   vi.stubEnv("CODEX_HOME", "/test/harness-codex");
   vi.stubEnv("GH_AW_MODEL_AGENT_CODEX", "gpt-5.3-codex");
   vi.stubEnv("GEMINI_API_BASE_URL", "http://test-gemini-proxy");
-  vi.stubEnv("GEMINI_MODEL", "gemini-2.5-flash");
+  vi.stubEnv("GEMINI_MODEL", undefined);
   vi.stubEnv("DSH_MODEL", "copilot/gpt-5.3-codex");
   vi.stubEnv("RIG_JUDGE_MODEL", "copilot/gpt-5.3-codex");
   vi.stubEnv("DSH_HOME", "/test/harness-deepseek");
@@ -233,19 +233,17 @@ it.each(["codex", "deepseek", "gemini", "pi"])("declares the %s workflow's provi
   expect(shared).toContain("Never fabricate\nresults or call `noop` on failure");
   expect(lock).toContain("assert-three-judges.ts");
   if (engine !== "gemini") {
-    expect(markdown).toContain("model: copilot/gpt-5.3-codex");
     expect(markdown).toContain("copilot-requests: write");
     expect(lock).toContain("COPILOT_GITHUB_TOKEN: ${{ github.token }}");
     expect(lock).not.toContain("secrets.OPENAI_API_KEY");
     if (engine === "pi") {
-      expect(lock).toContain("GH_AW_PI_MODEL_ID=gpt-5.3-codex");
       expect(markdown).toContain("driver: pi_agent_core_driver.cjs");
       expect(markdown).toContain("${{ github.workspace }}/.github/drivers/pi-rig-extension.ts");
       expect(markdown).toContain("**exactly once** with `{}`");
       expect(shared).toContain("instead\nof Bash");
       expect(lock).toContain("/pi_agent_core_driver.cjs");
       expect(lock).toContain(".github/drivers/pi-rig-extension.ts");
-      expect(lock).toContain('"bash":["echo","ls","pwd","cat","head","tail","grep","wc","sort","uniq","date","yq","printf","node"]');
+      expect(lock).toContain('"bash":["echo","ls","pwd","cat","head","tail","grep","wc","sort","uniq","date","yq","printf","node","safeoutputs:*"]');
     }
     if (engine === "deepseek") {
       expect(markdown).toContain('version: "0.2.0-rc.2"');
@@ -265,8 +263,7 @@ it.each(["codex", "deepseek", "gemini", "pi"])("declares the %s workflow's provi
 
 it("preserves non-secret Codex fixture settings across shell filtering", () => {
   const lock = readFileSync(new URL("../.github/workflows/rig-skill-integration-codex.lock.yml", import.meta.url), "utf8");
-  expect(lock).toContain('"set":{"CODEX_API_KEY":"awf-proxy","CODEX_HOME":"/tmp/gh-aw/mcp-config","GH_AW_MODEL_AGENT_CODEX":"gpt-5.3-codex","RIG_JUDGE_ENGINE":"codex"}');
-  expect(lock).toContain("GH_AW_MODEL_AGENT_CODEX: gpt-5.3-codex");
+  expect(lock).toContain('"set":{"CODEX_API_KEY":"awf-proxy","CODEX_HOME":"/tmp/gh-aw/mcp-config","RIG_JUDGE_ENGINE":"codex"}');
 });
 
 it("uses a declared fixture-only MCP driver instead of Codex's native shell", () => {

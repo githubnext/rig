@@ -13,7 +13,6 @@ permissions:
   issues: read
   pull-requests: read
   copilot-requests: write
-model: claude-sonnet-4.6
 engine:
   id: copilot
   version: "1.0.103"

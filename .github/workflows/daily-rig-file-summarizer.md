@@ -13,8 +13,10 @@ permissions:
   copilot-requests: write
 engine:
   id: copilot
-  version: "1.0.103"
+  version: "1.0.113"
+  checksums-sha256: 854036b59b745d4f4b44a169327ffc0eab007f39e74b3dc3670f4d609a6c1072
   copilot-sdk: true
+  driver: .github/drivers/copilot-sdk-driver.ts
 strict: true
 env:
   NPM_CONFIG_MIN_RELEASE_AGE: "3"
@@ -25,6 +27,9 @@ steps:
     env:
       GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
     run: gh skill install . rig --from-local --force
+pre-agent-steps:
+  - name: Restore checkout SDK dependencies after compiler setup
+    run: npm ci
 tools:
   bash: ["*"]
 network:

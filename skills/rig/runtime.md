@@ -76,7 +76,7 @@ body lines as commands. Use the printf pipeline instead, not a heredoc or a blan
 
 Pass both `COPILOT_SDK_URI` and `COPILOT_CONNECTION_TOKEN` unchanged to Node.
 Do not replace the environment with a map that omits the connection token.
-`copilotEngine()` uses `RuntimeConnection.forUri(uri, { connectionToken })`;
+`copilotEngine()` passes the token to the SDK's TCP transport;
 the URI alone does not authenticate to a token-protected sidecar.
 Never print the token, embed it in source or shell commands, or write it to files.
 If the tool cannot forward the required environment, report the prerequisite

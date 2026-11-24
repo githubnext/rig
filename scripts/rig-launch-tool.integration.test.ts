@@ -4,7 +4,7 @@ import { createServer } from "node:net";
 import { randomUUID } from "node:crypto";
 import { fileURLToPath } from "node:url";
 import { runInNewContext } from "node:vm";
-import { CopilotClient, RuntimeConnection } from "@github/copilot-sdk";
+import { CopilotClient, RuntimeConnection } from "@microsoft/copilot-sdk";
 import { expect, it } from "vitest";
 import { createRigLaunchTool } from "rig/launch-tool";
 
@@ -30,16 +30,17 @@ liveTest("runs the three-judge fixture through a harness-owned tool without cred
   let output: string | undefined;
   let launchFailure: unknown;
   const client = new CopilotClient({
-    connection: RuntimeConnection.forTcp({ port, connectionToken }),
-    workingDirectory: cwd,
+    mode: "coding-agent",
+    runtime: RuntimeConnection.forSpawnedTcp({ port, connectionToken }),
   });
   try {
     const session = await client.createSession({
       model: "small",
-      onPermissionRequest: request => request.kind === "custom-tool" && request.toolName === "run_rig"
+      workingDirectory: cwd,
+      permissions: { onRequest: request => request.kind === "custom-tool" && request.toolName === "run_rig"
         ? { kind: "approve-once" }
-        : { kind: "reject", feedback: "Use run_rig only; no shell or file access is required." },
-      tools: [{
+        : { kind: "reject", feedback: "Use run_rig only; no shell or file access is required." } },
+      tools: { definitions: [{
         ...tool,
         handler: async (args, invocation) => {
           toolCalls++;
@@ -56,7 +57,7 @@ liveTest("runs the three-judge fixture through a harness-owned tool without cred
           output = String(result);
           return result;
         },
-      }],
+      }] },
     });
     try {
       await session.sendAndWait({

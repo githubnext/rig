@@ -4,23 +4,23 @@ const mocks = vi.hoisted(() => {
   const approveAll = vi.fn();
   const createSession = vi.fn();
   const stop = vi.fn();
-  const forUri = vi.fn(() => ({ kind: "uri", url: "localhost:7777" }));
-  const forStdio = vi.fn(() => ({ kind: "stdio" }));
+  const forTcp = vi.fn((host: string, port: number, options?: { connectionToken: string }) => ({ kind: "tcp", host, port, ...options }));
+  const forSpawnedStdio = vi.fn(() => ({ kind: "spawned-stdio" }));
   const copilotClientCtor = vi.fn();
   const CopilotClient = function (this: unknown, options: unknown) {
     copilotClientCtor(options);
     return { createSession, stop };
   };
-  return { approveAll, createSession, stop, forUri, forStdio, copilotClientCtor, CopilotClient };
+  return { approveAll, createSession, stop, forTcp, forSpawnedStdio, copilotClientCtor, CopilotClient };
 });
 
-vi.mock("@github/copilot-sdk", () => ({
+vi.mock("@microsoft/copilot-sdk", () => ({
   approveAll: mocks.approveAll,
   CopilotClient: mocks.CopilotClient,
-  RuntimeConnection: { forUri: mocks.forUri, forStdio: mocks.forStdio },
+  RuntimeConnection: { forTcp: mocks.forTcp, forSpawnedStdio: mocks.forSpawnedStdio },
 }));
 
-import { copilotEngine } from "rig";
+import { copilotEngine, resolveCopilotModel } from "rig";
 
 beforeEach(() => {
   mocks.createSession.mockReset();
@@ -30,10 +30,8 @@ beforeEach(() => {
     sendAndWait: vi.fn(),
     disconnect: vi.fn(),
   });
-  mocks.forUri.mockClear();
-  mocks.forUri.mockImplementation(() => ({ kind: "uri", url: "localhost:7777" }));
-  mocks.forStdio.mockClear();
-  mocks.forStdio.mockImplementation(() => ({ kind: "stdio" }));
+  mocks.forTcp.mockClear();
+  mocks.forSpawnedStdio.mockClear();
   mocks.copilotClientCtor.mockClear();
   delete process.env["COPILOT_SDK_URI"];
   delete process.env["COPILOT_CONNECTION_TOKEN"];
@@ -42,26 +40,35 @@ beforeEach(() => {
   vi.restoreAllMocks();
 });
 
-it("uses a URI (HTTP) connection by default", async () => {
+it("attaches to the default TCP endpoint", async () => {
   await copilotEngine()({ model: "gpt-5" });
 
-  expect(mocks.forUri).toHaveBeenCalledWith("localhost:7777");
-  expect(mocks.copilotClientCtor).toHaveBeenCalledWith({ connection: { kind: "uri", url: "localhost:7777" } });
+  expect(mocks.forTcp).toHaveBeenCalledWith("localhost", 7777);
+  expect(mocks.copilotClientCtor).toHaveBeenCalledWith({ mode: "coding-agent", runtime: { kind: "tcp", host: "localhost", port: 7777 } });
   expect(mocks.createSession).toHaveBeenCalledWith({
     model: "gpt-5",
-    streaming: false,
-    onPermissionRequest: mocks.approveAll,
+    events: { streaming: false },
+    permissions: { onRequest: mocks.approveAll },
   });
 });
 
-it("uses COPILOT_SDK_URI when set", async () => {
-  process.env["COPILOT_SDK_URI"] = "http://127.0.0.1:4141";
-  mocks.forUri.mockImplementation(((url: string) => ({ kind: "uri", url })) as any);
+it.each([
+  ["http://127.0.0.1:4141", "127.0.0.1", 4141],
+  ["[::1]:4141", "::1", 4141],
+  ["tcp://localhost:4242", "localhost", 4242],
+])("uses COPILOT_SDK_URI %s", async (uri, host, port) => {
+  process.env["COPILOT_SDK_URI"] = uri;
 
   await copilotEngine()({ model: "gpt-5" });
 
-  expect(mocks.forUri).toHaveBeenCalledWith("http://127.0.0.1:4141");
-  expect(mocks.copilotClientCtor).toHaveBeenCalledWith({ connection: { kind: "uri", url: "http://127.0.0.1:4141" } });
+  expect(mocks.forTcp).toHaveBeenCalledWith(host, port);
+  expect(mocks.copilotClientCtor).toHaveBeenCalledWith({ mode: "coding-agent", runtime: { kind: "tcp", host, port } });
+});
+
+it("rejects an unsupported endpoint without echoing embedded credentials", async () => {
+  process.env["COPILOT_SDK_URI"] = "https://user:secret@localhost:4141";
+  await expect(copilotEngine()({ model: "small" })).rejects.toThrow(/^Invalid Copilot SDK endpoint; expected a plaintext TCP host and port$/);
+  expect(mocks.forTcp).not.toHaveBeenCalled();
 });
 
 it("uses agentic workflow SDK connection and provider settings", async () => {
@@ -74,14 +81,22 @@ it("uses agentic workflow SDK connection and provider settings", async () => {
 
   await copilotEngine()({ model: "small" });
 
-  expect(mocks.forUri).toHaveBeenCalledWith("localhost:7777", { connectionToken: "connection-token" });
+  expect(mocks.forTcp).toHaveBeenCalledWith("localhost", 7777, { connectionToken: "connection-token" });
   expect(mocks.createSession).toHaveBeenCalledWith({
-    model: "claude-sonnet-4.6",
-    streaming: false,
-    onPermissionRequest: mocks.approveAll,
-    providers: [{ name: "copilot", baseUrl: "https://provider.example" }],
-    models: [{ id: "claude-sonnet-4.6", provider: "copilot" }],
+    model: "copilot/claude-sonnet-4.6",
+    events: { streaming: false },
+    permissions: { onRequest: mocks.approveAll },
+    inference: {
+      providers: [{ name: "copilot", baseUrl: "https://provider.example" }],
+      models: [{ id: "claude-sonnet-4.6", provider: "copilot" }],
+    },
   });
+});
+
+it("requires an explicit provider when a model alias is ambiguous", () => {
+  const models = [{ id: "chat", provider: "first" }, { id: "chat", provider: "second" }];
+  expect(() => resolveCopilotModel("chat", models)).toThrow("Ambiguous Copilot model");
+  expect(resolveCopilotModel("second/chat", models)).toBe("second/chat");
 });
 
 it("uses the configured SDK send timeout", async () => {
@@ -147,15 +162,17 @@ it("does not return an empty success when the SDK settles during cancellation", 
 });
 
 it("preserves explicit client options", async () => {
-  const connection = { kind: "uri", url: "127.0.0.1:8765" } as const;
+  const runtime = { kind: "tcp", host: "127.0.0.1", port: 8765 } as const;
 
-  await copilotEngine({ connection, workingDirectory: "/tmp/rig" })({ model: "gpt-5" });
+  await copilotEngine({ runtime, workingDirectory: "/tmp/rig", clientInfo: { applicationName: "rig-test" } })({ model: "gpt-5" });
 
-  expect(mocks.forUri).not.toHaveBeenCalled();
+  expect(mocks.forTcp).not.toHaveBeenCalled();
   expect(mocks.copilotClientCtor).toHaveBeenCalledWith({
-    connection,
-    workingDirectory: "/tmp/rig",
+    mode: "coding-agent",
+    runtime,
+    clientInfo: { applicationName: "rig-test" },
   });
+  expect(mocks.createSession).toHaveBeenCalledWith(expect.objectContaining({ workingDirectory: "/tmp/rig" }));
 });
 
 it("subscribes to all Copilot SDK events and logs JSONL to stderr", async () => {
@@ -181,9 +198,9 @@ it("creates one Copilot session per agent implementation", async () => {
 
 it("uses a stdio connection when server option is true", async () => {
   await copilotEngine({ server: true })({ model: "small" });
-  expect(mocks.forStdio).toHaveBeenCalledOnce();
-  expect(mocks.forUri).not.toHaveBeenCalled();
-  expect(mocks.copilotClientCtor).toHaveBeenCalledWith({ connection: { kind: "stdio" } });
+  expect(mocks.forSpawnedStdio).toHaveBeenCalledOnce();
+  expect(mocks.forTcp).not.toHaveBeenCalled();
+  expect(mocks.copilotClientCtor).toHaveBeenCalledWith({ mode: "coding-agent", runtime: { kind: "spawned-stdio" } });
 });
 
 it("maps structured output to the SDK responseSchema option", async () => {

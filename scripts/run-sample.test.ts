@@ -26,21 +26,21 @@ const mocks = vi.hoisted(() => {
     },
     disconnect: disconnectSession,
   }));
-  const forUri = vi.fn(() => ({ kind: "uri", url: "localhost:7777" }));
-  const forStdio = vi.fn(() => ({ kind: "stdio" }));
+  const forTcp = vi.fn((host: string, port: number) => ({ kind: "tcp", host, port }));
+  const forSpawnedStdio = vi.fn(() => ({ kind: "spawned-stdio" }));
   const CopilotClient = function () {
     return { createSession, stop: stopClient };
   };
   const setSendAndWaitImpl = (impl: (request: { prompt: string }) => unknown | Promise<unknown>) => {
     sendAndWaitImpl = impl;
   };
-  return { approveAll, createSession, disconnectSession, stopClient, forUri, forStdio, CopilotClient, setSendAndWaitImpl };
+  return { approveAll, createSession, disconnectSession, stopClient, forTcp, forSpawnedStdio, CopilotClient, setSendAndWaitImpl };
 });
 
-vi.mock("@github/copilot-sdk", () => ({
+vi.mock("@microsoft/copilot-sdk", () => ({
   approveAll: mocks.approveAll,
   CopilotClient: mocks.CopilotClient,
-  RuntimeConnection: { forUri: mocks.forUri, forStdio: mocks.forStdio },
+  RuntimeConnection: { forTcp: mocks.forTcp, forSpawnedStdio: mocks.forSpawnedStdio },
 }));
 
 function generateOutput(prompt: string): unknown {

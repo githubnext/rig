@@ -8,10 +8,10 @@ on:
 permissions:
   contents: read
   copilot-requests: write
-model: copilot/gpt-5.3-codex
 engine:
   id: codex
   version: "0.169.0"
+  model-provider: github
   mcp:
     tool-timeout: 4m
   config: |
@@ -22,7 +22,6 @@ engine:
     [shell_environment_policy.set]
     RIG_JUDGE_ENGINE = "codex"
     CODEX_HOME = "/tmp/gh-aw/mcp-config"
-    GH_AW_MODEL_AGENT_CODEX = "gpt-5.3-codex"
     CODEX_API_KEY = "awf-proxy"
 tools:
   bash: ["*"]
@@ -79,12 +78,12 @@ env:
 
 # Rig Codex three-judge integration
 
-Use the Codex SDK adapter, not the Copilot SDK. Both the outer engine and the
-three judges use the workflow's `copilot/gpt-5.3-codex` model through the AWF gateway.
+Use the Codex SDK adapter, not the Copilot SDK. The fixture driver runs the
+three judges through the AWF gateway.
 Inherit the harness's Codex configuration; do not supply an OpenAI API key,
 replace the proxy endpoint, or change the configured model.
 The explicit shell environment settings preserve only the fixture selector,
-model, config path, and a non-secret proxy placeholder, not upstream credentials.
+config path, and a non-secret proxy placeholder, not upstream credentials.
 Codex does not enforce gh-aw Bash allowlists; `bash: ["*"]` avoids claiming one.
 The native shell is disabled explicitly with Codex's `features.shell_tool = false`
 configuration, not through gh-aw's Bash allowlist.

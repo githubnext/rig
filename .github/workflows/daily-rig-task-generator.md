@@ -378,7 +378,6 @@ open an empty PR; emit `noop` instead.
 ## agent: `task-generator`
 ---
 description: Proposes missing Rig lessons from the complete catalog, with nearest-sample comparisons and concrete novelty evidence.
-model: small
 ---
 You are a task designer for the rig TypeScript agent harness.
 
@@ -408,7 +407,6 @@ behavior). Do not propose renumbered, renamed, reworded, or threshold-only varia
 ## agent: `rig-expander`
 ---
 description: Expands a task description into a complete rig TypeScript program following the SKILL.md guidelines.
-model: large
 ---
 You are an expert in the rig TypeScript agent harness.
 

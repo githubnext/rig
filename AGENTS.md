@@ -33,7 +33,7 @@ All imports use the `"rig"` path alias (resolved via tsconfig paths + vitest ali
 
 ## Code Style
 
-- Keep the core (`skills/rig/rig.ts`) self-contained; `@github/copilot-sdk` is imported directly in `skills/rig/rig.ts`
+- Keep the core (`skills/rig/rig.ts`) self-contained; `@microsoft/copilot-sdk` is imported directly in `skills/rig/rig.ts`
 - Minimal comments; code should be self-explanatory
 - Use `node:` prefix for Node.js built-in imports
 - Types are colocated with the module that defines them, not in separate `.d.ts` files
@@ -57,7 +57,7 @@ All imports use the `"rig"` path alias (resolved via tsconfig paths + vitest ali
 
 - Framework: vitest
 - Tests live in `src/rig.test.ts` (agent definition, invocation, validation, and prompt intent coverage)
-- Stub the Copilot SDK client with `vi.mock("@github/copilot-sdk", ...)`
+- Stub the Copilot SDK client with `vi.mock("@microsoft/copilot-sdk", ...)`
 - All unit tests must pass before committing
 - Samples run via a stub Copilot SDK client that synthesizes shape-conforming output from the prompt's `<output_schema>` block
 

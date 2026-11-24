@@ -23,10 +23,12 @@ tools:
   bash: ["printf", "node"]
 ```
 
-In this repository, use `imports: [shared/rig.md]`. The template provisions
-Node.js 24 and permits both launch stages; it does not install dependencies
-or select the skill or engine. Provision dependencies in the host, not from
-the agent prompt. Report missing dependencies and stop.
+In this repository, use `imports: [shared/rig.md]`. The template grants the
+launch commands and provisions Node.js 24. Install dependencies on the host;
+report missing dependencies rather than installing from the agent prompt.
+
+SDK v2 needs protocol 4 (Copilot CLI 1.0.113 or later). gh-aw v1.4.0
+supports SDK v2 in its built-in driver.
 
 Without the template, configure equivalent prerequisites:
 
@@ -55,15 +57,12 @@ subprocess-environment configuration when supplying one explicitly.
 Do not replace the environment with a map that omits the connection token.
 This is environment forwarding, not a shell `env` or `export` command.
 
-`copilotEngine()` reads the token and passes it as
-`RuntimeConnection.forUri(uri, { connectionToken })`. The URI alone does not
-authenticate to a token-protected sidecar. This token authenticates the SDK
-transport; it is not a GitHub or provider API token.
+`copilotEngine()` passes the token to the SDK's TCP transport. This is a
+sidecar credential, not a GitHub or provider API token.
 Never print it, embed it in source or shell commands, or write it to files.
 If the execution tool cannot forward the required environment, report that
 prerequisite instead of attempting an unauthenticated connection.
 Do not use `--server` or start another server to work around a failed handoff.
-Inspect only named environment variables when permitted; never dump credentials.
 
 For an SDK driver you own, [Harness tools](./harness-tools.md) provides `run_rig`
 with an authorized pipe-based handoff instead of credential environment variables.
@@ -81,11 +80,8 @@ If an unrelated preparation command is denied before launch, remove it rather
 than claiming all Bash is unavailable. Respect the workflow's retry policy.
 If launch fails, report its exact error without fabricating output.
 
-For an unchanged prevalidated fixture, skip lint/typecheck preflights and
-launch once. For newly generated programs, retain the skill's checks.
-Use an existing output directory; `/tmp/gh-aw/agent` is already provisioned.
-If another required directory is missing, report it instead of adding
-disallowed preparation commands.
+Launch prevalidated fixtures once without preflights. Keep the skill's
+checks for generated programs. Use the existing `/tmp/gh-aw/agent` directory.
 
 Edit workflows with an agent or use `gh aw compile --watch` for feedback.
 Before committing, run `gh aw compile <workflow-id> --strict` and include the
@@ -101,7 +97,7 @@ stable release yet, so retain its existing RC rather than selecting a newer prev
 The repository and standalone skill set `min-release-age=3` (days) in `.npmrc`.
 Workflow-level `NPM_CONFIG_MIN_RELEASE_AGE: "3"` also covers global CLI installs,
 which ignore project `.npmrc`, and no-checkout workflows. Keep DeepSeek's
-declarative installation `cooldown: true`. This is dependency release age, not
+workflow engine's `cooldown: 3`. This is dependency release age, not
 `on.cooldown`, which delays workflow execution.
 
 Use the Microsoft-approved npm proxy in both project `.npmrc` files and in
