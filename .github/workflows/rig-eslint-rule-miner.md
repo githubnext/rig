@@ -15,6 +15,7 @@ permissions:
 engine:
   id: copilot
   version: "1.0.103"
+model-routing: false
 strict: true
 env:
   NPM_CONFIG_MIN_RELEASE_AGE: "3"

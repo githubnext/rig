@@ -28,8 +28,8 @@ it.each(workflows)("keeps %s engine pins and compiled installations synchronized
   expect(metadata.engine_versions[metadata.agent_id]).toBe(version);
   if (metadata.agent_id === "copilot") {
     const source = readFileSync(new URL(name, workflowsDirectory), "utf8");
-    const v2 = source.includes("driver: .github/drivers/copilot-sdk-driver.ts");
-    expect(version).toBe(workflowVersion(v2 ? "rig-skill-integration.md" : "daily-rig-decomposition-bench.md"));
+    const sdk = source.includes("copilot-sdk: true");
+    expect(version).toBe(workflowVersion(sdk ? "rig-skill-integration.md" : "daily-rig-header.md"));
     expect(compiled).toContain(`install_copilot_cli.sh" ${version}`);
   } else {
     const packages: Record<string, string> = {
@@ -60,9 +60,8 @@ it.each(["../.npmrc", "../skills/rig/.npmrc"])("enforces the three-day cooldown 
 });
 
 it("keeps the declarative DeepSeek installation under the dependency cooldown", () => {
-  const source = readFileSync(new URL("shared/deepseek-harness.md", workflowsDirectory), "utf8");
-  expect(source).toContain("      cooldown: true");
-  expect(source).not.toContain("      cooldown: false");
+  const source = readFileSync(new URL("rig-skill-integration-deepseek.md", workflowsDirectory), "utf8");
+  expect(source).toMatch(/^  cooldown: 3$/m);
 });
 
 it.each([

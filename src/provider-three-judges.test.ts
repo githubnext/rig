@@ -238,14 +238,14 @@ it.each(["codex", "deepseek", "gemini", "pi"])("declares the %s workflow's provi
     expect(lock).toContain("COPILOT_GITHUB_TOKEN: ${{ github.token }}");
     expect(lock).not.toContain("secrets.OPENAI_API_KEY");
     if (engine === "pi") {
-      expect(lock).toContain("GH_AW_PI_MODEL_ID=gpt-5.3-codex");
+      expect(lock).toContain("GH_AW_PI_MODEL: copilot/gpt-5.3-codex");
       expect(markdown).toContain("driver: pi_agent_core_driver.cjs");
       expect(markdown).toContain("${{ github.workspace }}/.github/drivers/pi-rig-extension.ts");
       expect(markdown).toContain("**exactly once** with `{}`");
       expect(shared).toContain("instead\nof Bash");
       expect(lock).toContain("/pi_agent_core_driver.cjs");
       expect(lock).toContain(".github/drivers/pi-rig-extension.ts");
-      expect(lock).toContain('"bash":["echo","ls","pwd","cat","head","tail","grep","wc","sort","uniq","date","yq","printf","node"]');
+      expect(lock).toContain('"bash":["echo","ls","pwd","cat","head","tail","grep","wc","sort","uniq","date","yq","printf","node","safeoutputs:*"]');
     }
     if (engine === "deepseek") {
       expect(markdown).toContain('version: "0.2.0-rc.2"');

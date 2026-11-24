@@ -27,8 +27,8 @@ In this repository, use `imports: [shared/rig.md]`. The template grants the
 launch commands and provisions Node.js 24. Install dependencies on the host;
 report missing dependencies rather than installing from the agent prompt.
 
-SDK v2 needs protocol 4 (Copilot CLI 1.0.113 or later). Use a v2-capable
-driver: gh-aw's built-in SDK v1 driver cannot share a protocol 4 sidecar.
+SDK v2 needs protocol 4 (Copilot CLI 1.0.113 or later). gh-aw v1.4.0
+supports SDK v2 in its built-in driver.
 
 Without the template, configure equivalent prerequisites:
 
@@ -97,7 +97,7 @@ stable release yet, so retain its existing RC rather than selecting a newer prev
 The repository and standalone skill set `min-release-age=3` (days) in `.npmrc`.
 Workflow-level `NPM_CONFIG_MIN_RELEASE_AGE: "3"` also covers global CLI installs,
 which ignore project `.npmrc`, and no-checkout workflows. Keep DeepSeek's
-declarative installation `cooldown: true`. This is dependency release age, not
+workflow engine's `cooldown: 3`. This is dependency release age, not
 `on.cooldown`, which delays workflow execution.
 
 Use the Microsoft-approved npm proxy in both project `.npmrc` files and in

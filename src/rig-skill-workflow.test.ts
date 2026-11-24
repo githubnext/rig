@@ -92,7 +92,7 @@ describe("Rig skill agentic workflow", () => {
     "monthly-pr-clusters",
   ])("provisions SDK v2 before the custom driver runs in %s", workflow => {
     const lock = readFileSync(new URL(`../.github/workflows/${workflow}.lock.yml`, import.meta.url), "utf8");
-    const provisioning = lock.indexOf("npm install --ignore-scripts --no-save @github/copilot-sdk@");
+    const provisioning = lock.indexOf('actions/install_copilot_sdk.sh" node ');
     const restore = lock.indexOf("name: Restore checkout SDK dependencies after compiler setup");
     const execution = lock.indexOf("name: Execute GitHub Copilot CLI");
     expect(provisioning).toBeGreaterThan(-1);
