@@ -15,6 +15,7 @@ permissions:
 engine:
   id: copilot
   version: "1.0.103"
+  args: ["--allow-tool", "agenticworkflows"]
 strict: true
 timeout-minutes: 45
 checkout:
