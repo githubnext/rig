@@ -54,7 +54,6 @@ describe("Monthly PR clusters workflow", () => {
     expect(prompt).toContain("design the Rig at runtime");
     expect(markdown).toContain('cron: "0 9 * * *"');
     expect(markdown).toContain("workflow_dispatch:");
-    expect(markdown).toContain("\nmodel: small\n");
     expect(markdown).toContain("copilot-sdk: true");
     expect(markdown).toContain("  - skills/rig");
     expect(markdown).toContain("  - shared/rig.md");

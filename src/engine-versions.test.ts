@@ -22,8 +22,12 @@ it.each(workflows)("keeps %s engine pins and compiled installations synchronized
   expect(ghAwVersion).toBeDefined();
   expect(metadata.compiler_version).toBe(ghAwVersion);
   for (const container of manifest.containers) {
-    expect(container.digest).toMatch(/^sha256:[a-f0-9]{64}$/);
-    expect(container.pinned_image).toBe(`${container.image}@${container.digest}`);
+    if (container.digest === undefined) {
+      expect(container.image).toMatch(/@sha256:[a-f0-9]{64}$/);
+    } else {
+      expect(container.digest).toMatch(/^sha256:[a-f0-9]{64}$/);
+      expect(container.pinned_image).toBe(`${container.image}@${container.digest}`);
+    }
   }
   expect(metadata.engine_versions[metadata.agent_id]).toBe(version);
   if (metadata.agent_id === "copilot") {

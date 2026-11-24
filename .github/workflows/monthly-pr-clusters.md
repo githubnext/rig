@@ -15,7 +15,6 @@ permissions:
   issues: read
   pull-requests: read
   copilot-requests: write
-model: small
 engine:
   id: copilot
   version: "1.0.113"

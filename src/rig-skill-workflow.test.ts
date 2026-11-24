@@ -189,7 +189,6 @@ describe("Rig skill agentic workflow", () => {
         inference: { providers: providerConfig.providers, models: providerConfig.models },
       });
     }
-    expect(markdown).toContain("\nmodel: small\n");
     expect(markdown).toContain("\nskills:\n  - skills/rig\n");
   });
 

@@ -28,7 +28,7 @@ export function createProviderFixture() {
     }
     case "gemini":
       requiredEnv("GEMINI_API_BASE_URL");
-      return threeJudges(engine, requiredEnv("GEMINI_MODEL"), geminiEngine({
+      return threeJudges(engine, process.env["GEMINI_MODEL"]?.trim() || "gemini-2.5-flash", geminiEngine({
         approvalMode: "plan",
         args: ["--extensions", "none"],
       }));

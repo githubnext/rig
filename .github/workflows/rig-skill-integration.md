@@ -8,7 +8,6 @@ on:
 permissions:
   contents: read
   copilot-requests: write
-model: small
 engine:
   id: copilot
   version: "1.0.113"
@@ -82,8 +81,6 @@ The one-invocation limit includes denials.
 The scenario makes exactly three Rig model calls: clarity, safety, and feasibility
 judgments of the same harmless dummy request. TypeScript owns orchestration and
 majority voting; there is no fourth synthesis call, repair, or retry.
-The workflow engine also uses `small` so its SDK provider configuration does not
-override the judges with a larger model.
 
 ```rig
 import { agent, configureAgent, copilotEngine, s, workflow } from "rig";
