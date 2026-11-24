@@ -5,9 +5,9 @@ Claude dynamic workflows. A parent workflow delegates a self-contained child
 workflow inline. The child shares the parent's concurrency limiter, agent
 budget, cancellation signal, and event stream.
 
-See [claude-workflow-conversion.md](../references/claude-workflow-conversion.md)
+See [claude-workflow-conversion.md](../claude-workflow-conversion.md)
 for the full primitive mapping and
-[dynamic-workflows.md](../references/dynamic-workflows.md) for `call.workflow`
+[dynamic-workflows.md](../dynamic-workflows.md) for `call.workflow`
 semantics.
 
 ```rig

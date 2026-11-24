@@ -5,7 +5,7 @@ primitives most likely to be ported without an obvious rig example. Maps
 directly to Claude's `log(message)`, `budget.remaining()`, and open-ended
 `while` convergence loops.
 
-See [claude-workflow-conversion.md](../references/claude-workflow-conversion.md)
+See [claude-workflow-conversion.md](../claude-workflow-conversion.md)
 for the full primitive mapping.
 
 ```rig

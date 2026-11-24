@@ -22,7 +22,7 @@ return verdicts.filter(Boolean).filter((v) => v.real).length
 **Rig port** (below): `args` becomes `input` with an `s.object` schema;
 `agent(prompt, { schema })` becomes `call.json(prompt, schema)`; everything else
 maps 1-to-1. See
-[claude-workflow-conversion.md](../references/claude-workflow-conversion.md) for
+[claude-workflow-conversion.md](../claude-workflow-conversion.md) for
 the full primitive mapping.
 
 ```rig

@@ -18,7 +18,7 @@ fix:    (issue, idx) => ...            fix:    (triage, issue, idx) => ...  // t
 If a stage returns `null` (agent failure), subsequent stages for that item are
 skipped and `null` propagates to the output.
 
-See [claude-workflow-conversion.md](../references/claude-workflow-conversion.md)
+See [claude-workflow-conversion.md](../claude-workflow-conversion.md)
 for the full primitive mapping and
 [310-workflow-audit-verify.md](310-workflow-audit-verify.md) for a single-stage
 parallel-then-pipeline pattern.

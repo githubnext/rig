@@ -19,7 +19,7 @@ Set `RIG_ENGINE=anthropic` or call `configureAgent(anthropicEngine())` at the
 top of your program. Requires `ANTHROPIC_API_KEY` in the environment.
 
 See
-[claude-workflow-conversion.md](../references/claude-workflow-conversion.md#running-with-the-anthropic-engine-claude-models)
+[claude-workflow-conversion.md](../claude-workflow-conversion.md#running-with-the-anthropic-engine-claude-models)
 for the full engine reference.
 
 ```rig
