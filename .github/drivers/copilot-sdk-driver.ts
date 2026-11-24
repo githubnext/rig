@@ -131,7 +131,7 @@ async function main(): Promise<void> {
       },
       tools: {
         availableTools: fixture ? sessionTools.availableTools.addCustom("run_rig") : sessionTools.availableTools,
-        definitions: fixture ? [...sessionTools.tools, { ...launchTool, handler: launch }] : sessionTools.tools,
+        definitions: fixture ? [...sessionTools.definitions, { ...launchTool, handler: launch }] : sessionTools.definitions,
       },
     });
     try {
