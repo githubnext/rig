@@ -29,7 +29,7 @@ async function runIntegrationSample(samplePath: string, input: string): Promise<
     const args = hasSdkUri ? [launcherPath, samplePath] : [launcherPath, samplePath, "--server"];
     const child = spawn(process.execPath, args, {
       cwd: repoRoot,
-      stdio: ["pipe", "pipe", "ignore"],
+      stdio: ["pipe", "pipe", "inherit"],
     });
 
     let stdout = "";
