@@ -24,6 +24,7 @@ async function main(): Promise<void> {
   const { resolveModelWithFallback } = actionRequire("./model_fallback.cjs");
   const { resolveRoutingReasoningEffort } = actionRequire("./copilot_routing_effort.cjs");
   const fixture = process.env["RIG_WORKFLOW_FIXTURE"] === "1";
+  const sourceTool = process.env["RIG_WORKFLOW_SOURCE_TOOL"] === "1";
   const provider = parseMultiProviderJson(requiredEnv("GH_AW_COPILOT_SDK_MULTI_PROVIDER_JSON"));
   if (!provider) throw new Error("Invalid SDK provider configuration");
   const requestedModel = process.env["GH_AW_MODEL_ROUTING"] === "1"
@@ -34,7 +35,7 @@ async function main(): Promise<void> {
   const prompt = await readFile(requiredEnv("GH_AW_PROMPT"), "utf8");
   const source = fixture ? prompt.match(/```rig\n([\s\S]*?)\n```/)?.[1] : undefined;
   if (fixture && !source) throw new Error("Expected the prevalidated Rig fixture in the workflow prompt");
-  const cwd = fixture ? requiredEnv("GITHUB_WORKSPACE") : resolveCopilotSDKWorkingDirectory();
+  const cwd = fixture || sourceTool ? requiredEnv("GITHUB_WORKSPACE") : resolveCopilotSDKWorkingDirectory();
   const uri = requiredEnv("COPILOT_SDK_URI");
   const connectionToken = requiredEnv("COPILOT_CONNECTION_TOKEN");
   const redact = (text: string) => text.replaceAll(connectionToken, "[redacted]");
@@ -90,22 +91,40 @@ async function main(): Promise<void> {
     process.exitCode = COPILOT_MODEL_VERIFICATION_EXIT_CODE;
     failSession(new Error(message));
   }
-  const launchTool = createRigLaunchTool({ uri, connectionToken, cwd });
+  const launchTool = createRigLaunchTool({
+    uri,
+    connectionToken,
+    cwd,
+    ...(sourceTool && { timeoutMs: 8 * 60 * 1000, includeStderr: true }),
+  });
   let launched = false;
+  const sourceVersions = new Set<string>();
+  let sourceLaunches = 0;
   let launchError: unknown;
   let result: string | undefined;
   const launch: typeof launchTool.handler = async (args, invocation) => {
     try {
-      if (launched) throw new Error("The integration fixture may only be launched once");
-      launched = true;
-      if (!source || args.source.trim() !== source.trim()) throw new Error("The integration fixture must be copied unchanged");
+      if (fixture) {
+        if (launched) throw new Error("The integration fixture may only be launched once");
+        launched = true;
+        if (!source || args.source.trim() !== source.trim()) throw new Error("The integration fixture must be copied unchanged");
+      } else if (sourceTool) {
+        if (++sourceLaunches > 2) throw new Error("Rig source launch limit exceeded (2)");
+        if (Buffer.byteLength(args.source, "utf8") > 16 * 1024) throw new Error("Rig source exceeds 16 KiB");
+        sourceVersions.add(args.source);
+        if (sourceVersions.size > 2) throw new Error("Rig source attempt limit exceeded (2)");
+      } else {
+        throw new Error("Rig source launch tool is not enabled for this workflow");
+      }
       const output = await launchTool.handler(args, invocation);
       if (typeof output !== "string") throw new Error("Expected Rig launcher stdout");
-      result = output;
-      await writeFile("/tmp/gh-aw/agent/rig-skill-integration.json", output, "utf8");
+      if (fixture) {
+        result = output;
+        await writeFile("/tmp/gh-aw/agent/rig-skill-integration.json", output, "utf8");
+      }
       return output;
     } catch (error) {
-      launchError = error;
+      if (fixture) launchError = error;
       const message = redact(error instanceof Error ? error.message : String(error));
       return { resultType: "failure", textResultForLlm: message, error: message };
     }
@@ -125,13 +144,13 @@ async function main(): Promise<void> {
       ...(servers && { mcp: { servers } }),
       ...(toolBudget && { hooks: { handlers: { onPreToolUse: toolBudget.onPreToolUse } } }),
       permissions: {
-        onRequest: (request, invocation) => fixture && request.kind === "custom-tool" && request.toolName === "run_rig"
+        onRequest: (request, invocation) => (fixture || sourceTool) && request.kind === "custom-tool" && request.toolName === "run_rig"
           ? sdk.approveAll(request, invocation)
           : permissions(request, invocation),
       },
       tools: {
-        availableTools: fixture ? sessionTools.availableTools.addCustom("run_rig") : sessionTools.availableTools,
-        definitions: fixture ? [...sessionTools.definitions, { ...launchTool, handler: launch }] : sessionTools.definitions,
+        availableTools: fixture || sourceTool ? sessionTools.availableTools.addCustom("run_rig") : sessionTools.availableTools,
+        definitions: fixture || sourceTool ? [...sessionTools.definitions, { ...launchTool, handler: launch }] : sessionTools.definitions,
       },
     });
     try {

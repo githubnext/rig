@@ -8,6 +8,7 @@ export type RigLaunchToolOptions = {
   cwd: string;
   launcherPath?: string;
   timeoutMs?: number;
+  includeStderr?: boolean;
 };
 
 export function createRigLaunchTool(options: RigLaunchToolOptions): Tool<{ source: string }> & {
@@ -17,6 +18,7 @@ export function createRigLaunchTool(options: RigLaunchToolOptions): Tool<{ sourc
     throw new TypeError("Rig launch tool requires a nonempty URI and connection token");
   }
   const timeoutMs = options.timeoutMs ?? 180_000;
+  const includeStderr = options.includeStderr ?? false;
   if (!Number.isFinite(timeoutMs) || timeoutMs <= 0) {
     throw new TypeError("Rig launch tool timeoutMs must be positive");
   }
@@ -83,7 +85,7 @@ export function createRigLaunchTool(options: RigLaunchToolOptions): Tool<{ sourc
           } else if (code !== 0) {
             reject(new Error(redact(`Rig launch failed (${signal ?? code}): ${stderr}`)));
           } else {
-            resolve(redact(stdout));
+            resolve(redact(includeStderr ? JSON.stringify({ stdout, stderr }) : stdout));
           }
         });
       });

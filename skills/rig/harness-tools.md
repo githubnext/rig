@@ -36,7 +36,8 @@ It starts the current Node executable with `run.ts --connection-fd=3`, sends
 source over stdin, and sends `{ uri, connectionToken }` through descriptor 3.
 The child environment explicitly excludes `COPILOT_SDK_URI` and
 `COPILOT_CONNECTION_TOKEN`. Existing provider configuration and other parent
-environment values remain inherited.
+environment values remain inherited. Set `includeStderr` to return successful
+stdout and stderr together as JSON; by default the tool returns stdout only.
 
 Launch errors include stderr and a nonzero exit status; the tool throws
 instead of returning success-shaped output. It kills a timed-out subprocess,

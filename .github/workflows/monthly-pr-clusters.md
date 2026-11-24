@@ -29,6 +29,7 @@ strict: true
 env:
   NPM_CONFIG_MIN_RELEASE_AGE: "3"
   NPM_CONFIG_REGISTRY: "https://packagefeedproxy.microsoft.io/npm/"
+  RIG_WORKFLOW_SOURCE_TOOL: "1"
 timeout-minutes: 40
 concurrency:
   group: monthly-pr-clusters
@@ -172,12 +173,14 @@ exactly three total clusters; if fewer than three meaningful clusters exist,
 report only those and explain why. Do not fabricate filler clusters.
 
 Keep the complete source under 16 KiB. Save it in `/tmp/gh-aw/agent/`, lint and
-typecheck it using the installed skill, and fix failures before execution.
-Follow the shared Rig launch instructions: use a literal printf pipeline into
-the installed skill's `run.ts`, inherit the SDK connection unchanged, and do not
-start a server or inspect credentials. Capture actual stdout and stderr. Save
-the parsed result to `/tmp/gh-aw/agent/pr-clusters-result.json` and independently
-check its partition, counts, ranking, and window against the corpus.
+typecheck it using the installed skill, and fix failures before execution. Run
+the program with the harness-owned `run_rig` tool, passing the complete source.
+The tool supplies the SDK connection and allows at most two source versions and
+two executions; do not use Bash to launch the program, start a server, or inspect
+credentials. Its JSON response contains the actual `stdout` and `stderr`; parse
+the program result from `stdout`. Save it to
+`/tmp/gh-aw/agent/pr-clusters-result.json` and independently check its partition,
+counts, ranking, and window against the corpus.
 
 Allow at most two source attempts and two executions total, within the same
 20-minute execution budget. A repair must address a captured error without

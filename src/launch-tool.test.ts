@@ -9,7 +9,7 @@ afterEach(async () => {
   await Promise.all(temporaryDirs.splice(0).map((path: string) => rm(path, { recursive: true, force: true })));
 });
 
-async function fixture(source: string, timeoutMs?: number) {
+async function fixture(source: string, timeoutMs?: number, includeStderr = false) {
   const cwd = await mkdtemp(join(tmpdir(), "rig-launch-tool-test-"));
   temporaryDirs.push(cwd);
   const launcherPath = join(cwd, "launcher.mjs");
@@ -17,6 +17,7 @@ async function fixture(source: string, timeoutMs?: number) {
   return createRigLaunchTool({
     uri: "http://localhost:4242", connectionToken: "pipe-test-token", cwd, launcherPath,
     ...(timeoutMs !== undefined ? { timeoutMs } : {}),
+    ...(includeStderr && { includeStderr }),
   });
 }
 
@@ -91,4 +92,19 @@ readFileSync(0);
 process.stdout.write(connectionToken);
 `);
   await expect(invoke(tool, "test")).resolves.toBe("[redacted]");
+});
+
+it("can return successful stdout and stderr together", async () => {
+  const tool = await fixture(`
+process.stdin.resume();
+process.stdin.on("end", () => {
+  process.stdout.write("program output");
+  process.stderr.write("diagnostic output");
+});
+`, undefined, true);
+  const result = await invoke(tool, "test");
+  expect(JSON.parse(String(result))).toEqual({
+    stdout: "program output",
+    stderr: "diagnostic output",
+  });
 });
