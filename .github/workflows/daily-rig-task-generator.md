@@ -21,6 +21,9 @@ strict: true
 env:
   NPM_CONFIG_MIN_RELEASE_AGE: "3"
 timeout-minutes: 60
+steps:
+  - name: Install dependencies
+    run: npm ci
 tools:
   github:
     mode: gh-proxy
@@ -71,8 +74,10 @@ Read `/tmp/gh-aw/cache-memory/task-pool.json`.
 
 ### Step 2 — Load the complete sample catalog
 
+Dependencies are already installed by the runner setup step. Do not reinstall them
+inside the agent firewall.
+
 ```bash
-npm ci
 npm run sample:check
 node scripts/sample-catalog.ts --json > /tmp/gh-aw/agent/sample-catalog.json
 ```
