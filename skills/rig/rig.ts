@@ -487,8 +487,8 @@ type CopilotMultiProvider = {
 };
 
 export function resolveCopilotModel(model: string, models: readonly ProviderModelConfig[]): string {
-  if (models.some(entry => `${entry.provider}/${entry.id}` === model)) return model;
-  const matches = models.filter(entry => entry.id === model);
+  if (models.some((entry) => `${entry.provider}/${entry.id}` === model)) return model;
+  const matches = models.filter((entry) => entry.id === model);
   if (matches.length > 1) throw new Error(`Ambiguous Copilot model "${model}"; use a provider-qualified model ID`);
   const match = matches[0];
   return match ? `${match.provider}/${match.id}` : model;
