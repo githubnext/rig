@@ -5,15 +5,15 @@ engine — the final step when porting a Claude dynamic workflow to rig.
 
 Claude dynamic workflows run on Claude by default. In rig, the engine is
 explicit: call `configureAgent(anthropicEngine())` once at startup, then use
-full Claude model IDs (`"claude-haiku-3-5"`, `"claude-sonnet-4-5"`,
+full Claude model IDs (`"claude-haiku-4-5"`, `"claude-sonnet-4-5"`,
 `"claude-opus-4-5"`) wherever you would have used `{ model: "haiku" }` in a
 dynamic workflow. Per-call `{ model }` overrides still work the same way.
 
-| Intent | Claude model id |
-| --- | --- |
-| Fast / low-cost | `"claude-haiku-3-5"` |
-| Balanced (default for most Claude workflows) | `"claude-sonnet-4-5"` |
-| Most capable | `"claude-opus-4-5"` |
+| Intent | Dynamic-workflow alias | Claude model id |
+| --- | --- | --- |
+| Fast / low-cost | `"haiku"` | `"claude-haiku-4-5"` |
+| Balanced (default for most Claude workflows) | `"sonnet"` | `"claude-sonnet-4-5"` |
+| Most capable | `"opus"` | `"claude-opus-4-5"` |
 
 Set `RIG_ENGINE=anthropic` or call `configureAgent(anthropicEngine())` at the
 top of your program. Requires `ANTHROPIC_API_KEY` in the environment.
@@ -49,7 +49,7 @@ export default workflow({
       call.json(
         `Classify the priority of this issue: "${issue}"`,
         s.object({ priority: s.enum("high", "medium", "low") }),
-        { model: "claude-haiku-3-5", label: issue.slice(0, 32) },
+        { model: "claude-haiku-4-5", label: issue.slice(0, 32) },
       ));
 
     phase("Plan");
