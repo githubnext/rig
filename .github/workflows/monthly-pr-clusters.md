@@ -49,7 +49,9 @@ tools:
       max-patch-size: 262144
 pre-agent-steps:
   - name: Restore checkout SDK dependencies after compiler setup
-    run: npm ci
+    run: |
+      npm ci
+      ln -s "$GITHUB_WORKSPACE/node_modules" /tmp/gh-aw/.github/skills/rig/node_modules
 steps:
   - name: Collect merged PRs for the trailing calendar month
     uses: actions/github-script@v9.0.0

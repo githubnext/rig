@@ -40,10 +40,10 @@ export async function runLauncherCli() {
   return { root, skill };
 }
 
-async function run(f: Awaited<ReturnType<typeof fixture>>) {
+async function run(f: Awaited<ReturnType<typeof fixture>>, cwd = f.root) {
   return await new Promise<{ code: number | null; stdout: string; stderr: string }>((done, reject) => {
     const child = spawn(process.execPath, [resolve(f.skill, "run.ts"), "--typecheck"], {
-      cwd: f.root,
+      cwd,
       env: { ...process.env, PATH: "" },
       stdio: "pipe",
     });
@@ -81,6 +81,18 @@ it("reports missing SDK dependencies without trying to install them", async () =
   expect(result.code).toBe(1);
   expect(result.stdout).toBe("");
   expect(result.stderr).toContain("Cannot find package '@microsoft/copilot-sdk'");
+});
+
+it("typechecks a staged skill using checkout dependencies", async () => {
+  const f = await fixture(false);
+  const checkout = resolve(import.meta.dirname, "..");
+  await copyFile(new URL("../skills/rig/rig.ts", import.meta.url), resolve(f.skill, "rig.ts"));
+  await copyFile(new URL("../skills/rig/tsconfig.json", import.meta.url), resolve(f.skill, "tsconfig.json"));
+  expect((await run(f, checkout)).stderr).toContain("Cannot find package '@microsoft/copilot-sdk'");
+  await symlink(resolve(checkout, "node_modules"), resolve(f.skill, "node_modules"), "junction");
+  const result = await run(f, checkout);
+  expect(result.code).toBe(0);
+  expect(result.stdout).toBe("typecheck passed\n");
 });
 
 it("does not treat a malformed dependency package as a missing dependency", async () => {
