@@ -188,18 +188,22 @@ errors never affect the run.
 Use `until` instead of an open-ended loop:
 
 ```ts
-const final = await until(
+type CatalogState = {
+  catalog: Record<string, string>;
+  conflicts: string[];
+};
+
+const final = await until<CatalogState>(
   { max: 8, noProgressRounds: 2 },
   async (previous, round) => {
-    const state = await checkAndFix(previous, round);
-    return {
-      state,
-      done: state.passed,
-      progressKey: state.failureSummary,
-    };
+    const state: CatalogState = await checkAndFix(previous, round);
+    return { state, done: state.conflicts.length === 0, progressKey: JSON.stringify(state.conflicts) };
   },
 );
+final.catalog; // CatalogState
 ```
+
+`until<State>(...)` gives the step's `previous` parameter (`State | undefined`) and the returned `final` value the same explicit state type. If the step result is inferred as `unknown`, provide the generic and, when needed, annotate the produced `state`.
 
 The loop stops when `done` is true, after `max` rounds, or after
 `noProgressRounds` consecutive equal defined progress keys.
