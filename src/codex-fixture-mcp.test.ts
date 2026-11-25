@@ -44,6 +44,7 @@ it("runs only the checked-in fixture and persists independently validated output
   vi.stubEnv("GITHUB_TOKEN", "upstream-secret");
   vi.stubEnv("CODEX_API_KEY", "upstream-key");
   vi.stubEnv("COPILOT_CONNECTION_TOKEN", "connection-secret");
+  vi.stubEnv("TMPDIR", "/tmp/gh-aw-runtime-inaccessible");
   const launch = createFixtureLauncher("/checkout", "/output.json");
   expect(await launch()).toEqual(result);
   expect(mocks.readFile.mock.calls.map(([path]) => path)).toEqual([
@@ -57,6 +58,8 @@ it("runs only the checked-in fixture and persists independently validated output
   expect(args).toContain(`--userspec=${process.getuid?.() ?? 1001}:${process.getgid?.() ?? 1001}`);
   expect(args).toContain("/usr/bin/env");
   expect(args).toContain("-i");
+  expect(args).toContain("TMPDIR=/tmp");
+  expect(args).not.toContain("TMPDIR=/tmp/gh-aw-runtime-inaccessible");
   expect(args).toContain("/usr/bin/timeout");
   expect(args.slice(-3)).toEqual([process.execPath, "/checkout/.github/drivers/codex-fixture-mcp.ts", "--run-fixture"]);
   expect(args.join(" ")).not.toContain("upstream-secret");
@@ -65,7 +68,7 @@ it("runs only the checked-in fixture and persists independently validated output
   expect(options.cwd).toBe("/checkout");
   expect(options.env).toMatchObject({
     CODEX_API_KEY: "awf-proxy", CODEX_HOME: "/tmp/gh-aw/mcp-config",
-    GH_AW_MODEL_AGENT_CODEX: "gpt-5.3-codex", RIG_JUDGE_ENGINE: "codex",
+    GH_AW_MODEL_AGENT_CODEX: "gpt-5.3-codex", RIG_JUDGE_ENGINE: "codex", TMPDIR: "/tmp",
   });
   for (const name of ["GITHUB_TOKEN", "COPILOT_CONNECTION_TOKEN", "COPILOT_GITHUB_TOKEN", "OPENAI_API_KEY", "RIG_FIXTURE_MCP_TOKEN"]) {
     expect(options.env[name]).toBeUndefined();
