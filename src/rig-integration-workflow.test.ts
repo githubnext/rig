@@ -19,7 +19,8 @@ describe("Rig Integration Tests workflow", () => {
     "57-complex-integration-sonnet.ts",
   ])("uses a supported Sonnet model in %s", (sample) => {
     const source = readFileSync(new URL(`./samples/${sample}`, import.meta.url), "utf8");
-    expect(source).toContain('model: "claude-sonnet-4.6"');
+    expect(source).toContain('model: "claude-sonnet-5.5"');
+    expect(source).not.toContain('model: "claude-sonnet-4.6"');
     expect(source).not.toContain('model: "claude-sonnet-4.5"');
   });
 
