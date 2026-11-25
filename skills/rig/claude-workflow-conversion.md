@@ -40,7 +40,7 @@ Then read [Behavior differences](#behavior-differences-to-keep-in-mind) before y
 | `{ phase: "Verify" }` on a call | `{ phase: "Verify" }` in call options | Overrides the ambient phase for that call only |
 | `{ label: "verify:x" }` | `{ label: "verify:x" }` | Appears in `agent_start`/`agent_done` events |
 | `{ model: "sonnet" }` | `{ model: "sonnet" }` | rig passes the id straight to the engine; use a full Claude model ID (e.g. `"claude-sonnet-4-5"`) when running with `anthropicEngine()` |
-| `{ effort: "high" }` | use a more capable model id or increase `maxTurns` | no `effort` option; prefer `model: "claude-opus-4-5"` over `"claude-haiku-3-5"` when quality matters |
+| `{ effort: "high" }` | use a more capable model id or increase `maxTurns` | no `effort` option; prefer `model: "claude-opus-4-5"` over `"claude-haiku-4-5"` when quality matters |
 | `{ agentType: "Explore" }` | Prompt wording plus a narrow `tools` list | rig has no built-in read-only agent type |
 | `{ timeoutMs }` / `{ retries }` | `{ timeout }` on the call; `maxTurns` + `repair()` on the agent | rig retries are turn-based, not process-based |
 | `log(message)` | `log(message)` | Same |
@@ -213,11 +213,11 @@ export default workflow({
 rig passes the model id string directly to the SDK without normalization, so
 any model id accepted by the Anthropic API is valid. Common ids:
 
-| Intent | Claude model id |
-| --- | --- |
-| Fast / low-cost | `"claude-haiku-3-5"` |
-| Balanced | `"claude-sonnet-4-5"` |
-| Most capable | `"claude-opus-4-5"` |
+| Intent | Dynamic-workflow alias | Claude model id |
+| --- | --- | --- |
+| Fast / low-cost | `"haiku"` | `"claude-haiku-4-5"` |
+| Balanced | `"sonnet"` | `"claude-sonnet-4-5"` |
+| Most capable | `"opus"` | `"claude-opus-4-5"` |
 
 Use the `model` field on `agent({ model })` for a stable default, or override
 per call with `call(agent, input, { model })`. There is no global `effort` knob;
@@ -301,7 +301,7 @@ workflow patterns — use them as starting points when converting a script:
 | [330-nested-workflow-composition.md](./samples/330-nested-workflow-composition.md) | `call.workflow` (rig equivalent of `workflow(ref, args)`) sharing the parent's limiter and budget |
 | [360-parallel-branch-analysis-workflow.md](./samples/360-parallel-branch-analysis-workflow.md) | `parallel(thunks)` as a barrier — use instead of `Promise.all` when porting |
 | [401-multi-stage-pipeline-workflow.md](./samples/401-multi-stage-pipeline-workflow.md) | Multi-stage `pipeline(items, stage1, stage2)` enrichment chain — stage `(prev, item, index)` vs Claude's `(item, index)` |
-| [411-anthropic-engine-workflow.md](./samples/411-anthropic-engine-workflow.md) | `anthropicEngine()` setup + per-call Claude model tier selection (`claude-haiku-3-5` / `claude-sonnet-4-5`) — final step when running a rig port against Claude |
+| [411-anthropic-engine-workflow.md](./samples/411-anthropic-engine-workflow.md) | `anthropicEngine()` setup + per-call Claude model tier selection (`claude-haiku-4-5` / `claude-sonnet-4-5`) — final step when running a rig port against Claude |
 
 ## Related references
 
