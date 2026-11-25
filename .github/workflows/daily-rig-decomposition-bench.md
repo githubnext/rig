@@ -97,8 +97,12 @@ timeout. Treat them as non-negotiable:
   against it: about 2 minutes for a typecheck and 5 minutes for an execution, each clamped
   down to what is left. When the budget is exhausted, skip the remaining work and return
   what was collected instead of blocking.
-- **The program imports only from `"rig"`** and configures the Copilot engine in server
-  mode.
+- **The benchmark program imports from `"rig"` and may also import
+  `spawn` from `"node:child_process"`** to run the rig CLI deterministically. Pipe
+  generated source to the child process's stdin, capture stdout and stderr separately,
+  and apply the remaining-time timeout without interpolating source into a shell command.
+  Configure the Copilot engine in server mode. The generated decomposed program must
+  still import only from `"rig"`.
 
 ### Behavior
 
