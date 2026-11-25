@@ -27,6 +27,14 @@ describe("Daily Rig Decomposition Benchmark workflow", () => {
     expect(markdown).toContain("The fallback is a task description, not a substitute for either solution or grading.");
   });
 
+  it("allows the outer benchmark to run bounded subprocesses without relaxing generated-program imports", () => {
+    expect(markdown).toContain('`spawn` from `"node:child_process"`');
+    expect(markdown).toContain("capture stdout and stderr separately");
+    expect(markdown).toContain("without interpolating source into a shell command");
+    expect(markdown).toContain('still import only from `"rig"`');
+    expect(markdown).toContain("each clamped\n  down to what is left");
+  });
+
   it("writes the benchmark in bounded edits before typechecking and running it once", () => {
     expect(markdown).toContain("Write the program incrementally in several small file edits");
     expect(markdown).toContain("entire program in a single response");
