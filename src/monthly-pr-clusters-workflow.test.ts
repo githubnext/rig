@@ -57,7 +57,7 @@ describe("Monthly PR clusters workflow", () => {
     expect(markdown).toContain("copilot-sdk: true");
     expect(markdown).toContain("  - skills/rig");
     expect(markdown).toContain("  - shared/rig.md");
-    expect(markdown).toContain("run: npm ci");
+    expect(markdown).toContain('npm ci\n      ln -s "$GITHUB_WORKSPACE/node_modules" /tmp/gh-aw/.github/skills/rig/node_modules');
     expect(markdown).toContain('RIG_WORKFLOW_SOURCE_TOOL: "1"');
     expect(prompt).toContain("harness-owned `run_rig` tool");
     expect(prompt).toContain("at most two source versions and\ntwo executions");
