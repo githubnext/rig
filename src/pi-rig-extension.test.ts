@@ -93,7 +93,7 @@ it("claims the single launch before concurrent invocations can race", async () =
 it.each([
   "not JSON",
   JSON.stringify({ ...validResult, modelCalls: 4 }),
-  JSON.stringify({ ...validResult, model: "auto" }),
+  JSON.stringify({ ...validResult, model: " " }),
   JSON.stringify({ ...validResult, judgments: [] }),
 ])("does not persist invalid fixture output: %s", async output => {
   const { tool, options } = await fixture(`process.stdout.write(${JSON.stringify(output)});`);

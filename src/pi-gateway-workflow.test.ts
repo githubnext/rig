@@ -73,11 +73,14 @@ it.each([
 
 it.each(["success", "bad-json", "empty-reason", "provider-error"].flatMap((scenario: string) =>
   ["launcher", "extension"].flatMap((launch: string) =>
-    ["openai-completions", "openai-responses"].map((api: string) => ({ scenario, launch, api })),
+    ["openai-completions", "openai-responses"].flatMap((api: string) =>
+      (scenario === "success" ? ["gpt-5.3-codex", "auto"] : ["gpt-5.3-codex"])
+        .map((configuredModel: string) => ({ scenario, launch, api, configuredModel })),
+    ),
   ),
 ))(
-  "runs the actual Pi fixture through $launch against $api: $scenario",
-  async ({ scenario, launch, api }) => {
+  "runs the actual Pi fixture through $launch against $api with $configuredModel: $scenario",
+  async ({ scenario, launch, api, configuredModel }) => {
     const requests: { path: string; authorization: string | undefined; body: Record<string, unknown> }[] = [];
     const judgments = [
       '{"decision":"approve","reason":"Clear and specific."}',
@@ -93,7 +96,7 @@ it.each(["success", "bad-json", "empty-reason", "provider-error"].flatMap((scena
         authorization: request.headers.authorization,
         body,
       });
-      if (api === "openai-responses" && body.reasoning?.effort === "none") {
+      if (api === "openai-responses" && configuredModel === "gpt-5.3-codex" && body.reasoning?.effort === "none") {
         response.writeHead(400, { "content-type": "application/json" });
         response.end(JSON.stringify({ error: { message: 'gpt-5.3-codex does not support reasoning.effort "none"' } }));
         return;
@@ -137,7 +140,7 @@ it.each(["success", "bad-json", "empty-reason", "provider-error"].flatMap((scena
     const address = server.address();
     if (!address || typeof address === "string") throw new Error("Expected a local gateway port");
     directory = await mkdtemp(join(tmpdir(), "rig-pi-gateway-test-"));
-    await writeFile(join(directory, "models.json"), JSON.stringify(gateway(`http://127.0.0.1:${address.port}`, api)));
+    await writeFile(join(directory, "models.json"), JSON.stringify(gateway(`http://127.0.0.1:${address.port}`, api, configuredModel)));
     const path = join(directory, "result.json");
     const tool = createPiRigTool({ cwd: process.cwd(), agentDir: directory, outputPath: path });
     const command = launch === "extension" ? tool.execute("fixture", {}).then(result => {
@@ -155,11 +158,13 @@ it.each(["success", "bad-json", "empty-reason", "provider-error"].flatMap((scena
     });
     if (scenario === "success") {
       const { stdout } = await command;
-      assertThreeJudges(JSON.parse(stdout), "pi");
+      const result = JSON.parse(stdout);
+      assertThreeJudges(result, "pi");
+      expect(result.model).toBe(configuredModel);
       expect(requests).toHaveLength(3);
       for (const [index, request] of requests.entries()) {
-        expect(request.body["model"]).toBe("gpt-5.3-codex");
-        if (api === "openai-responses") {
+        expect(request.body["model"]).toBe(configuredModel);
+        if (api === "openai-responses" && configuredModel === "gpt-5.3-codex") {
           expect(request.body["reasoning"]).toEqual({ effort: "low" });
         } else {
           expect(request.body).not.toHaveProperty("reasoning_effort");
