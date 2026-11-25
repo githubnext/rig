@@ -69,6 +69,7 @@ the import syntax and Copilot SDK configuration.
 | Deterministic TypeScript fan-out | `workflow({ meta, input?, body })` + `export default`; use `call`, `pipeline`, `parallel`, `until` inside `body` |
 | One-off prompt inside a workflow | `call.text(prompt)` for a string, `call.json(prompt, schema)` for structured output |
 | Reusable workflow step | Define an `agent({ input, output })` and `call(worker, input, { label, phase })` |
+| Porting a Claude dynamic workflow (`meta`, `args`, `agent(prompt, { schema })`, `budget`, `{ model: "sonnet" }`) | Read [Claude workflow conversion](./claude-workflow-conversion.md): `args`→`input`, `agent`→`call.text`/`call.json`, `{ model }`→ full Claude id with `anthropicEngine()` |
 | Phase or log from an agent program | Import `phase` / `log` from `rig` and call them at top level; the launcher runs every program inside a workflow |
 | Ambient `call` outside `body` | Import `call` from `"rig/globals"`; it routes through the active workflow context automatically. Do not import from `"rig/globals"` unless you need it — this avoids polluting non-workflow code. |
 | Custom model-callable operation | `defineTool(name, { description, parameters, handler })` |
