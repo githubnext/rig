@@ -26,7 +26,7 @@ const planner = agent({
 
 const complexIntegration = agent({
   name: "complex-integration-sonnet",
-  model: "claude-sonnet-4.6",
+  model: "claude-sonnet-5.5",
   maxTurns: 4,
   input: s.object({
     topic: s.string,
