@@ -280,10 +280,12 @@ it("uses a declared fixture-only MCP driver instead of Codex's native shell", ()
   expect(JSON.parse(config!).overrides.features.shell_tool).toBe(false);
 });
 
-it("requires the pinned Copilot model in persisted Pi results", async () => {
+it("accepts provisioned Pi models while rejecting missing model identifiers", async () => {
   const result = { ...await runWorkflow(createProviderFixture()), engine: "pi", model: "gpt-5.3-codex" };
   assertThreeJudges(result, "pi");
   result.model = "auto";
+  assertThreeJudges(result, "pi");
+  result.model = " ";
   expect(() => assertThreeJudges(result, "pi")).toThrow();
 });
 
