@@ -20,8 +20,9 @@ export function createFixtureLauncher(cwd: string, resultPath: string, timeoutMs
       RIG_JUDGE_ENGINE: "codex",
       RIG_DEBUG: "agent:failure,engine:codex:create,engine:codex:close",
       GITHUB_WORKSPACE: cwd,
+      TMPDIR: "/tmp",
     };
-    for (const name of ["PATH", "HOME", "LANG", "TMPDIR", "NODE_EXTRA_CA_CERTS", "SSL_CERT_FILE"]) {
+    for (const name of ["PATH", "HOME", "LANG", "NODE_EXTRA_CA_CERTS", "SSL_CERT_FILE"]) {
       if (process.env[name] !== undefined) env[name] = process.env[name];
     }
     const output = await new Promise<string>((resolve, reject) => {
