@@ -48,6 +48,8 @@ s.string
 s.string("description")
 s.nonEmptyString
 s.nonEmptyString("description")
+s.date
+s.date("description")
 s.url
 s.url("description")
 s.path
@@ -80,6 +82,7 @@ s.literal(value, "description")
 Helper constraints:
 
 - `s.nonEmptyString` sets `minLength: 1`.
+- `s.date` describes and validates a date-only string in `YYYY-MM-DD` form; use it instead of `s.string` when time is not part of the value.
 - `s.url` uses format `"uri"`; `s.path` uses format `"path"`.
 - `s.int` aliases `s.integer`.
 - Prefer `s.int` for counts/line numbers and `s.number` for measurements, scores, and ratios.
@@ -109,7 +112,7 @@ Description placement:
 
 | Helper family | Description argument |
 |---------------|----------------------|
-| Scalars (`s.string`, `s.int`, `s.path`, `s.url`, `s.boolean`, `s.unknown`) | First |
+| Scalars (`s.string`, `s.int`, `s.date`, `s.path`, `s.url`, `s.boolean`, `s.unknown`) | First |
 | Containers (`s.array`, `s.object`, `s.record`, `s.optional`, `s.nullable`, `s.nonEmptyArray`, `s.nonEmptyObject`) | Second, after the shape/value |
 | `s.enum`, `s.literal` | Last |
 
@@ -125,8 +128,19 @@ s.record(s.object({ name: s.string, age: s.number }))
 s.record(s.object({ path: s.path, homepage: s.url }))
 s.nullable(s.string)
 s.literal("done")
+s.date
 s.nonEmptyArray(s.path)
 s.nonEmptyObject(s.boolean)
+```
+
+For example, require a date, at least one observation, and at least one localized label:
+
+```ts
+s.object({
+  observedOn: s.date,
+  observations: s.nonEmptyArray(s.string),
+  labelsByLocale: s.nonEmptyObject(s.string),
+});
 ```
 
 Prefer `s.path` for file-system locations, `s.url` for URIs, and `s.int` for counts or line numbers. Omit schemas entirely when free-form strings are sufficient.

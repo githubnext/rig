@@ -19,7 +19,7 @@ import { agent, p, s } from "rig";
 // Agent role: review the current diff and return prioritized findings.
 const reviewDiff = agent({
   model: "small",
-  instructions: p`Review ${p.bash("git diff -- .")} and return only the declared output.`,
+  instructions: p`Review ${p.bash('git diff -- .')} and return only the declared output.`,
   output: s.object({
     summary: s.string,
     risk: s.enum("low", "medium", "high"),
@@ -58,11 +58,12 @@ the import syntax and Copilot SDK configuration.
 |------|--------|
 | Known required/optional file | `p.read(path)` / `p.readOptional(path, fallback?)` (prefer this over `cat ... || echo ...`) |
 | Several known files | `p.readAll(["path/a.ts", "path/b.ts"])` (explicit array of literal paths) |
-| Static shell command | `p.bash(command)`; use ``p.bashRaw`...` `` for literal backslashes |
+| Static shell command | `p.bash('git status --short')`; keep commands on one line and use ``p.bashRaw`...` `` for literal backslashes |
 | Caller-supplied path(s) | `p.readInput(field)` / `p.readAllInput(field)` with `s.path` schemas |
 | Discover workspace paths | `p.glob(pattern)` returns paths only; then delegate one path at a time to a subagent using `p.readInput("path")` (there is no `p.readAll(globPattern)` overload) |
 | Persist generated output | `p.writeOutput(field, path)` or `p.writeInput(pathField, outputField)` |
 | String-keyed map | `s.record(value)`; keys are always `string` — do not wrap in `s.object`; use `s.record(s.int)` for count maps |
+| Date-only and non-empty values | `s.date`, `s.nonEmptyArray(item)`, `s.nonEmptyObject(value)`; see [Agent API and schemas](./agent-api.md) |
 | URL and file-path fields | `s.url` for URIs, `s.path` for paths, and wrappers like `s.array(s.path)` for path lists |
 | Numeric schema choice | `s.int` for counts/line numbers; `s.number` for measurements and ratios |
 | Optional versus nullable | `s.optional(shape)` for omission; `s.nullable(shape)` for explicit `null` |
