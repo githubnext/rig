@@ -47,6 +47,19 @@ it.each(workflows)("keeps %s engine pins and compiled installations synchronized
   }
 });
 
+it("uses the configured Alpine pin for the action failure repair MCP server and download", () => {
+  const config = JSON.parse(readFileSync(new URL("aw.json", workflowsDirectory), "utf8"));
+  const pin = config.container_pins["alpine:latest"];
+  const image = `${pin.image}@${pin.digest}`;
+  const compiled = readFileSync(new URL("action-failure-repair.lock.yml", workflowsDirectory), "utf8");
+  const manifest = JSON.parse(compiled.split("\n")[1]!.replace("# gh-aw-manifest: ", ""));
+  expect(pin.digest).toMatch(/^sha256:[a-f0-9]{64}$/);
+  expect(manifest.containers).toContainEqual({ image });
+  expect(compiled).toContain(`"container": "${image}"`);
+  const download = compiled.split("\n").find((line: string) => line.includes("download_docker_images.sh"));
+  expect(download?.split(" ")).toContain(image);
+});
+
 it.each(workflows)("enforces the three-day npm cooldown in %s and its compiled workflow", name => {
   const source = readFileSync(new URL(name, workflowsDirectory), "utf8");
   const compiled = readFileSync(new URL(name.replace(/\.md$/, ".lock.yml"), workflowsDirectory), "utf8");
