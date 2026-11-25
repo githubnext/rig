@@ -64,4 +64,5 @@ The [Monthly PR Clusters workflow](.github/workflows/monthly-pr-clusters.md) run
 - [Skill guide](skills/rig/SKILL.md) — the canonical program and construction rules.
 - [Agent API](skills/rig/agent-api.md) and [prompt intents](skills/rig/prompt-intents.md) — schemas, inputs, and workspace context.
 - [Dynamic workflows](skills/rig/dynamic-workflows.md) — deterministic orchestration.
+- [Claude dynamic-workflow conversion](skills/rig/claude-workflow-conversion.md) — map `meta`, `args`, `agent`, `parallel`, `pipeline`, `budget`, and model selection (Sonnet on the Anthropic engine) onto Rig.
 - [Sample catalog](skills/rig/samples.md) — agent and workflow patterns bucketed by API, topic, and task family.
