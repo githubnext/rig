@@ -1,0 +1,150 @@
+{
+ "repository": "githubnext/rig",
+ "runId": "45581461634",
+ "runAttempt": "1",
+ "workflowUrl": "https://github.com/githubnext/rig/actions/runs/45581461634",
+ "window": {
+  "start": "2026-10-25T09:02:07.552Z",
+  "end": "2026-11-25T09:02:07.552Z"
+ },
+ "strategy": "map-reduce-local-group-merge",
+ "strategyDescription": "PRs sorted by number are split into chunks of 8; one model call per chunk partitions that chunk into local groups (2+ PRs) and outliers; one reduce call merges local group descriptors (label+summary only, no PR lists) into global themes. TypeScript expands themes back to PR numbers and validates the partition, ranking and coverage.",
+ "nearestPriorStrategy": "pairwise-verified-similarity-graph-components (45553032858-1)",
+ "noveltyRationale": "Prior model strategies used per-PR facets with a closed vocabulary or pairwise edge verification with connected components. This one decomposes by corpus chunk and merges at the level of group descriptors in a model reduce step; membership is never judged across chunks per PR or pair, and no lexical candidate generation or fixed vocabulary is used.",
+ "historyConsulted": [
+  "37680026048-1",
+  "38039912415-2",
+  "38126880290-1",
+  "40477786734-1",
+  "40661045982-1",
+  "45005503491-1",
+  "45361254701-1",
+  "45553032858-1"
+ ],
+ "sourceAttempts": [
+  {
+   "attempt": 1,
+   "sourceBytes": 5702,
+   "sourceDigest": "sha256:97c10d47227ae4200ff11a79dfae2eb74562e2761650212e32a64ce9924bbed6",
+   "lint": "pass",
+   "typecheck": "pass",
+   "execution": "success (6 model calls)",
+   "error": null,
+   "source": "import { agent, s, workflow } from \"rig\";\nimport { readFileSync } from \"node:fs\";\n\ntype Pr = { number: number; title: string; body?: string; labels?: unknown[]; url: string };\n\n// Agent role: partition one chunk of PRs into local groups plus outliers.\nconst mapChunk = agent({\n  name: \"mapChunk\",\n  model: \"small\",\n  input: s.object({ prs: s.string }),\n  output: s.object({\n    groups: s.array(s.object({ label: s.string, summary: s.string, prs: s.array(s.int) })),\n    outliers: s.array(s.object({ pr: s.int, reason: s.string })),\n  }),\n  instructions:\n    \"Each line is a merged PR: number | labels | title | body excerpt. Partition ALL listed PRs into local groups of PRs sharing one specific engineering concern. A group needs 2+ PRs; PRs that fit nowhere go to outliers with a reason. Every listed number must appear exactly once. Use only listed numbers.\",\n});\n\n// Agent role: reduce local groups from all chunks into global themes.\nconst reduceGroups = agent({\n  name: \"reduceGroups\",\n  model: \"small\",\n  input: s.object({ groups: s.string }),\n  output: s.object({\n    themes: s.array(s.object({ label: s.string, summary: s.string, groupIds: s.array(s.string) })),\n  }),\n  instructions:\n    \"Each line is a local PR group: id | label | summary. Merge groups that describe the same theme across chunks into global themes with a short thematic label and an evidence-grounded one-sentence summary. Every group id must appear in exactly one theme. Use only listed ids.\",\n});\n\nconst clean = (t = \"\") => t.replace(/https?:\\S+/g, \"\").replace(/\\s+/g, \" \").trim();\n\n// Workflow role: map-reduce clustering of merged PRs, chunk-local grouping then global theme merge.\nexport default workflow({\n  meta: {\n    name: \"map-reduce-local-group-merge\",\n    description: \"Chunk-local grouping by model, global theme merge by model, TypeScript validation\",\n    phases: [\"Map\", \"Reduce\"],\n  },\n  body: async ({ call, phase }) => {\n    const corpus = JSON.parse(readFileSync(\"/tmp/gh-aw/agent/merged-prs.json\", \"utf8\"));\n    const prs: Pr[] = corpus.prs;\n    const nums = new Set(prs.map((p) => p.number));\n    if (prs.length === 0 || nums.size !== prs.length) throw new Error(\"bad corpus\");\n\n    const ordered = [...prs].sort((a, b) => a.number - b.number);\n    const size = 8;\n    const chunks: Pr[][] = [];\n    for (let i = 0; i < ordered.length; i += size) chunks.push(ordered.slice(i, i + size));\n    if (chunks.length > 10) throw new Error(\"too many chunks\");\n\n    phase(\"Map\");\n    const mapped = await Promise.all(\n      chunks.map((c, i) =>\n        call(\n          mapChunk,\n          {\n            prs: c\n              .map((p) => `${p.number} | ${(p.labels ?? []).map((l) => (typeof l === \"string\" ? l : JSON.stringify(l))).join(\",\")} | ${p.title} | ${clean(p.body).slice(0, 300)}`)\n              .join(\"\\n\"),\n          },\n          { label: `chunk${i}` },\n        ),\n      ),\n    );\n\n    const local = new Map<string, { label: string; summary: string; prs: number[] }>();\n    const outliers = new Map<number, string>();\n    mapped.forEach((m, i) => {\n      if (!m) throw new Error(`missing map response ${i}`);\n      const allowed = new Set(chunks[i].map((p) => p.number));\n      const seen = new Set<number>();\n      const take = (n: number) => {\n        if (!allowed.has(n) || seen.has(n)) throw new Error(`chunk ${i}: invalid or duplicate PR ${n}`);\n        seen.add(n);\n      };\n      m.groups.forEach((g, k) => {\n        g.prs.forEach(take);\n        if (g.prs.length > 0) local.set(`g${i}_${k}`, { label: g.label, summary: g.summary, prs: g.prs });\n      });\n      m.outliers.forEach((o) => {\n        take(o.pr);\n        outliers.set(o.pr, o.reason || \"No local peer in its chunk\");\n      });\n      if (seen.size !== allowed.size) throw new Error(`chunk ${i}: incomplete coverage`);\n    });\n\n    phase(\"Reduce\");\n    const reduced = await call(\n      reduceGroups,\n      { groups: [...local].map(([id, g]) => `${id} | ${g.label} | ${g.summary}`).join(\"\\n\") },\n      { label: \"reduce\" },\n    );\n    if (!reduced) throw new Error(\"missing reduce response\");\n    const used = new Set<string>();\n    const clusters = reduced.themes\n      .map((t) => {\n        const members: number[] = [];\n        for (const id of t.groupIds) {\n          if (!local.has(id) || used.has(id)) throw new Error(`invalid or duplicate group ${id}`);\n          used.add(id);\n          members.push(...local.get(id)!.prs);\n        }\n        members.sort((a, b) => a - b);\n        return { id: `t${String(members[0] ?? 0).padStart(5, \"0\")}`, label: t.label, summary: t.summary, prs: members, size: members.length };\n      })\n      .filter((c) => c.size > 0)\n      .sort((x, y) => y.size - x.size || x.id.localeCompare(y.id));\n    if (used.size !== local.size) throw new Error(\"reduce missed local groups\");\n\n    const unclassified = [...outliers].map(([pr, reason]) => ({ pr, reason })).sort((a, b) => a.pr - b.pr);\n    const seenAll = new Set<number>();\n    for (const n of [...clusters.flatMap((c) => c.prs), ...unclassified.map((u) => u.pr)]) {\n      if (!nums.has(n) || seenAll.has(n)) throw new Error(`invalid or duplicate PR ${n}`);\n      seenAll.add(n);\n    }\n    if (seenAll.size !== prs.length) throw new Error(\"incomplete coverage\");\n    if (new Set(clusters.map((c) => c.id)).size !== clusters.length) throw new Error(\"duplicate cluster id\");\n\n    return {\n      repository: corpus.repository,\n      window: corpus.window,\n      strategy: \"Map-reduce: chunk-local model grouping, then model merge of local group descriptors into global themes\",\n      totalPrs: prs.length,\n      modelCalls: chunks.length + 1,\n      clusters,\n      topThree: clusters.slice(0, 3).map((c) => c.id),\n      unclassified,\n    };\n  },\n});\n"
+  }
+ ],
+ "finalStatus": "complete",
+ "outcome": "validated",
+ "validation": "35 unique PRs covered once; all numbers known; cluster ids unique; sizes match; ranking by size desc then id asc; window matches corpus",
+ "clusters": [
+  {
+   "id": "t00890",
+   "label": "CI and integration test fixes",
+   "summary": "Fixes to provider integration tests and workflows covering routing, credentials, dependency installs, model pinning and retired or router-selected model identifiers.",
+   "prs": [
+    890,
+    891,
+    892,
+    893,
+    894,
+    910,
+    914,
+    915,
+    917,
+    933,
+    938,
+    940
+   ],
+   "size": 12
+  },
+  {
+   "id": "t00751",
+   "label": "Dependency and toolchain upgrades",
+   "summary": "Dependabot npm bumps (undici, fast-uri, vitest) plus upgrades of gh-aw, agent CLIs/SDKs, Copilot CLI/SDK pins and the npm registry configuration.",
+   "prs": [
+    751,
+    754,
+    765,
+    770,
+    831,
+    886,
+    888,
+    905
+   ],
+   "size": 8
+  },
+  {
+   "id": "t00734",
+   "label": "Automated rig skill maintenance",
+   "summary": "Bot-generated updates to rig samples, the rig.ts header and the samples catalog.",
+   "prs": [
+    734,
+    744
+   ],
+   "size": 2
+  },
+  {
+   "id": "t00916",
+   "label": "Workflow agent tooling",
+   "summary": "Copilot SDK driver and harness changes that let workflow agents run Rig programs via run_rig.",
+   "prs": [
+    916,
+    923
+   ],
+   "size": 2
+  },
+  {
+   "id": "t00934",
+   "label": "Actions failure repair automation",
+   "summary": "Automation that repairs failing Actions runs, including a lint failure it fixed.",
+   "prs": [
+    934,
+    935
+   ],
+   "size": 2
+  }
+ ],
+ "unclassifiedPRs": [
+  {
+   "pr": 906,
+   "reason": "Automated header refresh of rig.ts file summary; it documents exports but is not about SDK migration or integration test fixes."
+  },
+  {
+   "pr": 924,
+   "reason": "Prompt changes to reduce incomplete benchmark output. This is a distinct concern from the setup, credential, and driver fixes."
+  },
+  {
+   "pr": 926,
+   "reason": "Automated addition of new rig samples and a catalog refresh. It is content generation, not workflow fixing."
+  },
+  {
+   "pr": 927,
+   "reason": "Fixes broken documentation links in Claude-port samples; no other listed PR touches docs links."
+  },
+  {
+   "pr": 931,
+   "reason": "Fixes a launcher test fixture that leaves a pipe unread, which caused intermittent release preflight failures."
+  },
+  {
+   "pr": 932,
+   "reason": "Makes the Dockerfile audit sample runnable in stdin mode for the daily sampler; unrelated to the model or repair-workflow changes."
+  },
+  {
+   "pr": 941,
+   "reason": "Improves Claude dynamic-workflow compatibility for rig and modifies README.md. It has no shared concern with the other two PRs."
+  },
+  {
+   "pr": 945,
+   "reason": "Adds five new rig sample files and refreshes the sample catalog. This is sample content, not related to the other two PRs."
+  },
+  {
+   "pr": 946,
+   "reason": "Changes the daily decomposition benchmark workflow so the outer program can import spawn from node:child_process. This is a benchmark workflow fix, separate from the other two PRs."
+  }
+ ],
+ "lessonsForNextRun": [
+  "run_rig worked and the first source passed lint/typecheck/execution; bash was allowed for node scripts but not python/jq/heredocs.",
+  "Chunking by PR number puts related PRs in different chunks; cross-chunk merging relies only on group labels, so 9 PRs ended unclassified as chunk outliers. A reduce that sees outliers too would likely help.",
+  "Measured on this corpus: 5 clusters, 26 classified, 9 unclassified, 6 model calls. No comparison to other strategies was measured."
+ ]
+}
