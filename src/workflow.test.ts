@@ -217,6 +217,28 @@ describe("dynamic-workflow parity", () => {
     expect(seen).toEqual([[1, 1, 0], [2, 2, 1], [3, 3, 2]]);
   });
 
+  it("passes a per-call model to the engine for call.text and call.json — maps to { model: \"sonnet\" }", async () => {
+    const models: (string | undefined)[] = [];
+    configureAgent((agentOptions: { model?: string }) => ({
+      ask: async (prompt: string) => {
+        models.push(agentOptions.model);
+        return prompt.includes("json") ? '{"ok":true}' : '"text"';
+      },
+      close: async () => {},
+    }));
+
+    const definition = workflow({
+      meta: { name: "models", description: "per-call model selection" },
+      body: async ({ call }) => ({
+        text: await call.text("Reply with text.", { model: "claude-haiku-4-5" }),
+        json: await call.json("Reply with json.", s.object({ ok: s.boolean }), { model: "claude-sonnet-4-5" }),
+      }),
+    });
+
+    await expect(runWorkflow(definition)).resolves.toEqual({ text: "text", json: { ok: true } });
+    expect(models).toEqual(["claude-haiku-4-5", "claude-sonnet-4-5"]);
+  });
+
   it("records a per-call phase override", async () => {
     const worker = fakeAgent<string, string>("echo", (value) => value);
     const events: WorkflowEvent[] = [];
