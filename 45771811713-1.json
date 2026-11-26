@@ -1,0 +1,49 @@
+{
+ "repository": "githubnext/rig",
+ "runId": "45771811713",
+ "runAttempt": "1",
+ "workflowUrl": "https://github.com/githubnext/rig/actions/runs/45771811713",
+ "window": {"start": "2026-10-26T06:58:13.858Z", "end": "2026-11-26T06:58:13.858Z"},
+ "strategy": "divisive-recursive-bisection",
+ "strategyDescription": "Top-down: the full PR set is sent to a model that either declares it one coherent theme or splits it into two labeled parts along the strongest fault line. TypeScript validates every split is an exact partition of its input, then recurses on incoming parts (batches of 3, sets of <4 PRs stop, 34-call cap). Parts judged coherent become clusters; singletons become unclassified. Final partition, ranking and ids are validated in TypeScript.",
+ "nearestPriorStrategy": "map-reduce-local-group-merge (45581461634-1)",
+ "noveltyRationale": "Prior model strategies were bottom-up (per-PR facets, pairwise edges, chunk-local groups merged by a reduce). This one is top-down and adaptive: the model always sees the whole current set, makes binary split/stop judgments, and no chunking by PR number, pairwise edges, or closed vocabulary is used; membership is never merged across independently-formed groups.",
+ "historyConsulted": ["37680026048-1", "38039912415-2", "38126880290-1", "40477786734-1", "40661045982-1", "45005503491-1", "45361254701-1", "45553032858-1", "45581461634-1"],
+ "sourceAttempts": [
+  {
+   "attempt": 1,
+   "sourceBytes": 5359,
+   "sourceDigest": "not-computed (bash denied by workflow tool permissions)",
+   "lint": "not_run (bash denied)",
+   "typecheck": "not_run separately (bash denied); program was accepted and executed by run_rig",
+   "execution": "success (9 model calls)",
+   "error": null,
+   "source": "import { agent, s, workflow } from \"rig\";\nimport { readFileSync } from \"node:fs\";\n\ntype Pr = { number: number; title: string; body?: string };\ntype Node = { prs: number[]; label: string; summary: string };\n\nconst part = s.object({ label: s.string, summary: s.string, prs: s.array(s.int) });\n\n// Agent role: decide whether a set of PRs is one coherent theme or split it in two along its strongest fault line.\nconst splitSet = agent({\n  name: \"splitSet\",\n  model: \"small\",\n  input: s.object({ prs: s.string }),\n  output: s.object({\n    coherent: s.boolean,\n    label: s.string,\n    summary: s.string,\n    a: part,\n    b: part,\n  }),\n  instructions:\n    \"Each line is a merged PR: number | title | body excerpt. If all PRs share one specific engineering theme, return coherent=true with a short thematic label and one-sentence evidence-grounded summary (a and b may be empty: label '', summary '', prs []). Otherwise return coherent=false and split the set into two nonempty parts a and b along the strongest dividing concern, each with a label and summary. Every listed number must appear in exactly one part. Use only listed numbers.\",\n});\n\nconst clean = (t = \"\") => t.replace(/https?:\\S+/g, \"\").replace(/\\s+/g, \" \").trim();\nconst MAX_CALLS = 34;\n\n// Workflow role: top-down divisive clustering of merged PRs by recursive model bisection with TypeScript validation.\nexport default workflow({\n  meta: {\n    name: \"divisive-recursive-bisection\",\n    description: \"Recursively bisect the PR set until each part is judged coherent; TypeScript validates every split\",\n    phases: [\"Bisect\", \"Validate\"],\n  },\n  body: async ({ call, phase }) => {\n    const corpus = JSON.parse(readFileSync(\"/tmp/gh-aw/agent/merged-prs.json\", \"utf8\"));\n    const prs: Pr[] = corpus.prs;\n    const byNum = new Map(prs.map((p) => [p.number, p]));\n    if (prs.length === 0 || byNum.size !== prs.length) throw new Error(\"bad corpus\");\n    const line = (n: number) => `${n} | ${byNum.get(n)!.title} | ${clean(byNum.get(n)!.body).slice(0, 220)}`;\n\n    phase(\"Bisect\");\n    let queue: Node[] = [{ prs: prs.map((p) => p.number).sort((x, y) => x - y), label: \"\", summary: \"\" }];\n    const done: Node[] = [];\n    let calls = 0;\n    while (queue.length > 0) {\n      const small = queue.filter((n) => n.prs.length < 4);\n      done.push(...small);\n      const open = queue.filter((n) => n.prs.length >= 4);\n      const batch = open.slice(0, Math.min(3, MAX_CALLS - calls));\n      done.push(...open.slice(batch.length).filter(() => calls >= MAX_CALLS));\n      const rest = calls >= MAX_CALLS ? [] : open.slice(batch.length);\n      if (batch.length === 0) {\n        queue = rest;\n        if (calls >= MAX_CALLS) break;\n        continue;\n      }\n      calls += batch.length;\n      const res = await Promise.all(\n        batch.map((n, i) => call(splitSet, { prs: n.prs.map(line).join(\"\\n\") }, { label: `split${calls}-${i}` })),\n      );\n      const next: Node[] = [];\n      res.forEach((r, i) => {\n        if (!r) throw new Error(\"missing split response\");\n        const node = batch[i];\n        if (r.coherent) {\n          if (!r.label.trim() || !r.summary.trim()) throw new Error(\"coherent set lacks label or summary\");\n          done.push({ prs: node.prs, label: r.label, summary: r.summary });\n          return;\n        }\n        const all = [...r.a.prs, ...r.b.prs];\n        const want = new Set(node.prs);\n        if (r.a.prs.length === 0 || r.b.prs.length === 0) throw new Error(\"empty split part\");\n        if (all.length !== want.size || new Set(all).size !== all.length || all.some((n) => !want.has(n))) {\n          throw new Error(\"split is not an exact partition of its input\");\n        }\n        for (const x of [r.a, r.b]) {\n          if (!x.label.trim() || !x.summary.trim()) throw new Error(\"part lacks label or summary\");\n          next.push({ prs: [...x.prs].sort((p, q) => p - q), label: x.label, summary: x.summary });\n        }\n      });\n      queue = [...rest, ...next];\n    }\n    done.push(...queue);\n\n    phase(\"Validate\");\n    const clusters = done\n      .filter((n) => n.prs.length >= 2)\n      .map((n) => ({\n        id: `d${String(n.prs[0]).padStart(5, \"0\")}`,\n        label: n.label || \"Unlabeled\",\n        summary: n.summary,\n        prs: n.prs,\n        size: n.prs.length,\n      }))\n      .sort((x, y) => y.size - x.size || x.id.localeCompare(y.id));\n    const unclassified = done\n      .filter((n) => n.prs.length === 1)\n      .map((n) => ({ pr: n.prs[0], reason: `Isolated by bisection as a singleton part (${n.label || \"no label\"})` }))\n      .sort((x, y) => x.pr - y.pr);\n    const seen = new Set<number>();\n    for (const n of [...clusters.flatMap((c) => c.prs), ...unclassified.map((u) => u.pr)]) {\n      if (!byNum.has(n) || seen.has(n)) throw new Error(`invalid or duplicate PR ${n}`);\n      seen.add(n);\n    }\n    if (seen.size !== prs.length) throw new Error(\"incomplete coverage\");\n    if (new Set(clusters.map((c) => c.id)).size !== clusters.length) throw new Error(\"duplicate cluster id\");\n\n    return {\n      repository: corpus.repository,\n      window: corpus.window,\n      strategy: \"Divisive recursive bisection: model splits each PR set along its strongest fault line until judged coherent\",\n      totalPrs: prs.length,\n      modelCalls: calls,\n      clusters,\n      topThree: clusters.slice(0, 3).map((c) => c.id),\n      unclassified,\n    };\n  },\n});\n"
+  }
+ ],
+ "executionAttempts": [
+  {"attempt": 1, "status": "success", "modelCalls": 9, "note": "run_rig returned stdout with a result that passed the program's internal partition/coverage/ranking validation (42 PRs). Independent re-validation and saving to pr-clusters-result.json were not possible: bash was denied and a stale pr-clusters-result.json from an earlier harness attempt already exists and could not be overwritten with create."}
+ ],
+ "finalStatus": "incomplete_validation",
+ "outcome": "incomplete",
+ "programResultUnverifiedByAgent": {
+  "totalPrs": 42,
+  "clusters": [
+   {"id": "d00888", "label": "CI and agentic workflow failure fixes", "size": 23, "prs": [888,890,891,892,893,894,910,914,915,916,917,923,924,931,933,934,935,938,940,946,947,948,950]},
+   {"id": "d00751", "label": "Dependency and tooling upgrades", "size": 7, "prs": [751,754,765,770,831,886,905]},
+   {"id": "d00734", "label": "Rig sample additions", "size": 4, "prs": [734,926,945,954]},
+   {"id": "d00744", "label": "rig.ts header refresh", "size": 3, "prs": [744,906,961]},
+   {"id": "d00927", "label": "Claude dynamic-workflow compatibility docs", "size": 3, "prs": [927,941,955]}
+  ],
+  "unclassifiedPRs": [
+   {"pr": 932, "reason": "Singleton part (Sample runner compatibility fix)"},
+   {"pr": 949, "reason": "Singleton part (Schema and workflow guidance)"}
+  ]
+ },
+ "lessonsForNextRun": [
+  "Bash (node, python, sha256sum, lint, typecheck) was denied for the whole session; only view/create/grep/run_rig worked. Compute digests and independent validation need bash.",
+  "Stale files from earlier harness attempts (pr-clusters-result.json) block create; plan the output path to avoid collision.",
+  "Divisive bisection ran in only 9 calls and produced a dominant 23-PR cluster (55% of corpus); the 'coherent' stop criterion is lenient, so a broad CI/workflow bucket absorbs many distinct PRs. A depth or size-based forced split could add resolution.",
+  "No measured comparison against other strategies was made."
+ ]
+}
