@@ -1,57 +1,53 @@
 /**
- * @file skills/rig/rig.ts @last-analyzed 5dd34d4 @edit-time 2026-11-23T16:19:25-08:00
- * @purpose Minimal TypeScript agent harness: typed schemas, prompt intents, addons, workflows, Copilot SDK runtime, launcher CLI
- * @deps @microsoft/copilot-sdk (CopilotClient,RuntimeConnection,approveAll); node:path,os,module,url,fs,fs/promises,child_process,util,async_hooks
- * T:Json type null|bool|num|str|Json[]|{[k]:Json}
- * T:Schema type union String|Number|Integer|Boolean|Null|Unknown|Array|Object|Record|Enum|Optional|Nullable schemas
+ * @file skills/rig/rig.ts @last-analyzed 8097871 @edit-time 2026-11-25T12:34:14-05:00
+ * @purpose Minimal TypeScript agent harness: typed schemas, prompt intents, addons, workflows, multi-engine runtime (Copilot SDK default), launcher CLI
+ * @deps @microsoft/copilot-sdk (CopilotClient,RuntimeConnection,approveAll); node:path,os,module,url,fs,fs/promises,child_process,util,async_hooks; optional ./engines/{anthropic,codex,gemini,deepseek}.ts loaded lazily
+ * T:Json type null|bool|num|str|Json[]|{[k]:Json}; T:ValidationResult {ok:true}|{ok:false;error}; T:JsonSchemaObject plain JSON Schema
+ * T:Schema type union String|Number|Integer|Boolean|Null|Unknown|Array|Object|Record|Enum|Optional|Nullable Schema variants
+ * T:StringSchema/NumberSchema/IntegerSchema/BooleanSchema/NullSchema/UnknownSchema/ArraySchema/ObjectSchema/RecordSchema/EnumSchema/OptionalSchema/NullableSchema type individual variants [NEW]
  * T:InferSchema<T> type TS inference from schema to runtime type; T:Simplify<T> flattens intersections
  * T:AgentInputValue<T> type input accepting raw values or PromptIntent/PromptBuilder at any depth
- * T:ValidationResult type {ok:true}|{ok:false;error}; T:JsonSchemaObject plain JSON Schema
- * T:AgentSpec<I,O> type {name,description,input,output,prompt,addons?,maxTurns?,agents?}; agents? enables sub-agent delegation
- * T:AgentFn<I,O> type callable (input,CallOptions?)=>Promise<O> with .use(addons) and .spec; T:CallOptions {signal?,timeout?,model?,maxTurns?}
- * T:AgentFactory/AgentOptions/AgentAskOptions/Agent type engine contract; Agent={ask(input,opts?),close()}
- * T:AgentAddon/AgentAddonContext type middleware (ctx,next); ctx has spec,turn,prompt,output,completed,nextPrompt
+ * T:AgentSpec<I,O> type {name?,instructions?,input?,output?,model?,maxTurns?=4,addons?,agents?,systemMessage?,tools?}; defaults name="agent",model="small",io=s.string
+ * T:AgentFn<I,O> type callable (input,CallOptions?)=>Promise<O>; props agentName,inputSchema,outputSchema,spec,use(addons); T:CallOptions {signal?,timeout?,model?,maxTurns?}
+ * T:AgentFactory/AgentOptions/AgentAskOptions/Agent type engine contract; AgentFactory(opts{model,systemMessage?,tools?})=>Agent{ask(prompt,{signal?,outputSchema?})=>string,close()}
+ * T:AgentAddon/AgentAddonContext type middleware (ctx,next); ctx={spec,agent,input,outputSchema,signal,turn,maxTurns,prompt,response?,completed,output?,nextPrompt?,error?}
  * T:SteeringOptions/TimeoutOptions/AgentRegistration type addon option types; T:AgentDefinitionFactory=typeof agent
- * T:AgentError class kind,agent,turn,response,schema,schemaText
- * T:Tool/ToolConfig/ToolHandler/ToolParameters type defineTool types
- * T:PromptIntent type declarative placeholder (bash,read,write,glob,env,...); T:PromptIntentOptions shared opts
- * T:PromptBuilder class template-tag result; T:PromptHelpers shape of p; T:PromptVariable<T> named binding
- * T:ResponseAnalysisResult type {ok:true;output}|{ok:false;error:AgentError}
- * T:CopilotEngineOptions type CopilotClientOptions minus connection plus server/token/headers; T:DebugLogger RIG_DEBUG logger
- * T:LaunchOptions/LauncherIo type launchRigProgram options and io overrides
- * T:WorkflowSpec/Workflow/WorkflowContext/WorkflowMeta/WorkflowPhase/WorkflowEvent/WorkflowLimits/WorkflowBudget type workflow model
- * T:WorkflowCall/WorkflowCallOptions/WorkflowNestedOptions/RunWorkflowOptions/UntilOptions/UntilStep/PipelineStage type workflow helpers
- * T:WorkflowLimitError class thrown when limits exceeded
+ * T:AgentError class kind(parse|validation),agent,turn,response,schema,schemaText; T:ResponseAnalysisResult {ok:true;output}|{ok:false;error:AgentError}
+ * T:Tool/ToolConfig/ToolHandler/ToolParameters type defineTool types; ToolConfig={description?,parameters?,handler?,overridesBuiltInTool?,skipPermission?}
+ * T:PromptIntent type declarative placeholder (mode prompt.text|read|write|glob|env|readAll|bashEach|...); T:PromptIntentOptions {cwd?,env?,timeout?,purpose?,signal?}
+ * T:PromptBuilder class template-tag result (write(),toString(),vars); T:PromptHelpers shape of p; T:PromptVariable<T> named binding
+ * T:CopilotEngineOptions type CopilotClientOptions minus mode plus server?,workingDirectory?; T:DebugLogger RIG_DEBUG logger; T:LaunchOptions {cwd?,startServer?,typecheck?}; T:LauncherIo {stdin,stdout}
+ * T:WorkflowSpec/Workflow/WorkflowContext/WorkflowMeta/WorkflowPhase/WorkflowEvent/WorkflowBudget type workflow model; ctx={input,call,pipeline,parallel,until,phase,log,budget,signal}
+ * T:WorkflowCall/WorkflowCallOptions/WorkflowNestedOptions/RunWorkflowOptions/UntilOptions/UntilStep/PipelineStage type workflow helpers; call(agent,input,opts?)|.text(prompt)|.json(prompt,schema)|.workflow(child,args?)
+ * T:WorkflowLimits {concurrency?,maxAgents?,maxWallMs?,warnAgents?}; T:WorkflowLimitError class thrown when limits exceeded
  * s.string/number/integer/boolean/null primitives; call as value or fn(desc); s.int alias; s.unknown unconstrained
  * s.nonEmptyString/url/path/date string refinements; s.positiveInt/nonNegativeInt/percent numeric refinements
  * s.array(items,desc?)/s.nonEmptyArray ArraySchema; s.object(props,desc?) ObjectSchema; s.record(val,desc?)/s.nonEmptyObject RecordSchema
- * s.optional(inner) optional field; s.nullable(inner) inner|null; s.enum(...values|values,desc?) EnumSchema; s.literal(v,desc?)
- * s.toJsonSchema(schema) JsonSchemaObject alias of F:toJsonSchema
- * p`...` PromptBuilder template tag; interpolates PromptIntent|string|PromptBuilder
+ * s.optional(inner) optional field; s.nullable(inner) inner|null; s.enum(...values|values,desc?) EnumSchema; s.literal(v,desc?); s.toJsonSchema(schema)
+ * p`...` PromptBuilder template tag (dedents, interpolates PromptIntent|string|PromptBuilder|PromptVariable|object→JSON); p() empty builder
  * p.bash(cmd,opts?)/p.bashRaw`cmd`/p.bashEach(tpl,field,opts?) bash declarations (not run in-process)
- * p.read(path,opts?)/readOptional/readAll/readInput(field)/readAllInput(field) file read declarations
+ * p.read(path,opts?)/readOptional(path,fallback?)/readAll(paths)/readInput(field)/readAllInput(field) file read declarations
  * p.write(path,content,opts?)/writeOutput(field,path)/writeInput(pathField,contentField) file write declarations
  * p.glob(pattern,opts?)/p.env(name,fallback?,opts?)/p.json(v)/p.inputField(f)/p.var(name,v)/p.region(lang,body) misc helpers
- * F:agent(spec) AgentFn<I,O> declaration
- * F:copilotEngine(opts?) AgentFactory wrapping CopilotClient+RuntimeConnection
- * F:copilotTcpConnection(uri,token?) RuntimeConnection TCP endpoint from uri [NEW]
- * F:resolveCopilotModel(model,models) provider-qualified model ID resolution; errors on ambiguous id [NEW]
- * F:configureAgent(factory) sets global AgentFactory
- * F:launchRigProgram(path,opts?) runs .ts agent file as subprocess; F:runLauncherCli(opts?) CLI entry: argv,engine wiring,run
- * F:defineTool(name,config) Tool with handler+parameters schema
- * F:analyzeResponse(resp,schema,name,turn) ResponseAnalysisResult parse+validate
- * F:defaultRepairPrompt(spec,err) string re-prompt on parse/validation failure
- * F:toJsonSchema(schema) JsonSchemaObject; F:normalizeResponseSchema(schema) strips unsupported keywords for model outputSchema
- * F:debug(category) lazy JSONL logger
+ * F:agent(spec) AgentFn<I,O> declaration; F:configureAgent(factory) sets global AgentFactory
+ * F:copilotEngine(opts?) AgentFactory wrapping CopilotClient+RuntimeConnection; F:copilotTcpConnection(uri,token?) validated plaintext TCP RuntimeConnection
+ * F:resolveCopilotModel(model,models) provider-qualified model ID resolution; errors on ambiguous id
+ * F:launchRigProgram(path,opts?) runs .ts agent file as subprocess; F:runLauncherCli(argv?,opts?,io?) CLI entry; flags --server,--typecheck,--connection-fd=<fd>
+ * F:defineTool(name,config) Tool with handler+parameters schema; F:analyzeResponse(resp,schema,name,turn) ResponseAnalysisResult parse+validate
+ * F:defaultRepairPrompt(spec,err) string re-prompt on parse/validation failure; F:toJsonSchema/normalizeResponseSchema(schema) strips unsupported keywords for model outputSchema
+ * F:debug(category) lazy JSONL logger gated by RIG_DEBUG patterns
  * F:workflow(spec)/runWorkflow(wf,opts?)/currentWorkflow()/phase(name)/log(msg) workflow API via AsyncLocalStorage
  * F:parallel(tasks)/pipeline(items,...stages)/until(opts,step) workflow concurrency/loop helpers
  * addon:repair() re-prompts on JSON/schema failure up to maxTurns (built-in)
  * addon:steering(opts?) last-turn warning appended to prompt
  * addon:timeout(opts) AbortSignal timeout per turn
  * addon:oncePerAgent(register) callback once per unique Agent instance
+ * ENGINE:default picks launcher conn→copilot; --server→copilot; COPILOT_SDK_URI→copilot; RIG_ENGINE=copilot|anthropic|codex|gemini|deepseek; else ANTHROPIC/OPENAI/GEMINI|GOOGLE/DEEPSEEK _API_KEY; else copilot [NEW]
+ * ENV:COPILOT_SDK_URI(default localhost:7777),COPILOT_CONNECTION_TOKEN,COPILOT_SDK_SEND_TIMEOUT_MS,GH_AW_COPILOT_SDK_MULTI_PROVIDER_JSON,RIG_ENGINE,RIG_DEBUG [NEW]
  * INV:optional-key trailing _ on spec key means optional field
  * INV:prompt-intents p.* are declarative placeholders resolved into prompt text, never executed
  * INV:repair-contract addon intercepts AgentError, appends error to prompt, retries up to maxTurns
+ * INV:addon-flow ctx.completed+output short-circuits; ctx.nextPrompt loops next turn; ctx.error rethrows
  * INV:json-extraction response parsed directly; fallbacks: ```json fence, then first balanced {…}/[…]
  * INV:schema-symbol Schema objects carry private SCHEMA_SYMBOL; toJSON serializes via serializeSchema
  * INV:p-write-no-path p.write() adds write instruction only; does not return path
