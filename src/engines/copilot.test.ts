@@ -80,8 +80,14 @@ it("uses agentic workflow SDK connection and provider settings", async () => {
   });
 
   await copilotEngine()({ model: "small" });
+  await copilotEngine()({ model: "large" });
 
   expect(mocks.forTcp).toHaveBeenCalledWith("localhost", 7777, { connectionToken: "connection-token" });
+  expect(mocks.createSession).toHaveBeenCalledTimes(2);
+  expect(mocks.createSession.mock.calls.map(([options]) => options.model)).toEqual([
+    "copilot/claude-sonnet-4.6",
+    "copilot/claude-sonnet-4.6",
+  ]);
   expect(mocks.createSession).toHaveBeenCalledWith({
     model: "copilot/claude-sonnet-4.6",
     events: { streaming: false },

@@ -17,6 +17,7 @@ engine:
   id: copilot
   version: "1.0.103"
   max-continuations: 6
+model: router
 strict: true
 env:
   NPM_CONFIG_MIN_RELEASE_AGE: "3"

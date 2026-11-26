@@ -17,6 +17,7 @@ permissions:
 engine:
   id: copilot
   version: "1.0.103"
+model: router
 strict: true
 env:
   NPM_CONFIG_MIN_RELEASE_AGE: "3"
@@ -437,7 +438,10 @@ Rules:
 - Use `p\`...\`` template tag with `${p.bash(...)}` or `${p.read(...)}` for context.
 - Add a `// Agent role: ...` comment above each agent declaration.
 - Add a `// Workflow role: ...` comment above each workflow declaration.
-- Set `model` explicitly to `"large"`, `"mini"`, or `"small"`.
+- Choose a provider-supported model selector for each agent; prefer `"small"`
+  for routine work and `"large"` for harder work when the gateway supports
+  these aliases. Do not use `router` as a Rig model ID or promise that selectors
+  resolve to different models in a workflow.
 - Prefer `workflow(...)` as the root export when orchestration is deterministic
   (fan-out/fan-in, branching, reduction, bounded loops). Use a root `agent(...)`
   only when the coordination should remain model-driven.

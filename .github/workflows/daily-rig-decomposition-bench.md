@@ -3,10 +3,10 @@ name: Daily Rig Decomposition Benchmark
 description: >
   Each day, the agent writes a rig benchmark program from a specification, then runs it:
   it picks one complicated task that would typically benefit from being split across
-  sub-agents and sub-models (research, multi-step coding, structured content generation,
+  sub-agents (research, multi-step coding, structured content generation,
   etc.), then solves it two ways — a single model call attempting the whole task at once,
-  and a self-contained rig program that decomposes it into sub-agents each free to pick
-  their own model — before running a bounded debugging-reflection loop that typechecks and
+  and a self-contained rig program that decomposes it into sub-agents with task-appropriate
+  model selectors — before running a bounded debugging-reflection loop that typechecks and
   executes the decomposed program end-to-end (no repo checkout — the rig CLI comes from the
   frontmatter `skills:` install), grading both solutions against the same criteria, and
   reporting the comparison as a GitHub issue.
@@ -22,6 +22,7 @@ engine:
   version: "1.0.113"
   checksums-sha256: 854036b59b745d4f4b44a169327ffc0eab007f39e74b3dc3670f4d609a6c1072
   copilot-sdk: true
+model: router
 strict: true
 env:
   NPM_CONFIG_MIN_RELEASE_AGE: "3"
@@ -62,6 +63,11 @@ skill directory (`.github/skills/rig`).
 Read `.github/skills/rig/SKILL.md` first, and load the references it routes to that you
 actually need (dynamic workflows, prompt intents, composition). Write the program from the
 current API described there — do not guess at API shapes.
+
+The workflow router selects the outer model per run, not separately for each Rig
+agent. The Copilot SDK's workflow-provided model configuration can override Rig
+model selectors. Do not claim that agents used different models unless the
+effective models are supported by observable evidence; report uncertainty instead.
 
 ## Step 1 — write the benchmark program
 
@@ -108,7 +114,7 @@ timeout. Treat them as non-negotiable:
 
 1. **Pick a task.** A `small` agent picks one concrete, complicated task a person or team
    might face in a single day that would naturally benefit from being split across
-   sub-agents running different models — multi-source research and synthesis, a multi-file
+   sub-agents with different roles — multi-source research and synthesis, a multi-file
    coding task with distinct design/implementation/review phases, a structured report
    combining several independent analyses, or a multi-step data transformation pipeline.
    The task must be self-contained (solvable from its description alone, with no external
@@ -124,16 +130,16 @@ timeout. Treat them as non-negotiable:
    recovery and customer-communication plan, and (4) measurable evaluation criteria.
    The fallback is a task description, not a substitute for either solution or grading.
 
-2. **Solve it in one call.** A `medium` agent limited to a single turn solves the whole
+2. **Solve it in one call.** A `large` agent limited to a single turn solves the whole
    task by itself, addressing every success criterion, with no delegation and no tools.
    Define this solver with `output: s.string` so the complete solution can be returned
    verbatim (including Markdown code fences when appropriate), rather than requiring the
    model to wrap it in a JSON object. Record how long this takes.
 
-3. **Solve it by decomposition.** A `medium` agent writes a *second*, self-contained rig
+3. **Solve it by decomposition.** A `large` agent writes a *second*, self-contained rig
    program that splits the same task across at least two agents — each with a
-   `// Agent role: ...` comment, each choosing `small` for simple sub-steps and `medium` or
-   `large` for harder ones — coordinated so the final answer combines their outputs rather
+   `// Agent role: ...` comment, each choosing `small` for simple sub-steps and `large`
+   for harder ones — coordinated so the final answer combines their outputs rather
    than coming from one agent solving everything. That generated program must import only
    from `"rig"`, take no required input on its root, and export its root via
    `export default` without invoking it.

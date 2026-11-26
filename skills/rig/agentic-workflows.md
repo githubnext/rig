@@ -30,6 +30,12 @@ report missing dependencies rather than installing from the agent prompt.
 SDK v2 needs protocol 4 (Copilot CLI 1.0.113 or later). gh-aw v1.4.0
 supports SDK v2 in its built-in driver.
 
+For compatible workflows, prefer top-level `model: router` to route the outer
+agent per run. Omission already enables routing when eligible. Routing does not
+apply to custom drivers or incompatible engines, and a model pin may be required
+for an integration. Rig's Copilot SDK provider configuration can override its
+agents' model selectors; see [Engines](./engines.md#model-routing-and-selection).
+
 Without the template, configure equivalent prerequisites:
 
 ```yaml
@@ -113,10 +119,10 @@ Declare `skills: [skills/rig]` to install the current checkout instead of a
 released commit. The [Rig Skill Integration workflow](../../.github/workflows/rig-skill-integration.md)
 does this daily or on manual dispatch.
 
-Its no-input fence runs three `small` judges with `maxTurns: 1`, no repair addon,
+Its no-input fence declares three `small` judges with `maxTurns: 1`, no repair addon,
 and deterministic majority voting. The post-step fails missing output, invalid
-judgments, or an unexpected verdict. The outer engine also uses `small` because
-its provider configuration determines the model used by SDK sessions.
+judgments, or an unexpected verdict. The workflow's provider configuration may
+override the judges' selectors with the model used by SDK sessions.
 The three-call count covers the Rig scenario, not the outer engine's turns.
 Its pre-agent `npm ci` restores the checkout SDK after compiler setup, before
 the custom driver loads it.
@@ -131,7 +137,7 @@ outputs, majority vote, and strict post-step assertions:
 | [Codex](../../.github/workflows/rig-skill-integration-codex.md) | Codex CLI / `codexEngine` | `copilot/gpt-5.3-codex`; `copilot-requests: write` |
 | [DeepSeek Harness](../../.github/workflows/rig-skill-integration-deepseek.md) | DeepSeek Harness headless / `deepseekEngine` | `copilot/gpt-5.3-codex`; `copilot-requests: write` |
 | [Gemini](../../.github/workflows/rig-skill-integration-gemini.md) | Gemini CLI / `geminiEngine` | `gemini-2.5-flash`; Actions secret `GEMINI_API_KEY` |
-| [Pi](../../.github/workflows/rig-skill-integration-pi.md) | Pi managed SDK driver / `piEngine` | `copilot/gpt-5.3-codex`; `copilot-requests: write` |
+| [Pi](../../.github/workflows/rig-skill-integration-pi.md) | Pi managed SDK driver / `piEngine` | Harness-provided gateway model; `copilot-requests: write` |
 
 Codex, DeepSeek, and Pi run daily or on manual dispatch. Gemini is manual-only.
 Before running Gemini, add a [Gemini API key](https://ai.google.dev/gemini-api/docs/api-key)
@@ -154,8 +160,8 @@ and preserves its selector, `CODEX_HOME`, `gpt-5.3-codex` model, and non-secret
 `awf-proxy` API-key placeholder through `shell_environment_policy.set`.
 Pi uses the generated `PI_CODING_AGENT_DIR/models.json` gateway provider with
 that same non-secret placeholder; it does not use native Copilot OAuth or
-an OpenAI key. Its outer engine and judges pin `gpt-5.3-codex` to keep the
-integration model deterministic rather than using gh-aw's `auto` routing.
+an OpenAI key. The outer agent leaves model selection to the workflow and the
+judges inherit the provisioned gateway model.
 Gemini inherits the CLI, model, and `GEMINI_API_BASE_URL`. AWF routes requests
 to `generativelanguage.googleapis.com` without exposing the key to the agent.
 

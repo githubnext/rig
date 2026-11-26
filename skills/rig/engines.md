@@ -57,6 +57,26 @@ Without `configureAgent(...)`, selection follows this precedence:
 Choose a model ID supported by the provider; `"small"` is not portable.
 Auto-selection chooses an engine, not a replacement model.
 
+### Model routing and selection
+
+For an eligible GitHub Agentic Workflow, prefer top-level `model: router`
+to select the outer agent's model per workflow run. Routing is experimental,
+requires a compatible engine and provider, and is not a Rig model ID. See
+[gh-aw model routing](https://github.github.com/gh-aw/reference/model-routing/)
+for routing levels, restrictions, and audit guidance. Omitted models already
+route in eligible workflows; retain a model pin when an integration requires it.
+
+Rig passes the invocation's model, then the agent's model, then the `"small"`
+default to its selected engine. With an AWF gateway that supports model aliases,
+selectors such as `"small"` and `"large"` can express different task needs;
+they are not portable provider model IDs or a guarantee of different models.
+Use supported concrete IDs for other providers. A workflow-provided
+`GH_AW_COPILOT_SDK_MULTI_PROVIDER_JSON` takes precedence for every Copilot
+SDK session, so Rig agent selectors can all resolve to the same configured
+model. Do not promise per-agent routing or remove that configuration to force
+different models. Inspect the effective model and evaluate results in the
+intended environment.
+
 ### Choosing an integration
 
 | Engine | Best fit | Tool execution | Output enforcement |

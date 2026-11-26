@@ -45,6 +45,11 @@ export default reviewDiff;
 7. Export exactly one root value — an `agent` or a `workflow`. Do not invoke it or print its result in generated programs.
 
 Defaults: `name: "agent"`, `model: "small"`, `maxTurns: 4`, string input/output, and no addons.
+Prefer provider-supported model aliases for the task; `"small"` is not portable.
+In eligible GitHub Agentic Workflows, prefer `model: router` for the outer
+workflow. This is not a Rig model ID or per-agent routing; the Copilot SDK's
+workflow-provided model configuration can override all Rig agent model choices.
+See [Engines](./engines.md) for model selection and its limits.
 
 For GitHub Agentic Workflows, tell the user to import the
 [shared Rig template](../../.github/workflows/shared/rig.md) or explicitly allow
