@@ -124,6 +124,14 @@ new solution or perform the clustering yourself instead of running Rig.
 
 ## Read the evidence and history first
 
+The installed skill is at `/tmp/gh-aw/.github/skills/rig/`. Use separate,
+simple commands to inspect the named files and memory directory, for example
+`ls /tmp/gh-aw/repo-memory/pr-cluster-rigs/` and
+`cat /tmp/gh-aw/agent/merged-prs.json`. Do not search the filesystem with
+`find` or combine unrelated commands: a disallowed command rejects the entire
+tool call. If a command is denied, use the permitted read tools or an allowed
+command for the specific required path; if those also fail, report the failure.
+
 Load the installed `rig` skill and its Running programs, Dynamic workflows,
 and Agent API references. Read `/tmp/gh-aw/agent/merged-prs.json`. Its frozen UTC
 window is start-inclusive and end-exclusive, one calendar month before collection
@@ -175,7 +183,12 @@ exactly three total clusters; if fewer than three meaningful clusters exist,
 report only those and explain why. Do not fabricate filler clusters.
 
 Keep the complete source under 16 KiB. Save it in `/tmp/gh-aw/agent/`, lint and
-typecheck it using the installed skill, and fix failures before execution. Run
+typecheck it using the installed skill, and fix failures before execution. For a
+source file `/tmp/gh-aw/agent/pr-clusters.ts`, run the separate commands
+`node /tmp/gh-aw/.github/skills/rig/eslint/lint.js /tmp/gh-aw/agent/pr-clusters.ts`
+and
+`node /tmp/gh-aw/.github/skills/rig/run.ts /tmp/gh-aw/agent/pr-clusters.ts --typecheck`.
+Run
 the program with the harness-owned `run_rig` tool, passing the complete source.
 The tool supplies the SDK connection and allows at most two source versions and
 two executions; do not use Bash to launch the program, start a server, or inspect

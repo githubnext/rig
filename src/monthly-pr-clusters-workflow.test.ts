@@ -91,6 +91,21 @@ describe("Monthly PR clusters workflow", () => {
     expect(lock).toContain("contents: write");
   });
 
+  it("provides permitted commands for evidence access and Rig validation", () => {
+    const lock = readFileSync(new URL("../.github/workflows/monthly-pr-clusters.lock.yml", import.meta.url), "utf8");
+    const config = JSON.parse(lock.match(/GH_AW_COPILOT_SDK_TOOL_CONFIG: '([^']+)'/)![1]);
+    expect(config.permissions.allowedTools).toEqual(expect.arrayContaining([
+      "read", "shell(cat)", "shell(ls)", "shell(node)",
+    ]));
+    expect(config.permissions.allowedTools).not.toContain("shell(find)");
+    expect(prompt).toContain("`ls /tmp/gh-aw/repo-memory/pr-cluster-rigs/`");
+    expect(prompt).toContain("`cat /tmp/gh-aw/agent/merged-prs.json`");
+    expect(prompt).toContain("a disallowed command rejects the entire");
+    expect(prompt).toContain("if those also fail, report the failure");
+    expect(prompt).toContain("`node /tmp/gh-aw/.github/skills/rig/eslint/lint.js /tmp/gh-aw/agent/pr-clusters.ts`");
+    expect(prompt).toContain("`node /tmp/gh-aw/.github/skills/rig/run.ts /tmp/gh-aw/agent/pr-clusters.ts --typecheck`");
+  });
+
   it("requires exact coverage, top-three ranking, and honest empty or failed outcomes", () => {
     expect(prompt).toContain("each input PR belongs to exactly");
     expect(prompt).toContain("size descending, breaking ties by");
