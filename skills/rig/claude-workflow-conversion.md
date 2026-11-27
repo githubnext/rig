@@ -20,8 +20,10 @@ Choose the migration path that matches your script's structure:
 | `body` function with `args` and structured output (canonical pattern) | [310-workflow-audit-verify.md](./samples/310-workflow-audit-verify.md) — direct `args`→`input` + `agent`→`call.json` port |
 | Nested `workflow(ref, args)` calls | [330-nested-workflow-composition.md](./samples/330-nested-workflow-composition.md) — `call.workflow` shares the parent's limiter and budget |
 | `log`, `budget`, open-ended `while` loop | [320-budget-aware-crawler.md](./samples/320-budget-aware-crawler.md) — `log`/`budget.remaining()` + bounded `until` loop |
+| `parallel(thunks)` fan-out with a barrier | [360-parallel-branch-analysis-workflow.md](./samples/360-parallel-branch-analysis-workflow.md) — `parallel([() => call(...), ...])` instead of `Promise.all` |
+| `agent(prompt, { schema })` with a JSON Schema literal | [Schema conversion](#schema-conversion) — JSON Schema → `s.*`, then `call.json(prompt, schema)` |
 | Two or more chained `pipeline` stages | [401-multi-stage-pipeline-workflow.md](./samples/401-multi-stage-pipeline-workflow.md) — note the `(prev, item, index)` stage signature |
-| Running on Claude (not Copilot) | [411-anthropic-engine-workflow.md](./samples/411-anthropic-engine-workflow.md) — `anthropicEngine()` + full Claude model IDs |
+| Running on Claude (not Copilot), or `{ model: "sonnet" }` / `"haiku"` / `"opus"` aliases | [411-anthropic-engine-workflow.md](./samples/411-anthropic-engine-workflow.md) — `anthropicEngine()` + full Claude model IDs (`"sonnet"` is not translated) |
 
 Then read [Behavior differences](#behavior-differences-to-keep-in-mind) before you finalize the port.
 
