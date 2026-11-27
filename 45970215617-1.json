@@ -1,0 +1,186 @@
+{
+ "repository": "githubnext/rig",
+ "runId": "45970215617",
+ "runAttempt": "1",
+ "workflowUrl": "https://github.com/githubnext/rig/actions/runs/45970215617",
+ "window": {
+  "start": "2026-10-27T09:03:52.651Z",
+  "end": "2026-11-27T09:03:52.651Z"
+ },
+ "strategy": "seed-and-assign-exemplar-clustering",
+ "strategyDescription": "TypeScript builds sublinear TF-IDF vectors over title (double weight) plus a URL-stripped 400-char body excerpt, picks the most central PR then up to 7 more by farthest-first (max-min cosine) as exemplar seeds. Models assign every other PR, in batches of 6, to the closest seed or to none; TypeScript groups by seed, drops seeds that attract nobody to unclassified, one describe call per cluster names it, and TypeScript validates coverage, uniqueness and ranking.",
+ "nearestPriorStrategy": "divisive-recursive-bisection (45771811713-1)",
+ "noveltyRationale": "Divisive bisection is top-down with the model inventing partitions of the whole set; map-reduce chunked by PR number; pairwise used Jaccard edges; TF-IDF (40477786734-1) never ran. This one uses lexical statistics only to choose fixed exemplar anchors, then the model performs constrained nearest-exemplar classification of each PR against those anchors (k-medoids-like single pass). Cluster count and membership boundaries are bounded by the seeds, not invented by the model, and an explicit none option yields unclassified PRs.",
+ "historyConsulted": [
+  "37680026048-1",
+  "38039912415-2",
+  "38126880290-1",
+  "40477786734-1",
+  "40661045982-1",
+  "45005503491-1",
+  "45361254701-1",
+  "45553032858-1",
+  "45581461634-1",
+  "45771811713-1"
+ ],
+ "sourceAttempts": [
+  {
+   "attempt": 1,
+   "sourceFile": "/tmp/gh-aw/agent/pr-clusters-seed-assign.ts",
+   "sourceBytes": 7331,
+   "sourceDigest": "sha256:d2cce7f2d1d5768e8ea4e13530a0e9c3ade83a01e2e7edab998e717676fc35bb",
+   "lint": "pass",
+   "typecheck": "pass",
+   "execution": "success (14 model calls)",
+   "error": null,
+   "source": "import { agent, s, workflow } from \"rig\";\nimport { readFileSync } from \"node:fs\";\n\ntype Pr = { number: number; title: string; body?: string };\n\n// Agent role: assign each PR in a batch to the closest seed exemplar PR, or to none.\nconst assignBatch = agent({\n  name: \"assignBatch\",\n  model: \"small\",\n  input: s.object({ seeds: s.string, batch: s.string }),\n  output: s.object({\n    assignments: s.array(s.object({ pr: s.int, seed: s.int, reason: s.string })),\n  }),\n  instructions:\n    \"SEEDS lists exemplar PRs as 'number | title'. BATCH lists PRs as 'number | title | body excerpt'. For every BATCH PR, choose the seed number whose engineering concern it most closely shares, or seed=0 if no seed fits. Give a short reason. Every batch number must appear exactly once. Use only listed numbers.\",\n});\n\n// Agent role: name a cluster from its member PRs.\nconst describeCluster = agent({\n  name: \"describeCluster\",\n  model: \"small\",\n  input: s.object({ members: s.string }),\n  output: s.object({ label: s.string, summary: s.string }),\n  instructions:\n    \"Each line is 'number | title'. Return a short thematic label (max 6 words) and a one-sentence summary grounded only in these titles.\",\n});\n\nconst STOP = new Set(\"the a an and or of to for in on with add fix update from by is be as at this that into new use using via rig are was not all can will its\".split(\" \"));\nconst clean = (t = \"\") => t.replace(/https?:\\S+/g, \"\").replace(/\\s+/g, \" \").trim();\nconst tok = (p: Pr) =>\n  `${p.title} ${p.title} ${clean(p.body).slice(0, 400)}`\n    .toLowerCase()\n    .split(/[^a-z0-9]+/)\n    .filter((w) => w.length > 2 && !STOP.has(w));\n\n// Workflow role: seed-and-assign clustering: TypeScript picks exemplar seeds by farthest-first TF-IDF, models assign PRs to seeds, then clusters are named.\nexport default workflow({\n  meta: {\n    name: \"seed-and-assign-clustering\",\n    description: \"Farthest-first exemplar seeds, batch model assignment to seeds, cluster naming, TypeScript validation\",\n    phases: [\"Seed\", \"Assign\", \"Describe\", \"Validate\"],\n  },\n  body: async ({ call, phase }) => {\n    const corpus = JSON.parse(readFileSync(\"/tmp/gh-aw/agent/merged-prs.json\", \"utf8\"));\n    const prs: Pr[] = corpus.prs;\n    const byNum = new Map(prs.map((p) => [p.number, p]));\n    if (prs.length === 0 || byNum.size !== prs.length) throw new Error(\"bad corpus\");\n\n    phase(\"Seed\");\n    const docs = prs.map((p) => tok(p));\n    const df = new Map<string, number>();\n    docs.forEach((d) => new Set(d).forEach((w) => df.set(w, (df.get(w) ?? 0) + 1)));\n    const vecs = docs.map((d) => {\n      const v = new Map<string, number>();\n      d.forEach((w) => v.set(w, (v.get(w) ?? 0) + 1));\n      let norm = 0;\n      for (const [w, c] of v) {\n        const x = (1 + Math.log(c)) * Math.log(1 + prs.length / (df.get(w) ?? 1));\n        v.set(w, x);\n        norm += x * x;\n      }\n      norm = Math.sqrt(norm) || 1;\n      for (const [w, x] of v) v.set(w, x / norm);\n      return v;\n    });\n    const cos = (a: Map<string, number>, b: Map<string, number>) => {\n      let t = 0;\n      for (const [w, x] of a) t += x * (b.get(w) ?? 0);\n      return t;\n    };\n    const k = Math.max(2, Math.min(8, Math.floor(prs.length / 4)));\n    const central = prs.map((_, i) => vecs.reduce((acc, v) => acc + cos(vecs[i], v), 0));\n    const chosen = [central.indexOf(Math.max(...central))];\n    while (chosen.length < k && chosen.length < prs.length) {\n      let best = -1;\n      let bestD = -1;\n      prs.forEach((_, i) => {\n        if (chosen.includes(i)) return;\n        const d = 1 - Math.max(...chosen.map((c) => cos(vecs[i], vecs[c])));\n        if (d > bestD) {\n          bestD = d;\n          best = i;\n        }\n      });\n      chosen.push(best);\n    }\n    const seeds = chosen.map((i) => prs[i].number);\n    const seedSet = new Set(seeds);\n    const seedText = seeds.map((n) => `${n} | ${byNum.get(n)!.title}`).join(\"\\n\");\n\n    phase(\"Assign\");\n    const rest = prs.filter((p) => !seedSet.has(p.number)).sort((a, b) => a.number - b.number);\n    const batches: Pr[][] = [];\n    for (let i = 0; i < rest.length; i += 6) batches.push(rest.slice(i, i + 6));\n    if (batches.length + seeds.length > 38) throw new Error(\"call budget exceeded\");\n    const members = new Map<number, number[]>(seeds.map((n) => [n, [n]]));\n    const none = new Map<number, string>();\n    for (let g = 0; g < batches.length; g += 3) {\n      const group = batches.slice(g, g + 3);\n      const res = await Promise.all(\n        group.map((b, i) =>\n          call(\n            assignBatch,\n            { seeds: seedText, batch: b.map((p) => `${p.number} | ${p.title} | ${clean(p.body).slice(0, 250)}`).join(\"\\n\") },\n            { label: `batch${g + i}` },\n          ),\n        ),\n      );\n      res.forEach((r, i) => {\n        if (!r) throw new Error(`missing assignment response ${g + i}`);\n        const want = new Set(group[i].map((p) => p.number));\n        const seen = new Set<number>();\n        for (const a of r.assignments) {\n          if (!want.has(a.pr) || seen.has(a.pr)) throw new Error(`invalid or duplicate PR ${a.pr}`);\n          if (a.seed !== 0 && !seedSet.has(a.seed)) throw new Error(`unknown seed ${a.seed}`);\n          seen.add(a.pr);\n          if (a.seed === 0) none.set(a.pr, a.reason.trim() || \"No seed exemplar fits\");\n          else members.get(a.seed)!.push(a.pr);\n        }\n        if (seen.size !== want.size) throw new Error(`batch ${g + i}: incomplete coverage`);\n      });\n    }\n\n    const unclassified: { pr: number; reason: string }[] = [...none].map(([pr, reason]) => ({ pr, reason }));\n    const groups: number[][] = [];\n    for (const [seed, m] of members) {\n      if (m.length >= 2) groups.push(m.sort((a, b) => a - b));\n      else unclassified.push({ pr: seed, reason: \"Seed exemplar attracted no other PRs\" });\n    }\n\n    phase(\"Describe\");\n    const described = await Promise.all(\n      groups.map((m, i) =>\n        call(describeCluster, { members: m.map((n) => `${n} | ${byNum.get(n)!.title}`).join(\"\\n\") }, { label: `describe${i}` }),\n      ),\n    );\n    const clusters = groups\n      .map((m, i) => {\n        const d = described[i];\n        if (!d || !d.label.trim() || !d.summary.trim()) throw new Error(\"missing cluster description\");\n        return { id: `s${String(m[0]).padStart(5, \"0\")}`, label: d.label, summary: d.summary, prs: m, size: m.length };\n      })\n      .sort((x, y) => y.size - x.size || x.id.localeCompare(y.id));\n\n    phase(\"Validate\");\n    unclassified.sort((a, b) => a.pr - b.pr);\n    const seenAll = new Set<number>();\n    for (const n of [...clusters.flatMap((c) => c.prs), ...unclassified.map((u) => u.pr)]) {\n      if (!byNum.has(n) || seenAll.has(n)) throw new Error(`invalid or duplicate PR ${n}`);\n      seenAll.add(n);\n    }\n    if (seenAll.size !== prs.length) throw new Error(\"incomplete coverage\");\n    if (new Set(clusters.map((c) => c.id)).size !== clusters.length) throw new Error(\"duplicate cluster id\");\n\n    return {\n      repository: corpus.repository,\n      window: corpus.window,\n      strategy: \"Seed-and-assign: TF-IDF farthest-first exemplar seeds, model assigns batches of PRs to seeds, then cluster naming\",\n      totalPrs: prs.length,\n      seeds,\n      modelCalls: batches.length + groups.length,\n      clusters,\n      topThree: clusters.slice(0, 3).map((c) => c.id),\n      unclassified,\n    };\n  },\n});\n"
+  }
+ ],
+ "executionAttempts": [
+  {
+   "attempt": 1,
+   "status": "success",
+   "modelCalls": 14,
+   "error": null
+  }
+ ],
+ "finalStatus": "complete",
+ "outcome": "validated",
+ "validation": "44 PRs covered exactly once; all numbers known; ids unique; sizes match unique PR counts; ranking size desc then id asc; window matches corpus (checked independently with node)",
+ "clusters": [
+  {
+   "id": "s00891",
+   "label": "Provider integration and CI repair",
+   "summary": "These items cover testing and documenting provider integrations (Anthropic, Copilot, Gemini, Pi), fixing credentials, model, and lint failures in CI and sample workflows, and adding automated Actions repair.",
+   "prs": [
+    891,
+    892,
+    894,
+    910,
+    915,
+    916,
+    932,
+    933,
+    934,
+    935,
+    938
+   ],
+   "size": 11
+  },
+  {
+   "id": "s00888",
+   "label": "Agentic workflow setup and dependency fixes",
+   "summary": "These PRs fix installation, dependency resolution, image pinning and launcher issues in agentic and release workflows, including Copilot CLI setup, task-generator dependencies, and the Monthly PR Clusters Rig runner.",
+   "prs": [
+    888,
+    914,
+    923,
+    931,
+    947,
+    948
+   ],
+   "size": 6
+  },
+  {
+   "id": "s00927",
+   "label": "Claude dynamic-workflow compatibility improvements",
+   "summary": "Four of the five items share the title \"[rig-claude] Improve Claude dynamic-workflow compatibility for rig\", and the fifth, \"Improve schema and workflow guidance\", is a related workflow guidance improvement.",
+   "prs": [
+    927,
+    941,
+    949,
+    955,
+    965
+   ],
+   "size": 5
+  },
+  {
+   "id": "s00765",
+   "label": "Microsoft tooling and runtime upgrades",
+   "summary": "These PRs upgrade gh-aw, agent engines and the Copilot SDK, and configure npm and 1ES support to fit Microsoft-approved infrastructure.",
+   "prs": [
+    765,
+    831,
+    886,
+    905
+   ],
+   "size": 4
+  },
+  {
+   "id": "s00744",
+   "label": "rig.ts header summary updates",
+   "summary": "Three sequential automated updates (744, 906, 961) refresh the agentic file-summary header in rig.ts, each moving from one commit hash to the next.",
+   "prs": [
+    744,
+    906,
+    961
+   ],
+   "size": 3
+  },
+  {
+   "id": "s00751",
+   "label": "Dependency version bumps",
+   "summary": "These pull requests update npm dependencies, namely undici, fast-uri, and @vitest/mocker together with vitest.",
+   "prs": [
+    751,
+    754,
+    770
+   ],
+   "size": 3
+  },
+  {
+   "id": "s00890",
+   "label": "Copilot Responses and Pi model routing",
+   "summary": "These PRs adjust Copilot Responses handling for the DeepSeek route and Pi integration, covering judge reasoning effort and acceptance of router-selected models.",
+   "prs": [
+    890,
+    893,
+    940
+   ],
+   "size": 3
+  },
+  {
+   "id": "s00917",
+   "label": "Decomposition benchmark reliability fixes",
+   "summary": "These items cover preparing dependencies and handling null task selection, mitigating incomplete runs, and clarifying subprocess requirements for the decomposition benchmark.",
+   "prs": [
+    917,
+    924,
+    946
+   ],
+   "size": 3
+  }
+ ],
+ "unclassifiedPRs": [
+  {
+   "pr": 734,
+   "reason": "Adds new rig samples and refreshes the sample catalog. No seed covers sample authoring."
+  },
+  {
+   "pr": 926,
+   "reason": "Adds new rig sample files and refreshes the catalog. No seed covers this."
+  },
+  {
+   "pr": 945,
+   "reason": "Adds new rig sample files and refreshes the catalog, which no seed covers."
+  },
+  {
+   "pr": 950,
+   "reason": "Fixes Codex integration fixture TMPDIR permissions; no seed covers fixture or subprocess environment fixes."
+  },
+  {
+   "pr": 954,
+   "reason": "Adds new rig sample files and refreshes the catalog; no seed is about samples."
+  },
+  {
+   "pr": 964,
+   "reason": "Adds new rig sample files and refreshes the catalog; no seed is about samples."
+  }
+ ],
+ "lessonsForNextRun": [
+  "Seed selection by TF-IDF farthest-first worked and run_rig succeeded first try, but the seed set decides what can cluster: five 'add rig samples' PRs (734, 926, 945, 954, 964) were left unclassified because no seed covered samples, though they are clearly one theme.",
+  "Seeds that attract no PRs are demoted to unclassified; consider letting 'none' PRs form clusters in a second pass.",
+  "Measured: 8 clusters, 38 classified, 6 unclassified, 14 model calls. No comparison against other strategies was measured.",
+  "A stale pr-clusters-result.json from a harness attempt exists in /tmp/gh-aw/agent; write results to a distinct filename."
+ ]
+}
