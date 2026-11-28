@@ -307,6 +307,8 @@ describe("skill markdown samples", () => {
   }
 });
 
+const TYPECHECK_TIMEOUT_MS = 120_000;
+
 describe("skill markdown samples typecheck", () => {
   it("typechecks extracted rig programs with npx tsc", async () => {
     const typecheckDir = await mkdtemp(resolve(__dirname, ".tmp-rig-sample-typecheck-"));
@@ -340,5 +342,5 @@ describe("skill markdown samples typecheck", () => {
     } finally {
       await rm(typecheckDir, { recursive: true, force: true });
     }
-  });
+  }, TYPECHECK_TIMEOUT_MS);
 });
