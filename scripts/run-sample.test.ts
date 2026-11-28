@@ -250,6 +250,32 @@ describe("samples", () => {
 });
 
 describe("skill markdown samples", () => {
+  if (markdownTargets.includes("168-test-fixture-generator.md")) {
+    it("runs the fixture generator without input and writes fixture code", async () => {
+      const code = extractRigCode(readFileSync(resolve(markdownDir, "168-test-fixture-generator.md"), "utf8"));
+      let prompt = "";
+      const result = { fixtureCode: "fixture code", imports: [], suggestedFileName: "fixture-output.ts" };
+      mocks.setSendAndWaitImpl(async (request) => {
+        prompt = request.prompt;
+        return result;
+      });
+      const output: string[] = [];
+      const stdout = new Writable({
+        write(chunk, _encoding, callback) {
+          output.push(chunk.toString());
+          callback();
+        },
+      });
+
+      await runLauncherCli([], {}, { stdin: Readable.from([code]), stdout });
+
+      expect(JSON.parse(output.join(""))).toEqual(result);
+      expect(prompt).toContain('Read file and return its contents as text: "scripts/sample-themes.ts"');
+      expect(prompt).toContain('"seedThemes" as functionName');
+      expect(prompt).toContain('write the value of output field "fixtureCode" to the file at path "fixture-output.ts"');
+    });
+  }
+
   if (markdownTargets.includes("85-dockerfile-security-audit.md")) {
     it("runs the Dockerfile audit without input and describes missing files", async () => {
       const code = extractRigCode(readFileSync(resolve(markdownDir, "85-dockerfile-security-audit.md"), "utf8"));
