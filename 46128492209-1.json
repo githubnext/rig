@@ -1,0 +1,199 @@
+{
+ "repository": "githubnext/rig",
+ "window": {
+  "start": "2026-10-28T09:02:03.467Z",
+  "end": "2026-11-28T09:02:03.467Z"
+ },
+ "runId": "46128492209",
+ "runAttempt": "1",
+ "runUrl": "https://github.com/githubnext/rig/actions/runs/46128492209",
+ "strategy": "question-signature-hamming-agglomeration",
+ "strategyDescription": "A model reads all PR titles and designs 10 discriminating yes/no questions; models answer all questions per PR (batches of 5, title plus 250-char URL-stripped body excerpt) giving a 10-bit signature; TypeScript groups identical signatures and merges groups by average Hamming distance <= 1; groups of 2+ become clusters (named by one call each), singletons and all-false signatures are unclassified. 21 model calls.",
+ "nearestPriorStrategy": "closed-vocabulary-facet-extraction-area-partition (45361254701-1), and tfidf/concern-linkage agglomeration",
+ "noveltyRationale": "Evidence representation is a corpus-specific binary question signature designed by a model from the whole title list, not free keywords, closed facet vocabularies, TF-IDF vectors, seeds, pairwise judgments, or recursive splits. Distance is Hamming over shared answers.",
+ "historyConsulted": [
+  "37680026048-1",
+  "38039912415-2",
+  "38126880290-1",
+  "40477786734-1",
+  "40661045982-1",
+  "45005503491-1",
+  "45361254701-1",
+  "45553032858-1",
+  "45581461634-1",
+  "45771811713-1",
+  "45970215617-1"
+ ],
+ "attempts": [
+  {
+   "attempt": 1,
+   "file": "pr-clusters-question-signatures.ts",
+   "source": "import { agent, s, workflow } from \"rig\";\nimport { readFileSync } from \"node:fs\";\n\ntype Pr = { number: number; title: string; body?: string };\n\n// Agent role: design discriminating yes/no questions from the list of PR titles.\nconst designQuestions = agent({\n  name: \"designQuestions\",\n  model: \"small\",\n  input: s.object({ titles: s.string }),\n  output: s.object({ questions: s.array(s.string) }),\n  instructions:\n    \"Each line is 'number | title' of a merged PR in one repository. Write exactly 10 short, mutually independent yes/no questions that, answered per PR, would best separate these PRs into distinct themes (e.g. 'Does this PR change dependency versions?'). Each question must be answerable from a title plus short excerpt, cover a different theme, and be true for several but not most PRs.\",\n});\n\n// Agent role: answer every question for each PR in a batch.\nconst answerQuestions = agent({\n  name: \"answerQuestions\",\n  model: \"small\",\n  input: s.object({ questions: s.string, prs: s.string }),\n  output: s.object({ items: s.array(s.object({ pr: s.int, answers: s.array(s.boolean) })) }),\n  instructions:\n    \"Questions are numbered lines. Each PR line is 'number | title | body excerpt'. For every listed PR return one item whose answers array has exactly one boolean per question, in question order. Use only listed numbers, each exactly once.\",\n});\n\n// Agent role: name a cluster from its member PRs.\nconst describeCluster = agent({\n  name: \"describeCluster\",\n  model: \"small\",\n  input: s.object({ members: s.string }),\n  output: s.object({ label: s.string, summary: s.string }),\n  instructions:\n    \"Each line is 'number | title'. Return a short thematic label (max 6 words) and a one-sentence summary grounded only in these titles.\",\n});\n\nconst clean = (t = \"\") => t.replace(/https?:\\S+/g, \"\").replace(/\\s+/g, \" \").trim();\nconst NQ = 10;\n\n// Workflow role: yes/no question signatures per PR, deterministic Hamming-distance grouping, cluster naming, validation.\nexport default workflow({\n  meta: {\n    name: \"question-signature-hamming-groups\",\n    description: \"Model designs discriminating questions, answers them per PR into binary signatures, TypeScript groups by Hamming distance\",\n    phases: [\"Questions\", \"Answer\", \"Group\", \"Describe\", \"Validate\"],\n  },\n  body: async ({ call, phase }) => {\n    const corpus = JSON.parse(readFileSync(\"/tmp/gh-aw/agent/merged-prs.json\", \"utf8\"));\n    const prs: Pr[] = [...corpus.prs].sort((a: Pr, b: Pr) => a.number - b.number);\n    const byNum = new Map(prs.map((p) => [p.number, p]));\n    if (prs.length === 0 || byNum.size !== prs.length) throw new Error(\"bad corpus\");\n\n    phase(\"Questions\");\n    const q = await call(designQuestions, { titles: prs.map((p) => `${p.number} | ${p.title}`).join(\"\\n\") }, { label: \"questions\" });\n    if (!q || q.questions.length !== NQ || q.questions.some((x) => !x.trim())) throw new Error(\"malformed question set\");\n    const qText = q.questions.map((x, i) => `${i + 1}. ${x}`).join(\"\\n\");\n\n    phase(\"Answer\");\n    const batches: Pr[][] = [];\n    for (let i = 0; i < prs.length; i += 5) batches.push(prs.slice(i, i + 5));\n    if (batches.length > 20) throw new Error(\"too many batches\");\n    const sig = new Map<number, boolean[]>();\n    for (let g = 0; g < batches.length; g += 3) {\n      const group = batches.slice(g, g + 3);\n      const res = await Promise.all(\n        group.map((b, i) =>\n          call(answerQuestions, { questions: qText, prs: b.map((p) => `${p.number} | ${p.title} | ${clean(p.body).slice(0, 250)}`).join(\"\\n\") }, { label: `answer${g + i}` }),\n        ),\n      );\n      res.forEach((r, i) => {\n        if (!r) throw new Error(`missing answer response ${g + i}`);\n        const want = new Set(group[i].map((p) => p.number));\n        for (const it of r.items) {\n          if (!want.has(it.pr) || sig.has(it.pr) || it.answers.length !== NQ) throw new Error(`invalid answer for PR ${it.pr}`);\n          sig.set(it.pr, it.answers);\n        }\n        if (group[i].some((p) => !sig.has(p.number))) throw new Error(`batch ${g + i}: incomplete coverage`);\n      });\n    }\n\n    phase(\"Group\");\n    const ham = (a: number, b: number) => sig.get(a)!.reduce((t, x, k) => t + (x === sig.get(b)![k] ? 0 : 1), 0);\n    const unclassified: { pr: number; reason: string }[] = [];\n    const bySig = new Map<string, number[]>();\n    for (const p of prs) {\n      const key = sig.get(p.number)!.map((x) => (x ? 1 : 0)).join(\"\");\n      if (!key.includes(\"1\")) {\n        unclassified.push({ pr: p.number, reason: \"Answered no to every discriminating question\" });\n        continue;\n      }\n      bySig.set(key, [...(bySig.get(key) ?? []), p.number]);\n    }\n    let groups = [...bySig.values()];\n    const MAXAVG = 1;\n    for (;;) {\n      let best = Infinity;\n      let bi = 0;\n      let bj = 0;\n      for (let i = 0; i < groups.length; i++)\n        for (let j = i + 1; j < groups.length; j++) {\n          let t = 0;\n          for (const a of groups[i]) for (const b of groups[j]) t += ham(a, b);\n          const avg = t / (groups[i].length * groups[j].length);\n          if (avg < best) {\n            best = avg;\n            bi = i;\n            bj = j;\n          }\n        }\n      if (best > MAXAVG) break;\n      groups = groups.filter((_, k) => k !== bi && k !== bj).concat([[...groups[bi], ...groups[bj]]]);\n    }\n    const multi = groups.filter((g) => g.length >= 2).map((g) => [...g].sort((a, b) => a - b));\n    for (const g of groups.filter((x) => x.length === 1))\n      unclassified.push({ pr: g[0], reason: `No other PR within average Hamming distance ${MAXAVG} on ${NQ} question answers` });\n    unclassified.sort((a, b) => a.pr - b.pr);\n\n    phase(\"Describe\");\n    if (1 + batches.length + multi.length > 38) throw new Error(\"call budget exceeded\");\n    const described: ({ label: string; summary: string } | null)[] = [];\n    for (let g = 0; g < multi.length; g += 3) {\n      const res = await Promise.all(\n        multi.slice(g, g + 3).map((m, i) =>\n          call(describeCluster, { members: m.map((n) => `${n} | ${byNum.get(n)!.title}`).join(\"\\n\") }, { label: `describe${g + i}` }),\n        ),\n      );\n      described.push(...res);\n    }\n    const clusters = multi\n      .map((m, i) => {\n        const d = described[i];\n        if (!d || !d.label.trim() || !d.summary.trim()) throw new Error(\"missing cluster description\");\n        return { id: `q${String(m[0]).padStart(5, \"0\")}`, label: d.label, summary: d.summary, prs: m, size: m.length };\n      })\n      .sort((x, y) => y.size - x.size || x.id.localeCompare(y.id));\n\n    phase(\"Validate\");\n    const seen = new Set<number>();\n    for (const n of [...clusters.flatMap((c) => c.prs), ...unclassified.map((u) => u.pr)]) {\n      if (!byNum.has(n) || seen.has(n)) throw new Error(`invalid or duplicate PR ${n}`);\n      seen.add(n);\n    }\n    if (seen.size !== prs.length) throw new Error(\"incomplete coverage\");\n    if (new Set(clusters.map((c) => c.id)).size !== clusters.length) throw new Error(\"duplicate cluster id\");\n\n    return {\n      repository: corpus.repository,\n      window: corpus.window,\n      strategy: `Model-designed ${NQ} yes/no discriminating questions, per-PR binary answer signatures, TypeScript average-Hamming agglomeration (<= ${MAXAVG}), cluster naming`,\n      questions: q.questions,\n      totalPrs: prs.length,\n      modelCalls: 1 + batches.length + multi.length,\n      clusters,\n      topThree: clusters.slice(0, 3).map((c) => c.id),\n      unclassified,\n    };\n  },\n});\n",
+   "sha256": "df5eb8e16cc02e40124decc0c178f5af057f65cf0d1099d8c7d79994a23f5fed",
+   "lint": "passed",
+   "typecheck": "passed",
+   "execution": "succeeded (run_rig, 21 model calls)",
+   "errors": []
+  }
+ ],
+ "finalStatus": "success",
+ "validation": "45 PRs: all covered exactly once, known numbers, unique cluster IDs, ranking and window verified independently",
+ "result": {
+  "clusters": [
+   {
+    "id": "q00734",
+    "label": "Rig sample additions",
+    "summary": "Recurring automated [rig-tasks] pull requests that add batches of new rig samples across late October to late November 2026, plus one change making the Dockerfile audit sample runnable by the daily sampler.",
+    "prs": [
+     734,
+     926,
+     932,
+     945,
+     954,
+     964
+    ],
+    "size": 6
+   },
+   {
+    "id": "q00890",
+    "label": "Provider integration fixes and updates",
+    "summary": "These items fix and update model-provider integrations, covering DeepSeek and Pi Copilot Responses routing, Gemini credential docs, a retired Sonnet model in samples, router-selected models in Pi results, and Codex fixture permissions.",
+    "prs": [
+     890,
+     893,
+     894,
+     933,
+     940,
+     950
+    ],
+    "size": 6
+   },
+   {
+    "id": "q00891",
+    "label": "Claude and Anthropic SDK compatibility",
+    "summary": "These items center on improving Claude dynamic-workflow compatibility for rig, with one covering the direct Anthropic SDK contract.",
+    "prs": [
+     891,
+     927,
+     941,
+     955,
+     965,
+     973
+    ],
+    "size": 6
+   },
+   {
+    "id": "q00765",
+    "label": "Agentic workflow tooling and dependency upgrades",
+    "summary": "These items cover upgrading and migrating gh-aw, the Copilot SDK and agent engines, and fixing npm feed configuration and dependency or Copilot CLI installation in agentic workflows.",
+    "prs": [
+     765,
+     831,
+     888,
+     905,
+     914
+    ],
+    "size": 5
+   },
+   {
+    "id": "q00744",
+    "label": "rig.ts file-summary header updates",
+    "summary": "Three successive automated PRs update the agentic file-summary header in rig.ts, each moving from one commit hash to the next (c00c90c → 9be671a → 5dd34d4 → 8097871).",
+    "prs": [
+     744,
+     906,
+     961
+    ],
+    "size": 3
+   },
+   {
+    "id": "q00751",
+    "label": "Dependency version bumps",
+    "summary": "These pull requests update npm dependencies: undici, fast-uri, and @vitest/mocker together with vitest.",
+    "prs": [
+     751,
+     754,
+     770
+    ],
+    "size": 3
+   },
+   {
+    "id": "q00892",
+    "label": "CI and release workflow reliability",
+    "summary": "These items cover requiring Copilot integration coverage in CI, fixing missing Copilot credentials in the integration workflow, and preventing a release preflight failure caused by an unread launcher pipe.",
+    "prs": [
+     892,
+     910,
+     931
+    ],
+    "size": 3
+   },
+   {
+    "id": "q00915",
+    "label": "Copilot model resolution and integration fixes",
+    "summary": "These items pin the Pi integration to a known-working Copilot model, switch live samples to claude-sonnet-5.5, and fix a lint failure in resolveCopilotModel.",
+    "prs": [
+     915,
+     935,
+     938
+    ],
+    "size": 3
+   },
+   {
+    "id": "q00923",
+    "label": "Monthly PR Clusters Rig integration",
+    "summary": "These PRs expose a bounded Rig runner to Monthly PR Clusters, fix its staged Rig dependency resolution, and clarify subprocess requirements for the decomposition benchmark.",
+    "prs": [
+     923,
+     946,
+     947
+    ],
+    "size": 3
+   },
+   {
+    "id": "q00917",
+    "label": "Decomposition benchmark reliability fixes",
+    "summary": "Both items address the decomposition benchmark, covering dependency preparation and null task selection handling in 917, and mitigation of incomplete benchmark runs in 924.",
+    "prs": [
+     917,
+     924
+    ],
+    "size": 2
+   },
+   {
+    "id": "q00934",
+    "label": "Actions failure repair workflow",
+    "summary": "These PRs add a two-hourly agentic workflow that repairs failing GitHub Actions and pin the Alpine image used in that Action Failure Repair workflow.",
+    "prs": [
+     934,
+     948
+    ],
+    "size": 2
+   }
+  ],
+  "unclassified": [
+   {
+    "pr": 886,
+    "reason": "No other PR within average Hamming distance 1 on 10 question answers"
+   },
+   {
+    "pr": 916,
+    "reason": "No other PR within average Hamming distance 1 on 10 question answers"
+   },
+   {
+    "pr": 949,
+    "reason": "Answered no to every discriminating question"
+   }
+  ],
+  "topThree": [
+   "q00734",
+   "q00890",
+   "q00891"
+  ]
+ },
+ "lessonsForNextRun": [
+  "run_rig worked first time; node scripts via create+bash worked while python, heredocs and chained commands were denied.",
+  "Question set quality drives everything: the questions mirror the title list, so 10 questions gave 11 clusters, 3 unclassified; threshold 1 was lenient enough to merge near-identical signatures.",
+  "Bot-generated PR families (samples, header, claude) cluster cleanly; the provider-integration cluster mixes distinct concerns. No measured comparison to other strategies."
+ ]
+}
