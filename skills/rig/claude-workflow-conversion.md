@@ -55,6 +55,10 @@ Then read [Behavior differences](#behavior-differences-to-keep-in-mind) before y
 | `Workflow({ scriptPath, args })` from a session | `cat args.json \| node skills/rig/rig.ts program.ts` | See [runtime](runtime.md) |
 
 Globals such as `phase` and `log` also exist as module-level imports from `rig`.
+In a flat script, `budget` has no ambient import: use
+`const { budget } = currentWorkflow()!` (from `rig`) at module scope; it is the
+same meter that `body({ budget })` receives. `until` is only available on the
+`body` context.
 The launcher runs every program — including one whose root export is an `agent` —
 inside a workflow run, so a partially ported script can call `phase()` and `log()`
 at top level before the orchestration itself moves into `workflow({ body })`.

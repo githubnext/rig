@@ -20,6 +20,7 @@ export const meta = { name: "triage", description: "Triage open issues",
   phases: ["Fetch", "Triage"] }
 
 phase("Fetch")
+log(`agent budget: ${budget.remaining()} of ${budget.total}`)
 const raw = await agent("List the 5 most recent open GitHub issues, one per line.")
 const issues = (raw ?? "").split("\n").map((s) => s.trim()).filter(Boolean)
 
@@ -38,12 +39,15 @@ return verdicts.filter(Boolean).filter((v) => v.priority === "high").length
 
 ```rig
 import { call, pipeline } from "rig/globals";
-import { phase, workflow, s } from "rig";
+import { currentWorkflow, log, phase, workflow, s } from "rig";
 
 // Mirrors the Claude dynamic workflow's injected `call`/`pipeline` globals.
 // `rig/globals` proxies delegate to the launcher's active workflow run.
+// `budget` has no ambient import: read it from the active run context.
+const { budget } = currentWorkflow()!;
 
 phase("Fetch");
+log(`agent budget: ${budget.remaining()} of ${budget.total}`);
 const raw = await call.text("List the 5 most recent open GitHub issues, one per line.");
 const issues = (raw ?? "").split("\n").map((s: string) => s.trim()).filter(Boolean);
 
